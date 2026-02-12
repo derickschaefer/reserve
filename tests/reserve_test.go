@@ -40,6 +40,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/util"
@@ -376,33 +377,38 @@ func TestPayloadIntegrity(t *testing.T) {
 		)
 	})
 
-	// ── Checks 22–23: Rate limiter ───────────────────────────────────────────
-	limiter := util.NewLimiter(1000) // effectively instant
-	ctx := context.Background()
-	allPassed := true
-	for i := 0; i < 5; i++ {
-		if err := limiter.Wait(ctx); err != nil {
-			allPassed = false
-		}
-	}
-	r.check(t,
-		allPassed,
-		"Rate limiter allows 5 requests at 1000 req/s without blocking",
-		"Rate limiter blocked or errored unexpectedly",
-	)
+// ── Checks 22–23: Rate limiter ───────────────────────────────────────────
 
-	slowLimiter := util.NewLimiter(0.001) // 1 per 1000s — will block
-	ctx2, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-	slowLimiter.Wait(ctx2) // consume initial token
-	err := slowLimiter.Wait(ctx2)
-	r.check(t,
-		err != nil,
-		"Rate limiter respects context cancellation (blocks slow limiter)",
-		"Rate limiter should have returned context error but did not",
-	)
+limiter := rate.NewLimiter(rate.Limit(1000), 1) // 1000 req/sec, burst 1
+ctx := context.Background()
 
-	r.summary(t, "PAYLOAD INTEGRITY")
+allPassed := true
+for i := 0; i < 5; i++ {
+        if err := limiter.Wait(ctx); err != nil {
+                allPassed = false
+        }
+}
+
+r.check(t,
+        allPassed,
+        "Rate limiter allows 5 requests at 1000 req/s without blocking",
+        "Rate limiter blocked or errored unexpectedly",
+)
+
+slowLimiter := rate.NewLimiter(rate.Limit(0.001), 1) // ~1 per 1000s
+ctx2, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+defer cancel()
+
+_ = slowLimiter.Wait(ctx2) // consume initial token
+err := slowLimiter.Wait(ctx2)
+
+r.check(t,
+        err != nil,
+        "Rate limiter respects context cancellation (blocks slow limiter)",
+        "Rate limiter should have returned context error but did not",
+)
+
+r.summary(t, "PAYLOAD INTEGRITY")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

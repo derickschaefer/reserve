@@ -1,66 +1,17 @@
-// Package util provides shared utilities: time parsing, hashing, errors,
-// and a simple token-bucket rate limiter backed by stdlib only.
+// Package util provides shared utilities: time parsing, observation value
+// formatting, and error helpers.
+//
+// Rate limiting has moved to golang.org/x/time/rate (used directly in
+// internal/fred). This package no longer exports a Limiter type.
 package util
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
-
-// ─── Rate Limiter ─────────────────────────────────────────────────────────────
-
-// Limiter is a token-bucket rate limiter.
-// It allows up to Rate tokens per second, with a burst of one token.
-type Limiter struct {
-	mu       sync.Mutex
-	rate     float64   // tokens per second
-	tokens   float64   // current token count
-	last     time.Time // last refill time
-	maxBurst float64
-}
-
-// NewLimiter creates a Limiter that allows r events per second.
-func NewLimiter(r float64) *Limiter {
-	return &Limiter{
-		rate:     r,
-		tokens:   r, // start full
-		last:     time.Now(),
-		maxBurst: r, // burst = 1 second worth
-	}
-}
-
-// Wait blocks until a token is available or ctx is cancelled.
-func (l *Limiter) Wait(ctx context.Context) error {
-	for {
-		l.mu.Lock()
-		now := time.Now()
-		elapsed := now.Sub(l.last).Seconds()
-		l.tokens = math.Min(l.tokens+elapsed*l.rate, l.maxBurst)
-		l.last = now
-
-		if l.tokens >= 1.0 {
-			l.tokens--
-			l.mu.Unlock()
-			return nil
-		}
-
-		// How long until we have a token?
-		wait := time.Duration((1.0-l.tokens)/l.rate*1000) * time.Millisecond
-		l.mu.Unlock()
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(wait):
-			// retry
-		}
-	}
-}
 
 // ─── Date Parsing ─────────────────────────────────────────────────────────────
 
@@ -84,7 +35,6 @@ func FormatDate(t time.Time) string {
 
 // ParseObsValue parses a FRED observation value string.
 // Returns NaN for missing values ("." or empty string).
-// Uses strconv.ParseFloat to avoid locale issues.
 func ParseObsValue(s string) float64 {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "." {
@@ -112,23 +62,28 @@ type MultiError struct {
 	Errors []error
 }
 
+func (m *MultiError) Error() string {
+	if len(m.Errors) == 0 {
+		return "no errors"
+	}
+	msgs := make([]string, len(m.Errors))
+	for i, e := range m.Errors {
+		msgs[i] = e.Error()
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// Add appends an error to the collection (nil errors are ignored).
 func (m *MultiError) Add(err error) {
 	if err != nil {
 		m.Errors = append(m.Errors, err)
 	}
 }
 
+// Err returns nil if there are no errors, otherwise returns the MultiError itself.
 func (m *MultiError) Err() error {
 	if len(m.Errors) == 0 {
 		return nil
 	}
 	return m
-}
-
-func (m *MultiError) Error() string {
-	msgs := make([]string, len(m.Errors))
-	for i, e := range m.Errors {
-		msgs[i] = e.Error()
-	}
-	return strings.Join(msgs, "; ")
 }

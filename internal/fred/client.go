@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/util"
 )
@@ -30,14 +32,18 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
-	limiter    *util.Limiter
+	limiter    *rate.Limiter
 	debug      bool
 }
 
 // NewClient creates a Client with the given API key and timeout.
-func NewClient(apiKey, baseURL string, timeout time.Duration, rate float64, debug bool) *Client {
+func NewClient(apiKey, baseURL string, timeout time.Duration, ratePerSec float64, debug bool) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
+	}
+	burst := int(ratePerSec)
+	if burst < 1 {
+		burst = 1
 	}
 	return &Client{
 		baseURL: baseURL,
@@ -45,7 +51,7 @@ func NewClient(apiKey, baseURL string, timeout time.Duration, rate float64, debu
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		limiter: util.NewLimiter(rate),
+		limiter: rate.NewLimiter(rate.Limit(ratePerSec), burst),
 		debug:   debug,
 	}
 }

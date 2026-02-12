@@ -1,5 +1,5 @@
 BINARY  := reserve
-GOFLAGS := -mod=vendor
+#GOFLAGS := -mod=vendor
 
 .PHONY: build test test-cover lint clean run install help
 
