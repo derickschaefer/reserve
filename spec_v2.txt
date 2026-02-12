@@ -1,0 +1,425 @@
+PROGRAMMING SPEC — RESERVE (Go + bbolt persistence)
+
+0) PURPOSE
+Build a command-object-model CLI tool (“reserve”) that:
+- Interacts with the Federal Reserve Bank of St. Louse API (FRED API)
+- Discovers FRED entities (categories, series, releases, sources, tags).
+- Retrieves time series observations (single or batch).
+- Transforms and analyzes time series to produce “insights”.
+- Supports reproducible workflows via caching + snapshots.
+- Persists cache, metadata, and snapshots in bboltDB.
+- Outputs results in multiple formats via --format.
+- Can optionally email outputs via --email.
+
+Non-goals (v1):
+- Full ML platform; keep modeling minimal and deterministic.
+- Heavy interactive TUI; maybe provide a basic REPL later (optional).
+
+1) TECH STACK / CONSTRAINTS
+- Language: Go (>=1.25 recommended).
+- Persistence: bboltDB (go.etcd.io/bbolt).
+- Concurrency: goroutines + sync.WaitGroup permitted; must respect rate limits.
+- Data structures: use “Swiss table” map types where appropriate (Go’s built-in map; optionally prefer maps for lookup-heavy paths; avoid premature micro-opts).
+- CLI parsing: Cobra (consistent subcommand tree).
+- HTTP: net/http with timeouts, context cancellation, retry/backoff.
+- Email: SMTP (STARTTLS) or local sendmail; abstract behind notifier interface.
+
+2) TOP-LEVEL COMMAND MODEL (COMMAND OBJECTS)
+Binary: fred
+
+NOUN commands:
+- reserve category ...
+- reserve series ...
+- reserve release ...
+- reserve source ...
+- reserve tag ...
+- reserve search ...
+- reserve obs ...
+- reserve meta ...
+- reserve fetch ...
+- reserve transform ...
+- reserve window ...
+- reserve analyze ...
+- reserve compare ...
+- reserve detect ...
+- reserve model ...
+- reserve explain ...
+- reserve export ...
+- reserve report ...
+- reserve config ...
+- reserve cache ...
+- reserve snapshot ...
+- reserve completion ...
+- (optional later) fred repl
+
+Each command is implemented as a “command object”:
+- Name, Aliases, Description
+- Flag schema (global + local)
+- Validate(args, flags) error
+- Run(ctx, deps) (Result, error)
+- Result is a uniform envelope that can be rendered in multiple formats.
+
+3) GLOBAL FLAGS (APPLY TO ALL COMMANDS)
+--format <table|json|jsonl|csv|tsv|md> default=table
+--email <address[,address...]> optional; if set, send final rendered output
+--subject <string> optional; email subject override (default derived from command)
+--out <path> optional; write output to file (also used as email attachment if --email)
+--api-key <string> optional; overrides config/env FRED_API_KEY
+--cache-dir <path> optional; if using a file-based cache in addition to bbolt (v1 can be bbolt-only)
+--no-cache (bool) bypass reads from cache
+--refresh (bool) force re-fetch and overwrite cached entries
+--timeout <duration> default=30s
+--concurrency <int> default=8 (batch fetch)
+--rate <float> req/sec default=5.0 (client-side limiter)
+--quiet, --verbose, --debug
+--pager <auto|never> default=auto
+
+Env vars:
+FRED_API_KEY
+FRED_DB_PATH (default: ~/.fred/fred.db)
+FRED_EMAIL_FROM, FRED_EMAIL_SMTP_HOST, FRED_EMAIL_SMTP_PORT, FRED_EMAIL_SMTP_USER, FRED_EMAIL_SMTP_PASS
+(or FRED_EMAIL_SENDMAIL_PATH)
+
+4) REQUIRED SUBCOMMANDS (V1)
+4.1 Discover
+category:
+- reserve category get <CATEGORY_ID>
+- reserve category ls <CATEGORY_ID|root>
+- reserve category tree <CATEGORY_ID|root> [--depth N]
+- reserve category series <CATEGORY_ID> [--limit N] [--filter <expr>]
+
+series:
+- reserve series get <SERIES_ID...>
+- reserve series search "<query>" [--tag <tag...>] [--source <id>] [--limit N]
+- reserve series tags <SERIES_ID>
+- reserve series categories <SERIES_ID>
+- reserve series related <SERIES_ID> [--by <tags|categories|corr>] [--limit N]
+- reserve series describe <SERIES_ID>
+
+release:
+- reserve release list
+- reserve release get <RELEASE_ID>
+- reserve release dates <RELEASE_ID>
+- reserve release series <RELEASE_ID> [--limit N]
+
+source:
+- reserve source list
+- reserve source get <SOURCE_ID>
+- reserve source releases <SOURCE_ID>
+
+tag:
+- reserve tag search "<query>" [--limit N]
+- reserve tag series <TAG...> [--all|--any] [--limit N]
+- reserve tag related <TAG> [--limit N]
+
+search (global):
+- reserve search "<query>" [--type series|category|release|tag|source|all] [--limit N]
+
+4.2 Retrieve
+obs:
+- reserve obs get <SERIES_ID...> [--start YYYY-MM-DD] [--end YYYY-MM-DD]
+  [--freq <daily|weekly|monthly|quarterly|annual>] [--units <lin|chg|ch1|pch|pc1|pca|cch|cca|log>]
+  [--agg <avg|sum|eop>] [--limit N]
+- reserve obs latest <SERIES_ID...>
+- (optional if supported) fred obs vintage <SERIES_ID> --as-of YYYY-MM-DD
+
+meta:
+- reserve meta series <SERIES_ID...>
+- reserve meta category <CATEGORY_ID...>
+- reserve meta release <RELEASE_ID...>
+- reserve meta tag <TAG...>
+- reserve meta source <SOURCE_ID...>
+
+fetch:
+- reserve fetch series <SERIES_ID...> [--with-meta] [--with-obs] [--start ...] [--end ...]
+- reserve fetch category <CATEGORY_ID> [--recursive] [--depth N] [--limit-series N]
+- reserve fetch query "<query>" [--top N] [--with-obs] [--start ...] [--end ...]
+
+4.3 Transform (stdin-friendly)
+All transform commands accept:
+- input from stdin (jsonl/csv/tsv) OR via --in <file>
+- output as same logical schema
+
+transform:
+- reserve transform pct-change [--period 1|12]
+- reserve transform diff [--order 1|2]
+- reserve transform log
+- reserve transform index --base 100 --at YYYY-MM-DD
+- reserve transform normalize [--method zscore|minmax]
+- reserve transform resample --freq <monthly|quarterly|annual> --method <mean|last|sum>
+- reserve transform filter --where <expr> (date/value filters)
+
+window:
+- reserve window roll --stat <mean|std|min|max|sum> --window N [--min-periods M]
+
+4.4 Analyze / Insights
+analyze:
+- reserve analyze summary [--window N]
+- reserve analyze trend [--method linear|theil-sen] [--window N]
+- reserve analyze seasonality [--strength]
+- reserve analyze decomposition (basic STL optional)
+
+compare:
+- reserve compare corr <SERIES_A> <SERIES_B> [--lag-min -24] [--lag-max 24]
+- reserve compare spread <SERIES_A> <SERIES_B>
+- reserve compare beta <TARGET> --x <FACTOR...> [--window N]
+
+detect:
+- reserve detect anomalies [--method zscore|iqr] [--threshold X]
+- reserve detect breaks [--method chow] (if implemented; otherwise omit v1)
+
+model (minimal):
+- reserve model regress <Y> --x <X...> [--window N]
+- reserve model forecast <SERIES> --horizon N [--method naive|sma|ets] (keep deterministic)
+
+explain:
+- reserve explain move <SERIES> [--since YYYY-MM-DD] [--top-related N]
+  Produces a narrative + metrics: last value, change since, YoY, volatility, top correlations.
+
+4.5 Output / Workflow
+export:
+- reserve export chart <SERIES_ID...> [--start ...] [--end ...] [--out file.png]
+- reserve export data <SERIES_ID...> [--out file.csv|parquet] (parquet optional)
+
+report:
+- reserve report series <SERIES_ID...> [--template <builtin>] [--out file.md|html]
+- reserve report snapshot <SNAPSHOT_ID>
+
+config:
+- reserve config get
+- reserve config set <key> <value>
+- reserve config init
+
+cache:
+- reserve cache stats
+- reserve cache clear [--all|--bucket <name>]
+- reserve cache warm <SERIES_ID...>
+
+snapshot:
+- reserve snapshot save --name <name> --cmd "<exact command line>"
+- reserve snapshot list
+- reserve snapshot run <SNAPSHOT_ID>
+- reserve snapshot show <SNAPSHOT_ID>
+- reserve snapshot delete <SNAPSHOT_ID>
+
+5) DATA MODEL (BOLTDB)
+Single DB file: ~/.fred/fred.db (override via env/flag)
+
+Buckets (top-level):
+- meta_series
+- meta_category
+- meta_release
+- meta_source
+- meta_tag
+- obs_cache
+- query_cache
+- snapshots
+- config
+- locks (optional; for migration state)
+
+Key conventions:
+- Keys are ASCII, stable, and deterministic.
+- Use prefixes to avoid collisions and allow range scans.
+
+5.1 Metadata entries
+Key: <id> (e.g., “CPIAUCSL”, “32991”, etc.)
+Value: JSON bytes (canonical form), includes:
+- fetched_at (RFC3339)
+- source_url / endpoint
+- payload (raw FRED JSON or normalized struct)
+
+5.2 Observations cache
+Key: series:<SERIES_ID>|start:<YYYY-MM-DD>|end:<YYYY-MM-DD>|freq:<x>|units:<y>|agg:<z>
+Value: JSON bytes:
+- fetched_at
+- request params
+- normalized observations array [{date, value, realtime_start?, realtime_end?}]
+- checksum (optional)
+
+5.3 Query cache (search results)
+Key: q:<sha256(normalized_query_string)>
+Value: JSON bytes with fetched_at, query params, result ids
+
+5.4 Snapshots
+Key: snap:<ulid>
+Value: JSON bytes:
+- id, name
+- command_line (exact)
+- created_at
+- optional pinned series list
+- optional embedded results (v2)
+
+5.5 Config
+Key: <string> (e.g. api_key, default_format, concurrency, rate)
+Value: bytes (string) or JSON (if complex)
+
+TTL / eviction:
+- Cache items have TTL (configurable; default 24h for metadata, 6h for obs, 24h for query).
+- Purge strategy: on startup and/or via “cache clear”; maintain “last_accessed” if needed (v2).
+- v1: simplest: store fetched_at and invalidate based on TTL.
+
+6) FRED API CLIENT
+6.1 Endpoints needed (conceptual)
+- categories: get, children, series
+- series: get, search, tags, categories, related
+- releases: list, get, dates, series
+- sources: list, get, releases
+- tags: search, series, related
+- observations: get, latest
+
+6.2 Client requirements
+- Base URL configurable (default: https://api.stlouisfed.org/fred/)
+- Add api_key and file_type=json to every request
+- Use context-aware requests
+- Retries: exponential backoff on 429/5xx (max attempts 4)
+- Rate limiting: token bucket (client-side) using golang.org/x/time/rate
+- Respect --timeout
+
+7) NORMALIZED INTERNAL TYPES
+Use internal structs for normalized responses; keep “raw payload” optionally stored too.
+
+Core entities:
+- Category { ID, Name, ParentID }
+- SeriesMeta { ID, Title, Units, Frequency, SeasonalAdj, Notes, LastUpdated, Popularity, ... }
+- Release { ID, Name, PressRelease, Link, ... }
+- Source { ID, Name, Link }
+- Tag { Name, GroupID, Notes, Created, Popularity }
+
+Time series:
+- Observation { Date time.Time, Value float64|NaN, ValueRaw string, RealtimeStart, RealtimeEnd }
+- SeriesData { SeriesID, Meta SeriesMeta (optional), Obs []Observation }
+
+Result envelope (for any command):
+- Result {
+    Kind string (e.g., “series_meta”, “series_data”, “table”, “report”)
+    GeneratedAt time.Time
+    Command string
+    Data any (typed)
+    Warnings []string
+    Stats { CacheHit bool, DurationMs int, Items int, ... }
+  }
+
+8) INPUT/OUTPUT SCHEMAS FOR PIPELINES
+8.1 JSONL canonical record for time series rows
+Each line:
+{
+  "series_id": "CPIAUCSL",
+  "date": "2024-01-01",
+  "value": 305.109,
+  "value_raw": "305.109",
+  "meta": { ... optional minimal ... }
+}
+
+8.2 Tabular output conventions
+- table format: human-friendly aligned columns
+- csv/tsv: header row always
+- json: full Result envelope
+- jsonl: one record per row for row-based outputs; for metadata, one object per entity.
+
+9) CONCURRENCY MODEL
+Batch operations (fetch series/meta/obs) must:
+- Use worker pool with bounded concurrency (--concurrency).
+- Use rate limiter shared by all workers.
+- Use WaitGroup to join.
+- Errors: collect into an error slice; return partial results with warnings unless --strict is set (optional).
+- Deterministic ordering: outputs should be sorted by series_id then date.
+
+10) EMAIL OUTPUT (--email)
+Behavior:
+- If --email is set, after rendering the output (respecting --format), send it.
+- If --out is provided, attach file; otherwise send as plain text body (or attach a temp file for large outputs).
+- Support multiple recipients (comma-separated).
+- Config:
+  - from address required (config/env)
+  - SMTP host/port/user/pass OR sendmail path
+- Subject:
+  - default: “fred: <command summary>”
+  - override via --subject
+- Failure to email:
+  - command still succeeds unless --email-strict is set (optional).
+
+11) WHAT ELSE ARE WE MISSING? (REQUIRED V1 ITEMS)
+11.1 Authentication & config precedence
+Order for api key:
+1) --api-key
+2) env FRED_API_KEY
+3) bbolt config api_key
+4) config.json that has API key (default)
+If missing, fail fast with actionable error.
+
+11.2 Migrations / DB schema versioning
+- Store db_schema_version in config bucket.
+- On startup, run migrations if needed.
+
+11.3 Logging + observability
+- Structured logs (zap/log/slog).
+- --debug prints request URLs (without api key), response status, cache hits.
+
+11.4 Validation and helpful errors
+- Validate dates, series IDs, numeric params.
+- Provide “did you mean” suggestions for unknown commands.
+- If series not found, suggest nearest matches from cached search results (optional).
+
+11.5 Security hygiene
+- Never log api_key or smtp password.
+- Redact secrets in config get output unless --show-secrets flag.
+
+11.6 Deterministic numeric parsing
+- Observation values can be “.” or empty for missing; represent as NaN and preserve value_raw.
+- Avoid locale issues; parse with strconv.ParseFloat.
+
+11.7 Units / frequency semantics
+- Map CLI units/freq/agg options to FRED API parameters consistently.
+- Document exactly what each transform/units means.
+
+11.8 Offline mode
+- If --no-network (optional) is set, only serve from cache and error if missing.
+
+11.9 Test plan (minimum)
+- Unit tests: key builders, cache TTL logic, parsers, transforms (pct-change, diff, resample), renderers.
+- Integration tests: mock HTTP server for FRED endpoints; verify caching, retries, rate limiting.
+- Golden tests for output formats (table/csv/json/jsonl).
+
+12) DIRECTORY STRUCTURE (SUGGESTED)
+cmd/
+  root.go
+  category.go
+  series.go
+  obs.go
+  ...
+internal/
+  app/            (dependency wiring)
+  cli/            (command objects, flags, validators)
+  fred/           (API client + endpoint wrappers)
+  store/          (bbolt abstraction, buckets, migrations)
+  cache/          (TTL logic, key builders)
+  model/          (types: SeriesMeta, Observation, Result)
+  transform/      (operators)
+  analyze/        (summary/trend/corr/etc)
+  render/         (format renderers)
+  notify/         (email sender interface + smtp/sendmail)
+  util/           (time parsing, hashing, errors)
+tests/
+  integration/
+  golden/
+
+13) IMPLEMENTATION NOTES
+- Prefer small, composable packages.
+- Avoid leaking bbolt transactions across layers; store package should expose methods like:
+  GetMetaSeries(id) (SeriesMeta, ok, err)
+  PutMetaSeries(meta) error
+  GetObs(key) (SeriesData, ok, err)
+  PutObs(key, data) error
+- Use read-only tx for reads; batch updates in a single write tx when possible.
+- For large obs payloads, consider gzip compression before storing (optional v1).
+
+14) ACCEPTANCE CRITERIA (V1)
+- Can search series and fetch observations for multiple series concurrently with caching.
+- Can output in table/json/jsonl/csv via --format.
+- Can email the final output via --email.
+- Can run transforms and analyses via pipelines (stdin -> stdout).
+- Caches results in bbolt with TTL invalidation and --refresh override.
+- Provides snapshots that re-run exact stored commands.
+- Has tests covering transforms, cache keys, and at least one integration test with mocked FRED.
+
+END SPEC

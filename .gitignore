@@ -1,0 +1,27 @@
+# Binary
+reserve
+reserve.exe
+
+# Config (contains API key)
+config.json
+
+# Database
+*.db
+.reserve/
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build cache
+/tmp/
