@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 git config --global --add safe.directory "$(pwd)" >/dev/null 2>&1 || true
 
 # Ensure origin is set correctly
-EXPECTED_REMOTE="https://github.com/derickschaefer/reserve.git"
+EXPECTED_REMOTE="git@github.com:derickschaefer/reserve.git"
 CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 
 if [ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" ]; then
