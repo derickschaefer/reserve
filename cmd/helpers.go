@@ -149,3 +149,12 @@ func printSimpleTable(w io.Writer, headers []string, fill func(add func(...strin
 	})
 	tw.Render()
 }
+
+// parseIntID parses a string as a positive integer ID, with a descriptive label for errors.
+func parseIntID(s, label string) (int, error) {
+	var id int
+	if _, err := fmt.Sscanf(s, "%d", &id); err != nil || id < 0 {
+		return 0, fmt.Errorf("invalid %s %q: expected a positive integer", label, s)
+	}
+	return id, nil
+}

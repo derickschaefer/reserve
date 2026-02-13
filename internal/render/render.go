@@ -367,3 +367,173 @@ func mdEscape(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	return s
 }
+
+// ─── Additional Kind Renderers ────────────────────────────────────────────────
+
+// renderReleasesTable renders a slice of Release as a table.
+func renderReleasesTable(w io.Writer, releases []model.Release) error {
+	tw := tablewriter.NewWriter(w)
+	tw.SetHeader([]string{"ID", "NAME", "PRESS RELEASE", "LINK"})
+	tw.SetBorder(true)
+	tw.SetRowLine(false)
+	tw.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAutoWrapText(false)
+	tw.SetColWidth(50)
+
+	for _, r := range releases {
+		pr := "No"
+		if r.PressRelease {
+			pr = "Yes"
+		}
+		link := r.Link
+		if len(link) > 45 {
+			link = link[:42] + "..."
+		}
+		tw.Append([]string{fmt.Sprintf("%d", r.ID), r.Name, pr, link})
+	}
+	tw.Render()
+	return nil
+}
+
+// renderSourcesTable renders a slice of Source as a table.
+func renderSourcesTable(w io.Writer, sources []model.Source) error {
+	tw := tablewriter.NewWriter(w)
+	tw.SetHeader([]string{"ID", "NAME", "LINK"})
+	tw.SetBorder(true)
+	tw.SetRowLine(false)
+	tw.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAutoWrapText(false)
+
+	for _, s := range sources {
+		link := s.Link
+		if len(link) > 50 {
+			link = link[:47] + "..."
+		}
+		tw.Append([]string{fmt.Sprintf("%d", s.ID), s.Name, link})
+	}
+	tw.Render()
+	return nil
+}
+
+// renderCategoriesTable renders a slice of Category as a table.
+func renderCategoriesTable(w io.Writer, cats []model.Category) error {
+	tw := tablewriter.NewWriter(w)
+	tw.SetHeader([]string{"ID", "NAME", "PARENT ID"})
+	tw.SetBorder(true)
+	tw.SetRowLine(false)
+	tw.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAutoWrapText(false)
+
+	for _, c := range cats {
+		tw.Append([]string{fmt.Sprintf("%d", c.ID), c.Name, fmt.Sprintf("%d", c.ParentID)})
+	}
+	tw.Render()
+	return nil
+}
+
+// renderTagsTable renders a slice of Tag as a table.
+func renderTagsTable(w io.Writer, tags []model.Tag) error {
+	tw := tablewriter.NewWriter(w)
+	tw.SetHeader([]string{"NAME", "GROUP", "POPULARITY", "SERIES COUNT"})
+	tw.SetBorder(true)
+	tw.SetRowLine(false)
+	tw.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAlignment(tablewriter.ALIGN_LEFT)
+	tw.SetAutoWrapText(false)
+
+	for _, t := range tags {
+		tw.Append([]string{t.Name, t.GroupID, fmt.Sprintf("%d", t.Popularity), fmt.Sprintf("%d", t.SeriesCount)})
+	}
+	tw.Render()
+	return nil
+}
+
+// RenderReleases writes a release slice using the given format.
+func RenderReleases(w io.Writer, releases []model.Release, format string) error {
+	switch format {
+	case FormatJSON, FormatJSONL:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(releases)
+	case FormatCSV, FormatTSV:
+		sep := ','
+		if format == FormatTSV {
+			sep = '\t'
+		}
+		cw := csv.NewWriter(w)
+		cw.Comma = rune(sep)
+		_ = cw.Write([]string{"id", "name", "press_release", "link"})
+		for _, r := range releases {
+			_ = cw.Write([]string{fmt.Sprintf("%d", r.ID), r.Name, fmt.Sprintf("%v", r.PressRelease), r.Link})
+		}
+		cw.Flush()
+		return cw.Error()
+	default:
+		return renderReleasesTable(w, releases)
+	}
+}
+
+// RenderSources writes a source slice using the given format.
+func RenderSources(w io.Writer, sources []model.Source, format string) error {
+	switch format {
+	case FormatJSON, FormatJSONL:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(sources)
+	case FormatCSV, FormatTSV:
+		sep := ','
+		if format == FormatTSV {
+			sep = '\t'
+		}
+		cw := csv.NewWriter(w)
+		cw.Comma = rune(sep)
+		_ = cw.Write([]string{"id", "name", "link"})
+		for _, s := range sources {
+			_ = cw.Write([]string{fmt.Sprintf("%d", s.ID), s.Name, s.Link})
+		}
+		cw.Flush()
+		return cw.Error()
+	default:
+		return renderSourcesTable(w, sources)
+	}
+}
+
+// RenderCategories writes a category slice using the given format.
+func RenderCategories(w io.Writer, cats []model.Category, format string) error {
+	switch format {
+	case FormatJSON, FormatJSONL:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(cats)
+	default:
+		return renderCategoriesTable(w, cats)
+	}
+}
+
+// RenderTags writes a tag slice using the given format.
+func RenderTags(w io.Writer, tags []model.Tag, format string) error {
+	switch format {
+	case FormatJSON, FormatJSONL:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(tags)
+	case FormatCSV, FormatTSV:
+		sep := ','
+		if format == FormatTSV {
+			sep = '\t'
+		}
+		cw := csv.NewWriter(w)
+		cw.Comma = rune(sep)
+		_ = cw.Write([]string{"name", "group_id", "popularity", "series_count"})
+		for _, t := range tags {
+			_ = cw.Write([]string{t.Name, t.GroupID, fmt.Sprintf("%d", t.Popularity), fmt.Sprintf("%d", t.SeriesCount)})
+		}
+		cw.Flush()
+		return cw.Error()
+	default:
+		return renderTagsTable(w, tags)
+	}
+}
