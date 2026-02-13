@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/derickschaefer/reserve/internal/app"
@@ -157,4 +158,26 @@ func parseIntID(s, label string) (int, error) {
 		return 0, fmt.Errorf("invalid %s %q: expected a positive integer", label, s)
 	}
 	return id, nil
+}
+
+// buildSeriesMetaResult wraps a []SeriesMeta slice in a Result envelope.
+func buildSeriesMetaResult(command string, metas []model.SeriesMeta) *model.Result {
+	return &model.Result{
+		Kind:        model.KindSeriesMeta,
+		GeneratedAt: time.Now(),
+		Command:     command,
+		Data:        metas,
+		Stats:       model.ResultStats{Items: len(metas)},
+	}
+}
+
+// buildSeriesDataResult wraps a *SeriesData in a Result envelope.
+func buildSeriesDataResult(command string, data *model.SeriesData) *model.Result {
+	return &model.Result{
+		Kind:        model.KindSeriesData,
+		GeneratedAt: time.Now(),
+		Command:     command,
+		Data:        data,
+		Stats:       model.ResultStats{Items: len(data.Obs)},
+	}
 }

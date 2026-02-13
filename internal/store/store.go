@@ -16,6 +16,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -173,20 +174,66 @@ func ObsKey(seriesID, start, end, freq, units, agg string) string {
 	return key
 }
 
-// storedObs is the on-disk envelope for observations.
+// storedObsRow is the JSON-safe on-disk representation of a single observation.
+// Value is a *float64 so that missing values (NaN) are stored as JSON null
+// rather than NaN, which encoding/json cannot handle.
+type storedObsRow struct {
+	Date          string   `json:"date"`
+	Value         *float64 `json:"value"` // null = missing
+	ValueRaw      string   `json:"value_raw"`
+	RealtimeStart string   `json:"realtime_start,omitempty"`
+	RealtimeEnd   string   `json:"realtime_end,omitempty"`
+}
+
+// storedObs is the on-disk envelope for a series observations entry.
 type storedObs struct {
-	SeriesID  string             `json:"series_id"`
-	FetchedAt time.Time          `json:"fetched_at"`
-	Params    map[string]string  `json:"params"`
-	Obs       []model.Observation `json:"observations"`
+	SeriesID  string         `json:"series_id"`
+	FetchedAt time.Time      `json:"fetched_at"`
+	Obs       []storedObsRow `json:"observations"`
+}
+
+// obsToStored converts model.Observation → storedObsRow (NaN → null).
+func obsToStored(o model.Observation) storedObsRow {
+	row := storedObsRow{
+		Date:          o.Date.Format("2006-01-02"),
+		ValueRaw:      o.ValueRaw,
+		RealtimeStart: o.RealtimeStart,
+		RealtimeEnd:   o.RealtimeEnd,
+	}
+	if !o.IsMissing() {
+		v := o.Value
+		row.Value = &v
+	}
+	return row
+}
+
+// storedToObs converts storedObsRow → model.Observation (null → NaN).
+func storedToObs(r storedObsRow) model.Observation {
+	t, _ := time.Parse("2006-01-02", r.Date)
+	obs := model.Observation{
+		Date:          t,
+		ValueRaw:      r.ValueRaw,
+		RealtimeStart: r.RealtimeStart,
+		RealtimeEnd:   r.RealtimeEnd,
+	}
+	if r.Value != nil {
+		obs.Value = *r.Value
+	} else {
+		obs.Value = math.NaN()
+	}
+	return obs
 }
 
 // PutObs stores observations under the given key.
 func (s *Store) PutObs(key string, data model.SeriesData) error {
+	rows := make([]storedObsRow, len(data.Obs))
+	for i, o := range data.Obs {
+		rows[i] = obsToStored(o)
+	}
 	envelope := storedObs{
 		SeriesID:  data.SeriesID,
 		FetchedAt: time.Now().UTC(),
-		Obs:       data.Obs,
+		Obs:       rows,
 	}
 	b, err := json.Marshal(envelope)
 	if err != nil {
@@ -214,7 +261,11 @@ func (s *Store) GetObs(key string) (model.SeriesData, bool, error) {
 	if envelope.SeriesID == "" {
 		return model.SeriesData{}, false, nil
 	}
-	return model.SeriesData{SeriesID: envelope.SeriesID, Obs: envelope.Obs}, true, nil
+	obs := make([]model.Observation, len(envelope.Obs))
+	for i, r := range envelope.Obs {
+		obs[i] = storedToObs(r)
+	}
+	return model.SeriesData{SeriesID: envelope.SeriesID, Obs: obs}, true, nil
 }
 
 // ListObsKeys returns all keys in the obs bucket for a given series prefix.
