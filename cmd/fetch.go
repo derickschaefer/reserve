@@ -41,7 +41,8 @@ var fetchSeriesCmd = &cobra.Command{
 	Short: "Bulk-fetch metadata and/or observations for multiple series",
 	Example: `  reserve fetch series GDP CPIAUCSL UNRATE
   reserve fetch series GDP CPIAUCSL --with-obs --start 2020-01-01
-  reserve fetch series GDP --with-obs --format csv --out data.csv`,
+  reserve fetch series GDP --with-obs --format csv --out data.csv
+  reserve fetch series GDP CPIAUCSL UNRATE --store`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()
@@ -87,28 +88,47 @@ var fetchSeriesCmd = &cobra.Command{
 		opts := fred.ObsOptions{Start: fetchStart, End: fetchEnd}
 		datas, warnings := batchGetObs(cmd.Context(), deps, ids, opts)
 
-		// Persist to local store if --store flag is set
+		// Persist to local store if --store flag is set.
+		//
+		// Previously this looped over each series calling PutObs + PutSeriesMeta
+		// individually, producing N×2 separate write transactions (and N×2 fsyncs).
+		// Now we collect everything first and write in exactly two batch transactions:
+		// one for all observations and one for all metadata.
 		if fetchStore {
 			if err := deps.RequireStore(); err != nil {
 				return err
 			}
 			defer deps.Close()
-			var stored, failed int
+
+			// ── Step 1: collect obs entries keyed by canonical obs key ────────
+			obsEntries := make(map[string]model.SeriesData, len(datas))
 			for _, data := range datas {
 				key := store.ObsKey(data.SeriesID, fetchStart, fetchEnd, "", "", "")
-				if err := deps.Store.PutObs(key, *data); err != nil {
-					warnings = append(warnings, fmt.Sprintf("store %s: %v", data.SeriesID, err))
-					failed++
-				} else {
-					stored++
-				}
-				// Always store metadata alongside observations
-				if meta, err := deps.Client.GetSeries(cmd.Context(), data.SeriesID); err == nil {
-					_ = deps.Store.PutSeriesMeta(*meta)
+				obsEntries[key] = *data
+			}
+
+			// ── Step 2: fetch metadata via the existing concurrent helper ─────
+			// batchGetSeries fires concurrent API calls — same pattern as the
+			// metadata-only path. Replaces the old per-series GetSeries loop.
+			metaSlice, metaWarnings := batchGetSeries(cmd.Context(), deps, ids)
+			warnings = append(warnings, metaWarnings...)
+
+			// ── Step 3: single write transaction for all observations ─────────
+			if err := deps.Store.PutObsBatch(obsEntries); err != nil {
+				return fmt.Errorf("storing observations: %w", err)
+			}
+
+			// ── Step 4: single write transaction for all metadata ─────────────
+			if len(metaSlice) > 0 {
+				if err := deps.Store.PutSeriesMetaBatch(metaSlice); err != nil {
+					// Non-fatal: obs are safely stored; warn and continue.
+					warnings = append(warnings, fmt.Sprintf("storing metadata: %v", err))
 				}
 			}
+
 			if !deps.Config.Quiet {
-				fmt.Fprintf(cmd.OutOrStdout(), "✓ Stored %d/%d series to %s\n", stored, len(ids), deps.Config.DBPath)
+				fmt.Fprintf(cmd.OutOrStdout(), "✓ Stored %d/%d series to %s\n",
+					len(obsEntries), len(ids), deps.Config.DBPath)
 				for _, w := range warnings {
 					fmt.Fprintf(cmd.OutOrStdout(), "  ⚠  %s\n", w)
 				}
@@ -144,9 +164,7 @@ var fetchSeriesCmd = &cobra.Command{
 				return err
 			}
 		}
-		if len(warnings) > 0 {
-			render.PrintFooter(cmd.OutOrStdout(), &model.Result{Warnings: warnings}, deps.Config.Verbose)
-		}
+		render.PrintFooter(cmd.OutOrStdout(), &model.Result{Warnings: warnings}, deps.Config.Verbose)
 		return nil
 	},
 }
@@ -184,7 +202,6 @@ var fetchCategoryCmd = &cobra.Command{
 		var allMetas []model.SeriesMeta
 		var warnings []string
 
-		// Collect series from this category
 		err = collectCategorySeries(cmd, deps, id, 0, fetchCategoryDepth, fetchCategoryRecursive, fetchCategoryLimitSeries, &allMetas, &warnings)
 		if err != nil {
 			return err
