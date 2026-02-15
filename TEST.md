@@ -186,7 +186,7 @@ Covers all transformation operators: `PctChange`, `Diff`, `Log`, `Index`, `Norma
 
 Integration tests live in the `tests/` package and import internal packages directly. They are organized into named groups and produce a readable pass/fail summary. Groups that require live credentials skip automatically with a descriptive message.
 
-### tests/reserve_test.go
+### tests/core_test.go
 
 Four test groups covering API connectivity, payload parsing, HTTP client behavior, and email connectivity.
 
@@ -200,7 +200,7 @@ Four test groups covering API connectivity, payload parsing, HTTP client behavio
 
 ---
 
-### tests/phase2_test.go
+### tests/cmd_test.go
 
 Three test groups covering subcommand routing, Phase 2 API endpoints, and batch concurrency.
 
