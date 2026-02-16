@@ -1,4 +1,7 @@
-BINARY  := reserve
+BINARY   := reserve
+VERSION  := v1.0.5
+LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
+             -X github.com/derickschaefer/reserve/cmd.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)"
 #GOFLAGS := -mod=vendor
 
 # Benchmark settings
@@ -16,11 +19,11 @@ BENCH_OUT_V2   := bench_v2exp.txt
 
 ## build: compile the reserve binary
 build:
-	go build $(GOFLAGS) -o $(BINARY) .
+	go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) .
 
 ## install: install to $$GOPATH/bin
 install:
-	go install $(GOFLAGS) .
+	go install $(GOFLAGS) $(LDFLAGS) .
 
 ## run: build and run with args  (usage: make run ARGS="series get GDP")
 run: build
