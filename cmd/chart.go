@@ -3,9 +3,9 @@ package cmd
 import (
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/chart"
 	"github.com/derickschaefer/reserve/internal/pipeline"
+	"github.com/spf13/cobra"
 )
 
 var chartCmd = &cobra.Command{

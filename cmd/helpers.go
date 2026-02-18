@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/derickschaefer/reserve/internal/app"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/olekukonko/tablewriter"
 )
 
 // normaliseIDs upper-cases all series IDs and removes duplicates while

@@ -10,11 +10,11 @@ first publicly tagged release. Prior versions are documented under
 
 ---
 
-## [v1.0.5] — 2026-XX-XX — First Public Release
+### v1.0.5 — 2026-02-16 — LLM Onboarding, Version Command, Test Suites
 
-**Phase 4 complete. Production documentation. First tagged GitHub release.**
+**Added**
 
-### Added
+README File:
 - `README.md` rewritten as full production documentation: install, quick start,
   design philosophy, complete command reference with examples, pipeline usage
   guide, output formats, global flags, and configuration reference
@@ -24,11 +24,67 @@ first publicly tagged release. Prior versions are documented under
   workflow readiness, and Go idioms
 - Table of contents with anchor links throughout README
 
-### Notes
-- No functional code changes from v1.0.4
-- All Phase 4 transform, window, and analyze commands verified against live
-  FRED data prior to this release
-- Recommended upgrade path from any prior untagged build: `git pull && go build -o reserve .`
+`reserve llm` (`cmd/llm.go`):
+- Machine-readable context document for LLM onboarding
+- `--topic toc` (default) — table of contents and interaction guide; the handshake
+- `--topic commands` — full command reference: all nouns, verbs, flags, output formats
+- `--topic pipeline` — stdin/stdout semantics, JSONL format, operator chaining
+- `--topic data-model` — core types, NaN conventions, Result envelope, JSONL row schema
+- `--topic examples` — verified end-to-end examples with confirmed FRED output values
+- `--topic gotchas` — sharp edges: format flag requirement, window vs transform, multi-series limitation, vintage revisions, government shutdown gap
+- `--topic version` — build metadata for provenance and reproducibility
+- `--topic all` — full document for large context windows
+- Comma-separated multi-topic: `reserve llm --topic pipeline,gotchas,examples`
+- `--format jsonl` for single-line audit stream output
+- `SetEscapeHTML(false)` on all encoders — clean `<>` output, no `\u003c` escaping
+- Bare `reserve llm` defaults to `--topic toc` (handshake, not firehose)
+
+`reserve version` (`cmd/version.go`):
+- Plain text output (default): version, Go version, OS/arch, build time
+- `--format json` — structured output for tooling
+- `--format jsonl` — single-line output for audit streams and pipeline provenance
+- `BuildTime` variable injected at build time via `-ldflags`
+
+Makefile (`Makefile`):
+- `VERSION := v1.0.5` — single source of truth for version string
+- `LDFLAGS` — injects `Version` and `BuildTime` into binary at build time
+- `make build` and `make install` both stamp the binary automatically
+
+Test suites (`internal/*/suite_test.go`):
+- `TestSuiteAnalyze` — 30 tests grouped under visual banner with ✅/❌ per sub-test
+- `TestSuiteChart` — 19 tests
+- `TestSuiteConfig` — 20 tests
+- `TestSuitePipeline` — 26 tests
+- `TestSuiteStore` — 34 tests
+- `TestSuiteTransform` — 64 tests
+- All suites use `t.Run` return value for pass/fail tracking — no logic duplication
+- Individual `TestXxx` functions remain runnable in isolation via `-run`
+
+Shared test helper (`internal/testutil/testutil.go`):
+- `Result` struct with `Pass`, `Fail`, `Check`, `Summary` methods
+- `Banner` function — consistent separator/emoji style matching integration tests
+- `CheckPass`, `CheckFail`, `Divider`, `Separator` constants
+- Single import across all six suite files: `tu "github.com/derickschaefer/reserve/internal/testutil"`
+
+Test file renames (`tests/`):
+- `reserve_test.go` → `core_test.go` — core integration tests
+- `phase2_test.go` → `cmd_test.go` — command routing and concurrency tests
+
+**Changed**
+
+`cmd/root.go`:
+- Quick start section now includes `reserve version` and `reserve llm`
+- `--out` help text now says `<filename>` instead of `file` for clarity
+- Removed unused `--pager` flag
+
+`README.md` late adds:
+- Added `version` and `llm` to Table of Contents
+- Added `### version` command reference section
+- Added `### llm` command reference section with full topic listing and workflow
+- Added LLM-Assisted Analysis section to Pipeline Usage
+
+`TEST.md`:
+- Updated integration test file references from old names to `core_test.go` and `cmd_test.go`
 
 ---
 

@@ -224,14 +224,14 @@ func buildDataModel() map[string]any {
 		"series_meta": map[string]any{
 			"type": "SeriesMeta",
 			"fields": map[string]any{
-				"id":            "FRED series ID",
-				"title":         "human-readable name",
-				"units":         "full units string e.g. 'Index 1982-84=100'",
-				"frequency":     "e.g. 'Monthly', 'Quarterly', 'Annual'",
-				"seasonal_adj":  "e.g. 'Seasonally Adjusted'",
-				"last_updated":  "date of most recent data revision",
-				"popularity":    "integer 0-100, FRED's own popularity score",
-				"notes":         "long-form description, may contain HTML",
+				"id":           "FRED series ID",
+				"title":        "human-readable name",
+				"units":        "full units string e.g. 'Index 1982-84=100'",
+				"frequency":    "e.g. 'Monthly', 'Quarterly', 'Annual'",
+				"seasonal_adj": "e.g. 'Seasonally Adjusted'",
+				"last_updated": "date of most recent data revision",
+				"popularity":   "integer 0-100, FRED's own popularity score",
+				"notes":        "long-form description, may contain HTML",
 			},
 		},
 		"result_envelope": map[string]any{
@@ -423,7 +423,7 @@ func buildCommands() map[string]any {
 
 func buildPipeline() map[string]any {
 	return map[string]any{
-		"model": "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print a summary table or JSON, not JSONL.",
+		"model":         "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print a summary table or JSON, not JSONL.",
 		"critical_rule": "obs get defaults to TABLE format even when piped. You MUST add --format jsonl on the source command or the downstream operator will fail with 'invalid character +' (table border characters are not JSON).",
 		"jsonl_format": map[string]any{
 			"one_object_per_line": true,
@@ -549,10 +549,10 @@ func buildGotchas() map[string]any {
 				"correct": "reserve window roll --window 3 --stat mean",
 			},
 			{
-				"id":     "multi-series-pipeline",
-				"title":  "Pipeline operators treat all stdin as one series",
-				"detail": "If you run 'reserve obs get UNRATE FEDFUNDS --format jsonl', the interleaved JSONL rows from both series are consumed as a single stream by downstream operators. For meaningful analysis, pipe each series separately.",
-				"wrong":  "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze summary",
+				"id":      "multi-series-pipeline",
+				"title":   "Pipeline operators treat all stdin as one series",
+				"detail":  "If you run 'reserve obs get UNRATE FEDFUNDS --format jsonl', the interleaved JSONL rows from both series are consumed as a single stream by downstream operators. For meaningful analysis, pipe each series separately.",
+				"wrong":   "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze summary",
 				"correct": "reserve obs get UNRATE --format jsonl | reserve analyze summary\nreserve obs get FEDFUNDS --format jsonl | reserve analyze summary",
 			},
 		},
@@ -568,9 +568,9 @@ func buildGotchas() map[string]any {
 				"detail": "FRED revises historical data. The API always returns the most recent revision. UNRATE April 2020 was initially published as 14.7% and later revised to 14.8%. reserve returns 14.8 because that is the current API value. Papers using the initial release will show 14.7.",
 			},
 			{
-				"id":     "government-shutdown-gap",
-				"title":  "October 2025 UNEMPLOY missing — government shutdown",
-				"detail": "The federal government shut down under the Trump administration in late 2025. BLS did not publish UNEMPLOY for October 2025. The series jumps from 2025-09 to 2025-11. This is not a bug — it is the correct representation of what the government reported. Any analysis spanning this period should note the gap.",
+				"id":              "government-shutdown-gap",
+				"title":           "October 2025 UNEMPLOY missing — government shutdown",
+				"detail":          "The federal government shut down under the Trump administration in late 2025. BLS did not publish UNEMPLOY for October 2025. The series jumps from 2025-09 to 2025-11. This is not a bug — it is the correct representation of what the government reported. Any analysis spanning this period should note the gap.",
 				"affected_series": []string{"UNEMPLOY", "UNRATE", "JTSJOL", "other BLS monthly releases"},
 			},
 			{

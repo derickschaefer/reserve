@@ -26,7 +26,6 @@ var globalFlags struct {
 	Quiet       bool
 	Verbose     bool
 	Debug       bool
-	Pager       string
 }
 
 // rootCmd is the base command. Running `reserve` with no subcommand
@@ -45,7 +44,9 @@ Get a free API key at: https://fred.stlouisfed.org/docs/api/api_key.html
 Quick start:
   reserve config init          # create a config.json with your API key
   reserve series get GDP       # fetch GDP series metadata
-  reserve obs get GDP          # fetch GDP observations`,
+  reserve obs get GDP          # fetch GDP observations
+  reserve version              # show version and build info
+  reserve llm                  # emit LLM onboarding context (start here for AI-assisted analysis)`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -99,7 +100,7 @@ func init() {
 	pf.StringVar(&globalFlags.Format, "format", "",
 		"output format: table|json|jsonl|csv|tsv|md (default: table)")
 	pf.StringVar(&globalFlags.Out, "out", "",
-		"write output to file instead of stdout")
+		"write output to <filename> instead of stdout")
 	pf.BoolVar(&globalFlags.NoCache, "no-cache", false,
 		"bypass cache reads (still writes results to cache)")
 	pf.BoolVar(&globalFlags.Refresh, "refresh", false,
@@ -116,6 +117,4 @@ func init() {
 		"show cache/timing stats after output")
 	pf.BoolVar(&globalFlags.Debug, "debug", false,
 		"log HTTP requests and responses (API key redacted)")
-	pf.StringVar(&globalFlags.Pager, "pager", "auto",
-		"pager mode: auto|never")
 }

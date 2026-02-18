@@ -14,22 +14,22 @@ import (
 
 // Summary holds descriptive statistics for a series.
 type Summary struct {
-	SeriesID string  `json:"series_id"`
-	Count    int     `json:"count"`       // total observations
-	Missing  int     `json:"missing"`     // NaN count
+	SeriesID   string  `json:"series_id"`
+	Count      int     `json:"count"`       // total observations
+	Missing    int     `json:"missing"`     // NaN count
 	MissingPct float64 `json:"missing_pct"` // percent missing
-	Mean     float64 `json:"mean"`
-	Std      float64 `json:"std"`
-	Min      float64 `json:"min"`
-	P25      float64 `json:"p25"`
-	Median   float64 `json:"median"`
-	P75      float64 `json:"p75"`
-	Max      float64 `json:"max"`
-	Skew     float64 `json:"skew"`
-	First    float64 `json:"first"`       // first non-NaN value
-	Last     float64 `json:"last"`        // last non-NaN value
-	Change   float64 `json:"change"`      // Last - First
-	ChangePct float64 `json:"change_pct"` // (Last-First)/First * 100
+	Mean       float64 `json:"mean"`
+	Std        float64 `json:"std"`
+	Min        float64 `json:"min"`
+	P25        float64 `json:"p25"`
+	Median     float64 `json:"median"`
+	P75        float64 `json:"p75"`
+	Max        float64 `json:"max"`
+	Skew       float64 `json:"skew"`
+	First      float64 `json:"first"`      // first non-NaN value
+	Last       float64 `json:"last"`       // last non-NaN value
+	Change     float64 `json:"change"`     // Last - First
+	ChangePct  float64 `json:"change_pct"` // (Last-First)/First * 100
 }
 
 // Summarize computes descriptive statistics over obs.
@@ -116,13 +116,13 @@ const (
 
 // TrendResult holds the output of a trend analysis.
 type TrendResult struct {
-	SeriesID  string      `json:"series_id"`
-	Method    TrendMethod `json:"method"`
-	Slope     float64     `json:"slope"`       // units per day
-	Intercept float64     `json:"intercept"`
-	R2        float64     `json:"r2"`
-	Direction string      `json:"direction"`   // "up", "down", "flat"
-	SlopePerYear float64  `json:"slope_per_year"` // slope * 365.25
+	SeriesID     string      `json:"series_id"`
+	Method       TrendMethod `json:"method"`
+	Slope        float64     `json:"slope"` // units per day
+	Intercept    float64     `json:"intercept"`
+	R2           float64     `json:"r2"`
+	Direction    string      `json:"direction"`      // "up", "down", "flat"
+	SlopePerYear float64     `json:"slope_per_year"` // slope * 365.25
 }
 
 // Trend fits a linear trend to the observations.

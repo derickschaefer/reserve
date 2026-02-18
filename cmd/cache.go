@@ -20,8 +20,8 @@ you explicitly clear it.`,
 // ─── cache stats ──────────────────────────────────────────────────────────────
 
 var cacheStatsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "Show row counts and sizes for each bucket",
+	Use:     "stats",
+	Short:   "Show row counts and sizes for each bucket",
 	Example: `  reserve cache stats`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()

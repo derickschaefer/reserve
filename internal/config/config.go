@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	DefaultConfigFile   = "config.json"
-	DefaultFormat       = "table"
-	DefaultTimeout      = 30 * time.Second
-	DefaultConcurrency  = 8
-	DefaultRate         = 5.0
-	EnvAPIKey           = "FRED_API_KEY"
-	EnvDBPath           = "RESERVE_DB_PATH"
+	DefaultConfigFile  = "config.json"
+	DefaultFormat      = "table"
+	DefaultTimeout     = 30 * time.Second
+	DefaultConcurrency = 8
+	DefaultRate        = 5.0
+	EnvAPIKey          = "FRED_API_KEY"
+	EnvDBPath          = "RESERVE_DB_PATH"
 )
 
 // File is the on-disk representation of config.json.

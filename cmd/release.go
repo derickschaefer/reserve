@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/spf13/cobra"
 )
 
 var releaseCmd = &cobra.Command{

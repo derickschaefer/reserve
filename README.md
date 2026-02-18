@@ -32,6 +32,8 @@ Federal Reserve Bank of St. Louis FRED® API.
   - [cache](#cache) — manage local database
   - [snapshot](#snapshot) — reproducible workflows
   - [config](#config) — configuration management
+  - [version](#version) — binary version and build info
+  - [llm](#llm) — LLM onboarding context
 - [Pipeline Usage](#pipeline-usage)
 - [Output Formats](#output-formats)
 - [Global Flags](#global-flags)
@@ -512,6 +514,84 @@ reserve config set <key> <value>       # update a single value
 Valid keys: `api_key`, `default_format`, `timeout`, `concurrency`, `rate`, `base_url`, `db_path`.
 
 ---
+
+### version
+
+Print the reserve version string and build metadata.
+
+```bash
+reserve version                  # plain text — grep/awk friendly
+reserve version --format json    # structured output
+reserve version --format jsonl   # single line for audit streams
+```
+
+Plain text output:
+
+```bash 
+reserve v1.0.5
+go      go1.25.5
+os      linux/amd64
+built   2026-02-16T18:42:00Z
+```
+
+---
+
+### llm
+
+Emit a machine-readable context document for LLM onboarding. Designed to be
+pasted directly into a Claude, ChatGPT, or any LLM session to give the AI
+authoritative knowledge of reserve's commands, pipeline semantics, data model,
+verified examples, and known gotchas — without requiring the LLM to crawl
+documentation or guess at flag names.
+
+```bash
+reserve llm                              # table of contents — start here
+reserve llm --topic pipeline             # single topic
+reserve llm --topic pipeline,gotchas     # comma-separated topics
+reserve llm --topic all                  # full document (large context windows)
+reserve llm --topic all | pbcopy         # copy to clipboard
+```
+
+**Topics:**
+
+| Topic | Contents |
+|---|---|
+| `toc` | Topic index and interaction guide (default) |
+| `commands` | Full command reference: nouns, verbs, flags, formats |
+| `pipeline` | stdin/stdout semantics, JSONL format, operator chaining |
+| `data-model` | Core types, NaN handling, Result envelope |
+| `examples` | Verified end-to-end examples with confirmed output values |
+| `gotchas` | Sharp edges, missing data, known limitations |
+| `version` | Build metadata for provenance |
+| `all` | Everything — for large context windows |
+
+**Workflow:**
+```bash
+# Step 1 — handshake: let the AI tell you what it needs
+reserve llm --topic toc
+# paste into your LLM session
+
+# Step 2 — surgical context: paste only what the AI requested
+reserve llm --topic pipeline,data-model,gotchas
+# paste → LLM confirms ready
+
+# Step 3 — ask your question
+```
+
+**Suggested prompt:**
+```
+I am about to explore macro-economic data from the FRED API.
+Use this as your reference for a CLI called reserve.
+It contains the authoritative command reference, pipeline
+semantics, verified examples, and known gotchas.
+Tell me when you are ready.
+```
+
+Output is always JSON with HTML escaping disabled — `<` and `>` render
+literally, not as `\u003c` / `\u003e`.
+
+---
+
 
 ## Pipeline Usage
 

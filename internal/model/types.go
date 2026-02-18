@@ -19,29 +19,29 @@ type Category struct {
 
 // SeriesMeta holds metadata for a single FRED data series.
 type SeriesMeta struct {
-	ID                     string    `json:"id"`
-	Title                  string    `json:"title"`
-	ObservationStart       string    `json:"observation_start"`
-	ObservationEnd         string    `json:"observation_end"`
-	Frequency              string    `json:"frequency"`
-	FrequencyShort         string    `json:"frequency_short"`
-	Units                  string    `json:"units"`
-	UnitsShort             string    `json:"units_short"`
-	SeasonalAdjustment     string    `json:"seasonal_adjustment"`
-	SeasonalAdjustmentShort string   `json:"seasonal_adjustment_short"`
-	LastUpdated            string    `json:"last_updated"`
-	Popularity             int       `json:"popularity"`
-	Notes                  string    `json:"notes"`
-	FetchedAt              time.Time `json:"fetched_at,omitempty"`
+	ID                      string    `json:"id"`
+	Title                   string    `json:"title"`
+	ObservationStart        string    `json:"observation_start"`
+	ObservationEnd          string    `json:"observation_end"`
+	Frequency               string    `json:"frequency"`
+	FrequencyShort          string    `json:"frequency_short"`
+	Units                   string    `json:"units"`
+	UnitsShort              string    `json:"units_short"`
+	SeasonalAdjustment      string    `json:"seasonal_adjustment"`
+	SeasonalAdjustmentShort string    `json:"seasonal_adjustment_short"`
+	LastUpdated             string    `json:"last_updated"`
+	Popularity              int       `json:"popularity"`
+	Notes                   string    `json:"notes"`
+	FetchedAt               time.Time `json:"fetched_at,omitempty"`
 }
 
 // Release represents a FRED data release.
 type Release struct {
-	ID            int    `json:"id"`
-	Name          string `json:"name"`
-	PressRelease  bool   `json:"press_release"`
-	Link          string `json:"link"`
-	Notes         string `json:"notes"`
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	PressRelease bool   `json:"press_release"`
+	Link         string `json:"link"`
+	Notes        string `json:"notes"`
 }
 
 // Source represents a FRED data source (institution).
@@ -54,12 +54,12 @@ type Source struct {
 
 // Tag represents a FRED tag that can be applied to series.
 type Tag struct {
-	Name       string    `json:"name"`
-	GroupID    string    `json:"group_id"`
-	Notes      string    `json:"notes"`
-	Created    string    `json:"created"`
-	Popularity int       `json:"popularity"`
-	SeriesCount int      `json:"series_count"`
+	Name        string `json:"name"`
+	GroupID     string `json:"group_id"`
+	Notes       string `json:"notes"`
+	Created     string `json:"created"`
+	Popularity  int    `json:"popularity"`
+	SeriesCount int    `json:"series_count"`
 }
 
 // ─── Time Series Types ────────────────────────────────────────────────────────
@@ -82,8 +82,8 @@ func (o Observation) IsMissing() bool {
 
 // SeriesData bundles observations with optional metadata for a single series.
 type SeriesData struct {
-	SeriesID string      `json:"series_id"`
-	Meta     *SeriesMeta `json:"meta,omitempty"`
+	SeriesID string        `json:"series_id"`
+	Meta     *SeriesMeta   `json:"meta,omitempty"`
 	Obs      []Observation `json:"observations"`
 }
 
@@ -110,20 +110,20 @@ type Result struct {
 
 // Kind constants for Result.Kind.
 const (
-	KindSeriesMeta  = "series_meta"
-	KindSeriesData  = "series_data"
-	KindCategory    = "category"
-	KindRelease     = "release"
-	KindSource      = "source"
-	KindTag         = "tag"
-	KindTable       = "table"
-	KindReport      = "report"
+	KindSeriesMeta   = "series_meta"
+	KindSeriesData   = "series_data"
+	KindCategory     = "category"
+	KindRelease      = "release"
+	KindSource       = "source"
+	KindTag          = "tag"
+	KindTable        = "table"
+	KindReport       = "report"
 	KindSearchResult = "search_result"
 )
 
 // SearchResult holds mixed-type results from a global search query.
 type SearchResult struct {
-	Query   string        `json:"query"`
-	Type    string        `json:"type"`
-	Series  []SeriesMeta  `json:"series,omitempty"`
+	Query  string       `json:"query"`
+	Type   string       `json:"type"`
+	Series []SeriesMeta `json:"series,omitempty"`
 }

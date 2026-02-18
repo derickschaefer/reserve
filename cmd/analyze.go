@@ -6,9 +6,9 @@ import (
 	"math"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/analyze"
 	"github.com/derickschaefer/reserve/internal/pipeline"
+	"github.com/spf13/cobra"
 )
 
 var analyzeCmd = &cobra.Command{

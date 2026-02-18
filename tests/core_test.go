@@ -40,10 +40,10 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/time/rate"
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/util"
+	"golang.org/x/time/rate"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,11 +247,11 @@ func TestPayloadIntegrity(t *testing.T) {
 		label   string
 	}{
 		{"305.109", false, 305.109, "numeric string 305.109 parses correctly"},
-		{"0",       false, 0,       "zero value parses correctly"},
-		{"-1.5",    false, -1.5,    "negative value parses correctly"},
-		{".",       true,  0,       "FRED sentinel '.' parses as NaN"},
-		{"",        true,  0,       "empty string parses as NaN"},
-		{"  .  ",   true,  0,       "whitespace-padded sentinel parses as NaN"},
+		{"0", false, 0, "zero value parses correctly"},
+		{"-1.5", false, -1.5, "negative value parses correctly"},
+		{".", true, 0, "FRED sentinel '.' parses as NaN"},
+		{"", true, 0, "empty string parses as NaN"},
+		{"  .  ", true, 0, "whitespace-padded sentinel parses as NaN"},
 	}
 	for _, c := range cases {
 		got := util.ParseObsValue(c.input)
@@ -377,38 +377,38 @@ func TestPayloadIntegrity(t *testing.T) {
 		)
 	})
 
-// ── Checks 22–23: Rate limiter ───────────────────────────────────────────
+	// ── Checks 22–23: Rate limiter ───────────────────────────────────────────
 
-limiter := rate.NewLimiter(rate.Limit(1000), 1) // 1000 req/sec, burst 1
-ctx := context.Background()
+	limiter := rate.NewLimiter(rate.Limit(1000), 1) // 1000 req/sec, burst 1
+	ctx := context.Background()
 
-allPassed := true
-for i := 0; i < 5; i++ {
-        if err := limiter.Wait(ctx); err != nil {
-                allPassed = false
-        }
-}
+	allPassed := true
+	for i := 0; i < 5; i++ {
+		if err := limiter.Wait(ctx); err != nil {
+			allPassed = false
+		}
+	}
 
-r.check(t,
-        allPassed,
-        "Rate limiter allows 5 requests at 1000 req/s without blocking",
-        "Rate limiter blocked or errored unexpectedly",
-)
+	r.check(t,
+		allPassed,
+		"Rate limiter allows 5 requests at 1000 req/s without blocking",
+		"Rate limiter blocked or errored unexpectedly",
+	)
 
-slowLimiter := rate.NewLimiter(rate.Limit(0.001), 1) // ~1 per 1000s
-ctx2, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-defer cancel()
+	slowLimiter := rate.NewLimiter(rate.Limit(0.001), 1) // ~1 per 1000s
+	ctx2, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
 
-_ = slowLimiter.Wait(ctx2) // consume initial token
-err := slowLimiter.Wait(ctx2)
+	_ = slowLimiter.Wait(ctx2) // consume initial token
+	err := slowLimiter.Wait(ctx2)
 
-r.check(t,
-        err != nil,
-        "Rate limiter respects context cancellation (blocks slow limiter)",
-        "Rate limiter should have returned context error but did not",
-)
+	r.check(t,
+		err != nil,
+		"Rate limiter respects context cancellation (blocks slow limiter)",
+		"Rate limiter should have returned context error but did not",
+	)
 
-r.summary(t, "PAYLOAD INTEGRITY")
+	r.summary(t, "PAYLOAD INTEGRITY")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -450,7 +450,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 					"frequency": "Quarterly", "frequency_short": "Q",
 					"units": "Billions of Dollars", "units_short": "Bil. of $",
 					"seasonal_adjustment": "Seasonally Adjusted Annual Rate",
-					"last_updated": "2024-09-26 07:50:09-05", "popularity": 92,
+					"last_updated":        "2024-09-26 07:50:09-05", "popularity": 92,
 				}},
 			})
 		},

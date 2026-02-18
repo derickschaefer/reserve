@@ -311,11 +311,11 @@ func periodKey(t time.Time, freq ResampleFreq) (string, time.Time) {
 
 // FilterOptions describes a date/value filter predicate.
 type FilterOptions struct {
-	After      time.Time // keep obs with date > After (zero = no lower bound)
-	Before     time.Time // keep obs with date < Before (zero = no upper bound)
-	MinValue   float64   // keep obs with value >= MinValue (NaN = no lower bound)
-	MaxValue   float64   // keep obs with value <= MaxValue (NaN = no upper bound)
-	DropMissing bool     // drop NaN observations
+	After       time.Time // keep obs with date > After (zero = no lower bound)
+	Before      time.Time // keep obs with date < Before (zero = no upper bound)
+	MinValue    float64   // keep obs with value >= MinValue (NaN = no lower bound)
+	MaxValue    float64   // keep obs with value <= MaxValue (NaN = no upper bound)
+	DropMissing bool      // drop NaN observations
 }
 
 // Filter returns observations matching all non-zero criteria in opts.

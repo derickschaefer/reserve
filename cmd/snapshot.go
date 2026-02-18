@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/store"
+	"github.com/spf13/cobra"
 )
 
 var snapshotCmd = &cobra.Command{
@@ -69,8 +69,8 @@ var snapshotSaveCommand = &cobra.Command{
 // ─── snapshot list ────────────────────────────────────────────────────────────
 
 var snapshotListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all saved snapshots",
+	Use:     "list",
+	Short:   "List all saved snapshots",
 	Example: `  reserve snapshot list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()
@@ -108,10 +108,10 @@ var snapshotListCmd = &cobra.Command{
 // ─── snapshot show ────────────────────────────────────────────────────────────
 
 var snapshotShowCmd = &cobra.Command{
-	Use:   "show <ID>",
-	Short: "Show full details of a snapshot",
+	Use:     "show <ID>",
+	Short:   "Show full details of a snapshot",
 	Example: `  reserve snapshot show 01HX...`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()
 		if err != nil {
@@ -143,10 +143,10 @@ var snapshotShowCmd = &cobra.Command{
 // ─── snapshot run ─────────────────────────────────────────────────────────────
 
 var snapshotRunCmd = &cobra.Command{
-	Use:   "run <ID>",
-	Short: "Re-execute a saved snapshot",
+	Use:     "run <ID>",
+	Short:   "Re-execute a saved snapshot",
 	Example: `  reserve snapshot run 01HX...`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()
 		if err != nil {
@@ -187,10 +187,10 @@ var snapshotRunCmd = &cobra.Command{
 // ─── snapshot delete ──────────────────────────────────────────────────────────
 
 var snapshotDeleteCmd = &cobra.Command{
-	Use:   "delete <ID>",
-	Short: "Delete a saved snapshot",
+	Use:     "delete <ID>",
+	Short:   "Delete a saved snapshot",
 	Example: `  reserve snapshot delete 01HX...`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps, err := buildDeps()
 		if err != nil {

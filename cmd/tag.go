@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/spf13/cobra"
 )
 
 var tagCmd = &cobra.Command{
@@ -48,8 +48,8 @@ var tagSearchCmd = &cobra.Command{
 // ─── tag series ───────────────────────────────────────────────────────────────
 
 var (
-	tagSeriesLimit  int
-	tagSeriesAll    bool
+	tagSeriesLimit int
+	tagSeriesAll   bool
 )
 
 var tagSeriesCmd = &cobra.Command{

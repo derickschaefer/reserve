@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/app"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/spf13/cobra"
 )
 
 var categoryCmd = &cobra.Command{

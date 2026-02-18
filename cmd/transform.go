@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/pipeline"
 	"github.com/derickschaefer/reserve/internal/render"
 	"github.com/derickschaefer/reserve/internal/transform"
+	"github.com/spf13/cobra"
 )
 
 var transformCmd = &cobra.Command{
@@ -70,8 +70,8 @@ var transformDiffCmd = &cobra.Command{
 // ─── log ──────────────────────────────────────────────────────────────────────
 
 var transformLogCmd = &cobra.Command{
-	Use:   "log",
-	Short: "Natural log of each observation value",
+	Use:     "log",
+	Short:   "Natural log of each observation value",
 	Example: `  reserve store get GDP --format jsonl | reserve transform log`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
@@ -116,8 +116,8 @@ var (
 )
 
 var transformIndexCmd = &cobra.Command{
-	Use:   "index",
-	Short: "Re-index series so value at --at date equals --base",
+	Use:     "index",
+	Short:   "Re-index series so value at --at date equals --base",
 	Example: `  reserve store get CPIAUCSL --format jsonl | reserve transform index --base 100 --at 2010-01-01`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if transformIndexAt == "" {

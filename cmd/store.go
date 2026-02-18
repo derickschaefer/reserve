@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/spf13/cobra"
 )
 
 var storeCmd = &cobra.Command{
