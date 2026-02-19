@@ -15,6 +15,7 @@ Federal Reserve Bank of St. Louis FRED® API.
 - [Install](#install)
 - [Quick Start](#quick-start)
 - [Design Philosophy](#design-philosophy)
+- [The Command Model](#the-command-model)
 - [Command Reference](#command-reference)
   - [series](#series) — discover and inspect data series
   - [obs](#obs) — fetch live observations
@@ -146,6 +147,52 @@ reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq an
 The pipeline is Unix-native. Commands that produce observations write JSONL to stdout; transform and analyze commands read JSONL from stdin. Chain them with `|`. When stdout is a terminal, output defaults to a formatted table. When piped, it defaults to JSONL.
 
 ---
+
+## The Command Model
+
+`reserve` uses a pragmatic command model that is worth understanding before you explore the full command reference.
+
+Most commands follow a **noun-verb** pattern: the top-level command names a resource, and its subcommands are operations on that resource. This maps naturally onto the structure of the FRED API and the local data store.
+```
+reserve series get UNRATE            # noun: series  / verb: get
+reserve category tree root           # noun: category / verb: tree
+reserve release list                 # noun: release  / verb: list
+reserve store get CPIAUCSL           # noun: store    / verb: get
+reserve config set api_key XYZ      # noun: config   / verb: set
+```
+
+Two top-level commands are nouns by acronym rather than by entity type: `obs` (observations) and `llm` (LLM onboarding context). They follow the same noun-verb structure; the noun is just abbreviated.
+```
+reserve obs get UNRATE --start 2020-01-01   # noun: obs (observations)
+reserve llm --topic pipeline                # noun: llm (machine-readable context)
+```
+
+**Pipeline operators** — `transform`, `window`, `analyze`, and `chart` — are pure verbs. They have no resource noun because they do not target a named entity. They operate on whatever JSONL stream arrives on stdin. The data source is implicit, so there is nothing meaningful to name.
+```
+... | reserve transform pct-change --period 12
+... | reserve window roll --stat mean --window 6
+... | reserve analyze trend
+... | reserve chart
+```
+
+Finally, two commands are standalone action verbs with no natural noun: `fetch` and `search`. `fetch` performs a batch accumulation across entity types; `search` performs a global full-text query across all FRED entity types. Neither belongs to a single resource, so no noun prefix applies.
+```
+reserve fetch series GDP UNRATE CPIAUCSL --store
+reserve search "yield curve"
+```
+
+In summary:
+
+| Class | Pattern | Examples |
+|---|---|---|
+| FRED API wrappers | noun verb | `series`, `category`, `release`, `source`, `tag`, `meta` |
+| Local store operations | noun verb | `store`, `cache`, `config`, `snapshot` |
+| Abbreviated nouns | noun verb | `obs`, `llm` |
+| Pipeline operators | verb only | `transform`, `window`, `analyze`, `chart` |
+| Cross-cutting actions | verb only | `fetch`, `search` |
+| Utility | standalone | `version`, `completion`, `help` |
+
+The noun-verb commands follow consistent flag conventions and produce the same `Result` envelope. The pipeline operators follow consistent stdin/stdout JSONL semantics. Within each class, behavior is uniform and predictable.
 
 ## Command Reference
 
