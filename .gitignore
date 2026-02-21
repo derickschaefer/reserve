@@ -12,6 +12,7 @@ config.json
 # Test artifacts
 coverage.out
 coverage.html
+tests/benchmarks/fixtures/
 
 # Editor
 .vscode/
