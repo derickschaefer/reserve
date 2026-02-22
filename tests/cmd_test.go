@@ -39,7 +39,7 @@ func TestSubcommandRouting(t *testing.T) {
 	// We verify they appear in the command tree (Cobra's Find will locate them).
 	pairs := [][]string{
 		{"category", "get"},
-		{"category", "ls"},
+		{"category", "list"},
 		{"category", "tree"},
 		{"category", "series"},
 		{"release", "list"},

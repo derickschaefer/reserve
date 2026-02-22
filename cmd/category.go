@@ -18,7 +18,7 @@ var categoryCmd = &cobra.Command{
 	Long: `Commands for exploring the FRED data category tree.
 
 Categories are organised in a hierarchy rooted at category 0 (root).
-Use "ls" to list direct children, "tree" to recursively expand, and
+Use "list" to list direct children, "tree" to recursively expand, and
 "series" to list the series belonging to a category.`,
 }
 
@@ -52,14 +52,14 @@ var categoryGetCmd = &cobra.Command{
 	},
 }
 
-// ─── category ls ──────────────────────────────────────────────────────────────
+// ─── category list ────────────────────────────────────────────────────────────
 
-var categoryLsCmd = &cobra.Command{
-	Use:   "ls <CATEGORY_ID|root>",
+var categoryListCmd = &cobra.Command{
+	Use:   "list <CATEGORY_ID|root>",
 	Short: "List direct children of a category",
-	Example: `  reserve category ls root
-  reserve category ls 0
-  reserve category ls 32991`,
+	Example: `  reserve category list root
+  reserve category list 0
+  reserve category list 32991`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := parseCategoryID(args[0])
@@ -192,7 +192,7 @@ var categorySeriesCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(categoryCmd)
 	categoryCmd.AddCommand(categoryGetCmd)
-	categoryCmd.AddCommand(categoryLsCmd)
+	categoryCmd.AddCommand(categoryListCmd)
 	categoryCmd.AddCommand(categoryTreeCmd)
 	categoryCmd.AddCommand(categorySeriesCmd)
 

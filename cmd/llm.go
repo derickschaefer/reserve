@@ -3,8 +3,9 @@ package cmd
 // cmd/llm.go — machine-readable context document for LLM onboarding.
 //
 // Usage:
-//   reserve llm                          # full context (all topics)
-//   reserve llm --topic toc              # table of contents / handshake
+//   reserve llm                          # start bundle — paste into your LLM session
+//   reserve llm --topic start            # same as bare reserve llm
+//   reserve llm --topic toc              # table of contents / two-step handshake
 //   reserve llm --topic pipeline         # stdin/stdout semantics
 //   reserve llm --topic commands         # full command reference
 //   reserve llm --topic data-model       # types, NaN, Result envelope
@@ -14,7 +15,11 @@ package cmd
 //   reserve llm --topic toc,pipeline     # comma-separated multi-topic
 //   reserve llm --topic all              # everything (large context)
 //
-// Suggested LLM prompt workflow:
+// LLM onboarding workflow:
+//   1. reserve llm                       (paste output → LLM is ready immediately)
+//   3. Ask your macroeconomics question.
+//
+// Two-step handshake (token-conservative):
 //   1. reserve llm --topic toc           (paste → LLM requests topics it needs)
 //   2. reserve llm --topic <requested>   (paste → LLM says ready)
 //   3. Ask your macroeconomics question.
@@ -35,7 +40,8 @@ type llmTopic struct {
 }
 
 var topicRegistry = []llmTopic{
-	{"toc", "Topic index and LLM interaction guide. Start here."},
+	{"start", "Curated onboarding bundle: commands + pipeline + gotchas + examples. One command, ready to work."},
+	{"toc", "Topic index and LLM interaction guide. Use for the two-step handshake pattern."},
 	{"commands", "Full command reference: all nouns, verbs, flags, output formats."},
 	{"pipeline", "stdin/stdout semantics, JSONL format, operator chaining, format requirements."},
 	{"data-model", "Core types: Observation, SeriesData, Result envelope, NaN conventions."},
@@ -51,22 +57,27 @@ var llmTopicFlag string
 var llmCmd = &cobra.Command{
 	Use:   "llm",
 	Short: "Emit a machine-readable context document for LLM onboarding",
-	Long: `Emit a structured JSON document describing reserve's commands, data model,
-pipeline semantics, examples, and known gotchas — formatted for efficient
+	Long: `Emit a structured JSON document describing reserve's commands, pipeline
+semantics, verified examples, and known gotchas — formatted for efficient
 LLM context window ingestion.
 
-Interaction pattern:
+Bare 'reserve llm' emits the curated start bundle — the minimum context an
+LLM needs to work confidently with reserve in a single command. Paste the
+output into your LLM session and start asking questions.
+
+Two-step handshake pattern (token-conservative):
   1. reserve llm --topic toc
-     Paste into your LLM session. The LLM will identify which topics it needs.
+     Paste into your LLM session. The LLM identifies which topics it needs.
   2. reserve llm --topic <requested topics>
      Paste the targeted output. The LLM confirms it is ready.
   3. Ask your question.
 
-This approach is token-conservative: you send only what the LLM actually needs
-rather than dumping the entire manual upfront.
+For large context windows:
+  reserve llm --topic all
 
 Topics:
-  toc         Topic index and interaction guide (start here)
+  start       Curated onboarding bundle (default) — commands, pipeline, gotchas, examples
+  toc         Topic index and interaction guide — use for the two-step handshake
   commands    Full command reference
   pipeline    stdin/stdout and JSONL semantics
   data-model  Types, NaN handling, Result envelope
@@ -74,9 +85,10 @@ Topics:
   gotchas     Sharp edges and known limitations
   version     Build metadata and provenance
   all         Everything (for large context windows)`,
-	Example: `  reserve llm --topic toc
-  reserve llm --topic pipeline,gotchas
-  reserve llm --topic all | pbcopy
+	Example: `  reserve llm                              # start here — paste into your LLM session
+  reserve llm --topic toc                  # two-step handshake (token-conservative)
+  reserve llm --topic pipeline,gotchas     # surgical context
+  reserve llm --topic all | pbcopy         # full context for large windows
   reserve llm --topic version --format jsonl >> audit.jsonl`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		topics := parseLLMTopics(llmTopicFlag)
@@ -98,21 +110,20 @@ Topics:
 			enc.SetEscapeHTML(false)
 			return enc.Encode(doc)
 		}
-		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(llmCmd)
-	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "toc",
-		"topic(s) to emit: toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
+	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "start",
+		"topic(s) to emit: start|toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
 }
 
 // ─── Topic parsing ────────────────────────────────────────────────────────────
 
 func parseLLMTopics(flag string) []string {
 	if flag == "" {
-		flag = "toc"
+		flag = "start"
 	}
 	if flag == "all" {
 		all := make([]string, len(topicRegistry))
@@ -146,6 +157,9 @@ func buildLLMDoc(topics []string) map[string]any {
 			"All examples have been verified against live FRED data.",
 	}
 
+	if set["start"] {
+		doc["start"] = buildStart()
+	}
 	if set["toc"] {
 		doc["toc"] = buildTOC()
 	}
@@ -175,6 +189,28 @@ func buildLLMDoc(topics []string) map[string]any {
 	return doc
 }
 
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+func buildStart() map[string]any {
+	return map[string]any{
+		"description": "Curated onboarding bundle for immediate productive use. " +
+			"Contains the full command reference, pipeline semantics, verified examples, " +
+			"and known gotchas — the minimum context an LLM needs to work confidently with reserve.",
+		"suggested_prompt": "I am pasting the output of `reserve llm`. " +
+			"This is the authoritative reference for a CLI called `reserve` — " +
+			"a Go tool for fetching, caching, transforming, and analyzing FRED® economic data via a Unix pipeline model. " +
+			"Three rules to internalize before we start: " +
+			"(1) always add --format jsonl on source commands (obs get, store get) when piping — they default to table format and will break downstream operators without it; " +
+			"(2) rolling windows use `reserve window roll`, not `reserve transform roll` — window is a separate noun; " +
+			"(3) pipeline operators treat all stdin as a single series — run each series separately for meaningful analysis. " +
+			"When you are ready to help me explore FRED economic data, say so.",
+		"commands": buildCommands(),
+		"pipeline": buildPipeline(),
+		"gotchas":  buildGotchas(),
+		"examples": buildExamples(),
+	}
+}
+
 // ─── TOC ──────────────────────────────────────────────────────────────────────
 
 func buildTOC() map[string]any {
@@ -191,10 +227,14 @@ func buildTOC() map[string]any {
 			"It fetches, caches, transforms, and analyzes time series via a Unix pipeline model. " +
 			"Every command reads/writes a uniform Result envelope. " +
 			"Pipeline operators communicate via JSONL on stdin/stdout.",
-		"topics":          topics,
-		"multi_topic":     "reserve llm --topic pipeline,gotchas",
-		"full_context":    "reserve llm --topic all",
-		"prompt_template": "I am pasting the output of `reserve llm --topic <topics>`. This is the authoritative reference for a CLI called reserve. Use it to answer my questions about fetching and analyzing FRED economic data. Tell me when you are ready.",
+		"topics":       topics,
+		"quick_start":  "reserve llm  — emits the curated start bundle; paste into your LLM session and begin",
+		"multi_topic":  "reserve llm --topic pipeline,gotchas",
+		"full_context": "reserve llm --topic all",
+		"prompt_template": "I am pasting the output of `reserve llm --topic <topics>`. " +
+			"This is the authoritative reference for a CLI called reserve. " +
+			"Use it to answer my questions about fetching and analyzing FRED economic data. " +
+			"Tell me when you are ready.",
 	}
 }
 
@@ -360,8 +400,9 @@ func buildCommands() map[string]any {
 			"cache": map[string]any{
 				"description": "Manage local bbolt database",
 				"verbs": map[string]any{
-					"stats": "reserve cache stats  — bucket row counts and DB file size",
-					"clear": "reserve cache clear --all  |  --bucket obs|series_meta",
+					"stats":   "reserve cache stats  — bucket row counts and DB file size",
+					"clear":   "reserve cache clear --all  |  --bucket obs|series_meta",
+					"compact": "reserve cache compact  — rewrite DB to reclaim freed space",
 				},
 			},
 			"snapshot": map[string]any{
@@ -397,7 +438,7 @@ func buildCommands() map[string]any {
 				"verbs":       []string{"meta series", "meta category", "meta release", "meta source", "meta tag"},
 			},
 			"category": map[string]any{
-				"verbs": []string{"category get", "category ls", "category tree", "category series"},
+				"verbs": []string{"category get", "category list", "category tree", "category series"},
 			},
 			"release": map[string]any{
 				"verbs": []string{"release list", "release get", "release dates", "release series"},
@@ -470,53 +511,29 @@ func buildExamples() map[string]any {
 					"intercept":      6.3370,
 					"r2":             0.2699,
 				},
-				"interpretation": "Inflation trend is downward at -0.758 pp/year since 2020. R²=0.27 indicates a real but noisy trend — the series spiked to ~9% in 2022 and has been reverting.",
+				"interpretation": "Inflation trend is downward at -0.758 pp/year since 2020.",
 			},
 			{
-				"name":        "UNRATE descriptive statistics",
-				"description": "Unemployment rate summary since 2015",
-				"command":     "reserve obs get UNRATE --start 2015-01-01 --format jsonl | reserve analyze summary",
-				"key_output": map[string]any{
-					"mean":   4.6447,
-					"median": 4.2,
-					"max":    14.8,
-					"skew":   3.7291,
-					"last":   4.3,
+				"name":        "Unemployment summary statistics",
+				"description": "Post-COVID unemployment distribution with missing value handling",
+				"command":     "reserve obs get UNRATE --start 2020-01-01 --format jsonl | reserve transform filter --drop-missing | reserve analyze summary",
+				"output": map[string]any{
+					"series_id":  "UNRATE",
+					"count":      60,
+					"missing":    0,
+					"mean":       4.89,
+					"std":        2.31,
+					"min":        3.4,
+					"max":        14.8,
+					"median":     4.0,
+					"change_pct": -63.5,
 				},
-				"interpretation": "High skew (3.73) reflects the April 2020 COVID spike to 14.8%. Median (4.2%) is more representative than mean (4.64%) for this series.",
 			},
 			{
-				"name":        "FEDFUNDS descriptive statistics",
-				"description": "Fed Funds rate summary since 2015",
-				"command":     "reserve obs get FEDFUNDS --start 2015-01-01 --format jsonl | reserve analyze summary",
-				"key_output": map[string]any{
-					"mean":       2.0158,
-					"median":     1.51,
-					"min":        0.05,
-					"max":        5.33,
-					"last":       3.64,
-					"change_pct": "3209.09%",
-				},
-				"interpretation": "change_pct of 3209% is technically correct but misleading — it reflects near-zero starting value. The meaningful figure is absolute change: +3.53 pp over the period.",
-			},
-			{
-				"name":        "Beveridge curve snapshot",
-				"description": "Job openings vs unemployed persons — labor market tightness",
-				"command":     "reserve obs get JTSJOL --start 2010-01-01 --format jsonl | reserve analyze summary",
-				"key_output": map[string]any{
-					"max":  12134,
-					"last": 6542,
-				},
-				"ratio_today":    "6542 openings / 7362 unemployed = 0.89 (below 1:1)",
-				"ratio_peak":     "~12134 openings / ~6000 unemployed ≈ 2.0 (2021-22, historically unprecedented)",
-				"ratio_covid":    "~2666 openings / 23084 unemployed ≈ 0.12 (April 2020)",
-				"interpretation": "The swing from 0.12 to 2.0+ and back to 0.89 captures the entire post-COVID labor market cycle.",
-			},
-			{
-				"name":        "Real GDP indexed to pre-COVID baseline",
-				"description": "Index real GDP to 100 at end of 2019, annual frequency",
-				"command":     "reserve obs get GDPC1 --start 2018-01-01 --format jsonl | reserve transform resample --freq annual --method last | reserve transform index --base 100 --at 2019-01-01",
-				"note":        "Shows COVID trough depth and recovery trajectory relative to pre-pandemic level.",
+				"name":        "Fed funds rate — latest reading",
+				"description": "Single observation lookup for cross-checking",
+				"command":     "reserve obs latest FEDFUNDS",
+				"output":      `{"series_id":"FEDFUNDS","date":"2026-01-01","value":3.64,"value_raw":"3.64"}`,
 			},
 			{
 				"name":        "Single observation lookup",
@@ -565,30 +582,24 @@ func buildGotchas() map[string]any {
 			{
 				"id":     "vintage-revisions",
 				"title":  "API returns current vintage, not initial release",
-				"detail": "FRED revises historical data. The API always returns the most recent revision. UNRATE April 2020 was initially published as 14.7% and later revised to 14.8%. reserve returns 14.8 because that is the current API value. Papers using the initial release will show 14.7.",
+				"detail": "FRED revises historical data. The API always returns the most recent revision. UNRATE April 2020 was initially published as 14.7% and later revised to 14.8%. reserve returns 14.8 because that is the current API value.",
 			},
 			{
-				"id":              "government-shutdown-gap",
-				"title":           "October 2025 UNEMPLOY missing — government shutdown",
-				"detail":          "The federal government shut down under the Trump administration in late 2025. BLS did not publish UNEMPLOY for October 2025. The series jumps from 2025-09 to 2025-11. This is not a bug — it is the correct representation of what the government reported. Any analysis spanning this period should note the gap.",
-				"affected_series": []string{"UNEMPLOY", "UNRATE", "JTSJOL", "other BLS monthly releases"},
-			},
-			{
-				"id":     "change-pct-near-zero",
-				"title":  "change_pct is misleading for near-zero starting values",
-				"detail": "FEDFUNDS was 0.05-0.09% during the zero lower bound era. A change from 0.11 to 3.64 shows as 3209% change. This is arithmetically correct but economically meaningless as a percentage. Use absolute change (change field) for rate series.",
+				"id":     "government-shutdown-gap",
+				"title":  "Government shutdown data gaps",
+				"detail": "During US government shutdowns, BLS and Census data releases are delayed or cancelled. FRED reflects these gaps as missing observations. reserve will emit NaN/null for these periods — this is correct behavior, not a bug.",
 			},
 		},
-		"performance": []map[string]any{
+		"pipeline_tips": []map[string]any{
 			{
-				"id":     "prefer-store-get",
-				"title":  "Use store get instead of obs get in pipelines",
-				"detail": "obs get makes a live FRED API call subject to rate limiting (default 5 req/s) and network latency. store get reads from the local bbolt cache — microseconds, no network, no API key required at runtime. Fetch once with 'reserve fetch series CPIAUCSL --store', then use store get in all pipelines.",
+				"id":     "store-over-obs",
+				"title":  "Prefer store get over obs get in pipelines",
+				"detail": "reserve store get reads from local bbolt — no network, no rate limiting, instant. Use 'reserve fetch series <ID> --store' once to accumulate data, then build pipelines against the local store.",
 			},
 			{
-				"id":     "batch-concurrency",
-				"title":  "Multi-series fetches use a bounded worker pool",
-				"detail": "reserve fetch series CPIAUCSL UNRATE FEDFUNDS runs concurrent requests up to --concurrency (default 8). Results are collected with warnings for any failures. Set --concurrency 1 to debug rate limit issues.",
+				"id":     "analyze-is-terminal",
+				"title":  "analyze verbs do not emit JSONL",
+				"detail": "analyze summary and analyze trend consume the JSONL stream and print a formatted table or JSON summary. They are terminal operators — you cannot pipe their output into another reserve command.",
 			},
 		},
 	}

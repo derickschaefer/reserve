@@ -258,7 +258,7 @@ Browse the FRED category hierarchy.
 
 ```bash
 reserve category get <CATEGORY_ID>
-reserve category ls <CATEGORY_ID|root>
+reserve category list <CATEGORY_ID|root>
 reserve category tree <CATEGORY_ID|root> [--depth N]
 reserve category series <CATEGORY_ID> [--limit N]
 ```
@@ -266,7 +266,7 @@ reserve category series <CATEGORY_ID> [--limit N]
 Examples:
 
 ```bash
-reserve category ls root               # top-level categories
+reserve category list root               # top-level categories
 reserve category tree 32991 --depth 2  # subtree with depth limit
 reserve category series 32991          # series within a category
 ```

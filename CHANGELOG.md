@@ -177,7 +177,7 @@ New API endpoints (`internal/fred/`):
 - `SearchTags`, `GetTagSeries`, `GetRelatedTags`
 
 New commands:
-- `category get|ls|tree|series` — browse the FRED category hierarchy
+- `category get|list|tree|series` — browse the FRED category hierarchy
 - `release list|get|dates|series` — scheduled data releases
 - `source list|get|releases` — data source institutions
 - `tag search|series|related` — tag exploration
