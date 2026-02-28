@@ -2,13 +2,13 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. v1.0.5 is the
-first publicly tagged release. Prior versions are documented under
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.0.6` is the
+current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
 
 ---
 
-### Unreleased (post-v1.0.5 maintenance)
+### v1.0.6 — 2026-02-28 — Maintenance, Value Semantics, and Keyless Signing
 
 **Changed**
 
@@ -34,6 +34,11 @@ first publicly tagged release. Prior versions are documented under
   - `obs latest` value round-trip semantics
   - snapshot ULID format/uniqueness/sortability
 - New integration test group `TestValueSemanticsOffline` with styled output and explicit value-fidelity assertions across JSON/JSONL/CSV and store key boundaries
+- Keyless release-signing workflow at `.github/workflows/release-keyless.yml`:
+  - builds cross-platform release archives on `v*` tags
+  - publishes `SHA256SUMS` + `SHA256SUMS.sig` + `SHA256SUMS.pem`
+  - signs checksums using Sigstore/cosign keyless OIDC identity
+- Release verification documentation added at `docs/release-security.md`
 
 ---
 
@@ -281,4 +286,5 @@ Project bootstrap: compilable binary with no commands.
 
 ---
 
+[v1.0.6]: https://github.com/derickschaefer/reserve/releases/tag/v1.0.6
 [v1.0.5]: https://github.com/derickschaefer/reserve/releases/tag/v1.0.5

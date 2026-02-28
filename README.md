@@ -13,6 +13,7 @@ Federal Reserve Bank of St. Louis FRED® API.
 
 - [Why reserve?](#why-reserve)
 - [Install](#install)
+- [Release Integrity](#release-integrity)
 - [Quick Start](#quick-start)
 - [Design Philosophy](#design-philosophy)
 - [The Command Model](#the-command-model)
@@ -83,6 +84,28 @@ go install github.com/derickschaefer/reserve@latest
 ```
 
 Requires Go 1.25.7+.
+
+---
+
+## Release Integrity
+
+Release assets are signed with **keyless Sigstore/cosign signatures** from
+GitHub Actions OIDC.
+
+- Workflow: `.github/workflows/release-keyless.yml`
+- Verification guide: [`docs/release-security.md`](docs/release-security.md)
+
+Quick verification (after downloading release assets):
+
+```bash
+sha256sum -c SHA256SUMS
+cosign verify-blob \
+  --certificate SHA256SUMS.pem \
+  --signature SHA256SUMS.sig \
+  --certificate-identity-regexp '^https://github.com/derickschaefer/reserve/\.github/workflows/release-keyless\.yml@refs/tags/v[0-9].*$' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  SHA256SUMS
+```
 
 ---
 
@@ -575,10 +598,10 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash 
-reserve v1.0.5
+reserve v1.0.6
 go      go1.25.7
 os      linux/amd64
-built   2026-02-16T18:42:00Z
+built   2026-02-28T18:42:00Z
 ```
 
 ---

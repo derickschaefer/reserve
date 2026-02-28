@@ -16,7 +16,7 @@ import (
 //
 // Set once in the Makefile VERSION variable; never edit this string directly
 // for a release.
-var Version = "v1.0.5"
+var Version = "v1.0.6"
 
 // versionInfo is the structured payload for --format json output.
 // All fields are exported so encoding/json picks them up.
@@ -31,7 +31,7 @@ type versionInfo struct {
 // BuildTime is optionally injected at build time alongside Version:
 //
 //	-ldflags "-X github.com/derickschaefer/reserve/cmd.Version=v1.0.6
-//	           -X github.com/derickschaefer/reserve/cmd.BuildTime=2026-02-16T12:00:00Z"
+//	           -X github.com/derickschaefer/reserve/cmd.BuildTime=2026-02-28T12:00:00Z"
 var BuildTime = ""
 
 var versionCmd = &cobra.Command{

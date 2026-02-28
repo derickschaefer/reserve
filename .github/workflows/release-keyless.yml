@@ -1,0 +1,122 @@
+name: release-keyless
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+  release:
+    name: build-sign-release
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      BINARY: reserve
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          targets=(
+            "linux amd64"
+            "linux arm64"
+            "darwin amd64"
+            "darwin arm64"
+            "windows amd64"
+            "windows arm64"
+          )
+
+          for target in "${targets[@]}"; do
+            read -r GOOS GOARCH <<<"$target"
+            ext=""
+            if [[ "$GOOS" == "windows" ]]; then
+              ext=".exe"
+            fi
+
+            out="dist/${BINARY}_${VERSION}_${GOOS}_${GOARCH}${ext}"
+            CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags="-s -w" -o "$out" .
+
+            if [[ "$GOOS" == "windows" ]]; then
+              (cd dist && zip -q "${BINARY}_${VERSION}_${GOOS}_${GOARCH}.zip" "$(basename "$out")")
+              rm -f "$out"
+            else
+              (cd dist && tar -czf "${BINARY}_${VERSION}_${GOOS}_${GOARCH}.tar.gz" "$(basename "$out")")
+              rm -f "$out"
+            fi
+          done
+
+      - name: Create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum *.tar.gz *.zip > SHA256SUMS)
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Keyless sign checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign sign-blob \
+            --yes \
+            --output-signature dist/SHA256SUMS.sig \
+            --output-certificate dist/SHA256SUMS.pem \
+            dist/SHA256SUMS
+
+      - name: Verify signed checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign verify-blob \
+            --certificate dist/SHA256SUMS.pem \
+            --signature dist/SHA256SUMS.sig \
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\\.github/workflows/release-keyless\\.yml@refs/tags/${GITHUB_REF_NAME}$" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            dist/SHA256SUMS
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS
+            dist/SHA256SUMS.sig
+            dist/SHA256SUMS.pem
+          generate_release_notes: true

@@ -1,5 +1,6 @@
 BINARY   := reserve
-VERSION  := v1.0.5
+VERSION  := v1.0.6
+RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
              -X github.com/derickschaefer/reserve/cmd.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -20,17 +21,17 @@ BENCH_OUT_V2   := bench_v2exp.txt
 .PHONY: build test test-all test-unit test-integration \
         test-analyze test-chart test-config test-pipeline test-store test-transform \
         test-cover bench bench-v2 bench-compare bench-parity bench-identity \
-        bench-setup lint clean run install help
+        bench-setup lint clean run install verify-signature release-checksums help
 
 ## ── Build ────────────────────────────────────────────────────────────────────
 
 ## build: compile the reserve binary
 build:
-	go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) .
+	GOCACHE=$(GOCACHE_DIR) go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) .
 
 ## install: install to $$GOPATH/bin
 install:
-	go install $(GOFLAGS) $(LDFLAGS) .
+	GOCACHE=$(GOCACHE_DIR) go install $(GOFLAGS) $(LDFLAGS) .
 
 ## run: build and run with args  (usage: make run ARGS="series get GDP")
 run: build
@@ -147,6 +148,28 @@ bench-identity:
 ## lint: vet all packages
 lint:
 	GOCACHE=$(GOCACHE_DIR) go vet $(GOFLAGS) ./...
+
+## release-checksums: generate SHA256SUMS for archives in ./dist
+release-checksums:
+	@cd dist && sha256sum *.tar.gz *.zip > SHA256SUMS
+	@echo "Wrote dist/SHA256SUMS"
+
+## verify-signature: verify keyless cosign signature for dist/SHA256SUMS (optional RELEASE_TAG=vX.Y.Z)
+verify-signature:
+	@if ! command -v cosign > /dev/null 2>&1; then \
+		echo "cosign not found. Install from https://docs.sigstore.dev/cosign/system_config/installation/"; \
+		exit 1; \
+	fi
+	@if [ -z "$(RELEASE_TAG)" ]; then \
+		echo "Usage: make verify-signature RELEASE_TAG=v1.0.6"; \
+		exit 1; \
+	fi
+	cosign verify-blob \
+		--certificate dist/SHA256SUMS.pem \
+		--signature dist/SHA256SUMS.sig \
+		--certificate-identity-regexp '^https://github.com/derickschaefer/reserve/\.github/workflows/release-keyless\.yml@refs/tags/$(RELEASE_TAG)$$' \
+		--certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+		dist/SHA256SUMS
 
 ## ── Cleanup ──────────────────────────────────────────────────────────────────
 
