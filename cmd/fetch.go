@@ -57,12 +57,10 @@ var fetchSeriesCmd = &cobra.Command{
 		ids := normaliseIDs(args)
 		format := resolveFormat(deps.Config.Format)
 
-		// --store implies --with-obs
-		if fetchStore {
-			fetchWithObs = true
-		}
+		// --store implies --with-obs for this invocation only.
+		withObs := fetchWithObs || fetchStore
 
-		if !fetchWithObs {
+		if !withObs {
 			// Metadata only
 			metas, warnings := batchGetSeries(cmd.Context(), deps, ids)
 			sort.Slice(metas, func(i, j int) bool { return metas[i].ID < metas[j].ID })

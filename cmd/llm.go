@@ -3,8 +3,8 @@ package cmd
 // cmd/llm.go — machine-readable context document for LLM onboarding.
 //
 // Usage:
-//   reserve llm                          # start bundle — paste into your LLM session
-//   reserve llm --topic start            # same as bare reserve llm
+//   reserve llm                          # table of contents (default) — start here
+//   reserve llm --topic start            # curated onboarding bundle
 //   reserve llm --topic toc              # table of contents / two-step handshake
 //   reserve llm --topic pipeline         # stdin/stdout semantics
 //   reserve llm --topic commands         # full command reference
@@ -61,9 +61,8 @@ var llmCmd = &cobra.Command{
 semantics, verified examples, and known gotchas — formatted for efficient
 LLM context window ingestion.
 
-Bare 'reserve llm' emits the curated start bundle — the minimum context an
-LLM needs to work confidently with reserve in a single command. Paste the
-output into your LLM session and start asking questions.
+Bare 'reserve llm' emits a table of contents for topic-driven onboarding.
+Use --topic start for a curated one-shot onboarding bundle.
 
 Two-step handshake pattern (token-conservative):
   1. reserve llm --topic toc
@@ -76,8 +75,8 @@ For large context windows:
   reserve llm --topic all
 
 Topics:
-  start       Curated onboarding bundle (default) — commands, pipeline, gotchas, examples
-  toc         Topic index and interaction guide — use for the two-step handshake
+  start       Curated onboarding bundle — commands, pipeline, gotchas, examples
+  toc         Topic index and interaction guide (default) — use for the two-step handshake
   commands    Full command reference
   pipeline    stdin/stdout and JSONL semantics
   data-model  Types, NaN handling, Result envelope
@@ -85,7 +84,8 @@ Topics:
   gotchas     Sharp edges and known limitations
   version     Build metadata and provenance
   all         Everything (for large context windows)`,
-	Example: `  reserve llm                              # start here — paste into your LLM session
+	Example: `  reserve llm                              # start here — table of contents
+  reserve llm --topic start                # curated onboarding bundle
   reserve llm --topic toc                  # two-step handshake (token-conservative)
   reserve llm --topic pipeline,gotchas     # surgical context
   reserve llm --topic all | pbcopy         # full context for large windows
@@ -99,13 +99,19 @@ Topics:
 			format = "json"
 		}
 
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+
 		switch format {
 		case "jsonl":
-			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc := json.NewEncoder(w)
 			enc.SetEscapeHTML(false)
 			return enc.Encode(doc)
 		default:
-			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			enc.SetEscapeHTML(false)
 			return enc.Encode(doc)
@@ -115,7 +121,7 @@ Topics:
 
 func init() {
 	rootCmd.AddCommand(llmCmd)
-	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "start",
+	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "toc",
 		"topic(s) to emit: start|toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
 }
 
@@ -123,7 +129,7 @@ func init() {
 
 func parseLLMTopics(flag string) []string {
 	if flag == "" {
-		flag = "start"
+		flag = "toc"
 	}
 	if flag == "all" {
 		all := make([]string, len(topicRegistry))
@@ -228,7 +234,7 @@ func buildTOC() map[string]any {
 			"Every command reads/writes a uniform Result envelope. " +
 			"Pipeline operators communicate via JSONL on stdin/stdout.",
 		"topics":       topics,
-		"quick_start":  "reserve llm  — emits the curated start bundle; paste into your LLM session and begin",
+		"quick_start":  "reserve llm  — emits topic index; then request focused topics",
 		"multi_topic":  "reserve llm --topic pipeline,gotchas",
 		"full_context": "reserve llm --topic all",
 		"prompt_template": "I am pasting the output of `reserve llm --topic <topics>`. " +

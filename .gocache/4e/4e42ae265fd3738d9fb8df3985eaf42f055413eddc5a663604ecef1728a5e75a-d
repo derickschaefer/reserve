@@ -1,0 +1,22 @@
+=== RUN   TestOutputWriterDefault
+--- PASS: TestOutputWriterDefault (0.00s)
+=== RUN   TestOutputWriterFile
+--- PASS: TestOutputWriterFile (0.00s)
+=== RUN   TestParseIntIDAllowsZero
+--- PASS: TestParseIntIDAllowsZero (0.00s)
+=== RUN   TestParseLLMTopicsDefaultIsTOC
+--- PASS: TestParseLLMTopicsDefaultIsTOC (0.00s)
+=== RUN   TestParseLLMTopicsAll
+--- PASS: TestParseLLMTopicsAll (0.00s)
+=== RUN   TestLatestRowRoundTripPreservesNumericValue
+--- PASS: TestLatestRowRoundTripPreservesNumericValue (0.00s)
+=== RUN   TestLatestRowRoundTripPreservesNaN
+--- PASS: TestLatestRowRoundTripPreservesNaN (0.00s)
+=== RUN   TestNewSnapshotIDIsULIDLike
+--- PASS: TestNewSnapshotIDIsULIDLike (0.00s)
+=== RUN   TestNewSnapshotIDUniqueness
+--- PASS: TestNewSnapshotIDUniqueness (0.00s)
+=== RUN   TestNewSnapshotIDSortability
+--- PASS: TestNewSnapshotIDSortability (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/cmd	0.206s

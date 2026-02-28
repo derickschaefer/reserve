@@ -1,6 +1,6 @@
 module github.com/derickschaefer/reserve
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/olekukonko/tablewriter v0.0.5

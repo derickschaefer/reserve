@@ -1,0 +1,40 @@
+=== RUN   TestBarBasic
+--- PASS: TestBarBasic (0.00s)
+=== RUN   TestBarAllNaN
+--- PASS: TestBarAllNaN (0.00s)
+=== RUN   TestBarSingleObservation
+--- PASS: TestBarSingleObservation (0.00s)
+=== RUN   TestBarNaNFiltered
+--- PASS: TestBarNaNFiltered (0.00s)
+=== RUN   TestBarMaxBars
+--- PASS: TestBarMaxBars (0.00s)
+=== RUN   TestBarNegativeValues
+--- PASS: TestBarNegativeValues (0.00s)
+=== RUN   TestBarFlatSeries
+--- PASS: TestBarFlatSeries (0.00s)
+=== RUN   TestBarDensityWarning
+--- PASS: TestBarDensityWarning (0.00s)
+=== RUN   TestBarDateFormatAnnual
+--- PASS: TestBarDateFormatAnnual (0.00s)
+=== RUN   TestBarDateFormatMonthly
+--- PASS: TestBarDateFormatMonthly (0.00s)
+=== RUN   TestPlotBasic
+--- PASS: TestPlotBasic (0.00s)
+=== RUN   TestPlotLineCount
+--- PASS: TestPlotLineCount (0.00s)
+=== RUN   TestPlotTitleOverride
+--- PASS: TestPlotTitleOverride (0.00s)
+=== RUN   TestPlotAllNaN
+--- PASS: TestPlotAllNaN (0.00s)
+=== RUN   TestPlotSingleObservation
+--- PASS: TestPlotSingleObservation (0.00s)
+=== RUN   TestPlotNaNGaps
+--- PASS: TestPlotNaNGaps (0.00s)
+=== RUN   TestPlotFlatSeries
+--- PASS: TestPlotFlatSeries (0.00s)
+=== RUN   TestPlotWidthRespected
+--- PASS: TestPlotWidthRespected (0.00s)
+=== RUN   TestPlotXAxisLabels
+--- PASS: TestPlotXAxisLabels (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/internal/chart	0.323s

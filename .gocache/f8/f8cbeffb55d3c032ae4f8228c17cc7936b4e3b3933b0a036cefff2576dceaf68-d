@@ -1,0 +1,54 @@
+=== RUN   TestReadBasicFloat
+--- PASS: TestReadBasicFloat (0.00s)
+=== RUN   TestReadNullValueBecomesNaN
+--- PASS: TestReadNullValueBecomesNaN (0.00s)
+=== RUN   TestReadDotStringValueBecomesNaN
+--- PASS: TestReadDotStringValueBecomesNaN (0.00s)
+=== RUN   TestReadEmptyStringValueBecomesNaN
+--- PASS: TestReadEmptyStringValueBecomesNaN (0.00s)
+=== RUN   TestReadSeriesIDFromFirstRecord
+--- PASS: TestReadSeriesIDFromFirstRecord (0.00s)
+=== RUN   TestReadSeriesIDEmptyWhenAbsent
+--- PASS: TestReadSeriesIDEmptyWhenAbsent (0.00s)
+=== RUN   TestReadDateParsed
+--- PASS: TestReadDateParsed (0.00s)
+=== RUN   TestReadValueRawPreserved
+--- PASS: TestReadValueRawPreserved (0.00s)
+=== RUN   TestReadValueRawDefaultsForNull
+--- PASS: TestReadValueRawDefaultsForNull (0.00s)
+=== RUN   TestReadSkipsBlankLines
+--- PASS: TestReadSkipsBlankLines (0.00s)
+=== RUN   TestReadSkipsCommentLines
+--- PASS: TestReadSkipsCommentLines (0.00s)
+=== RUN   TestReadEmptyInputError
+--- PASS: TestReadEmptyInputError (0.00s)
+=== RUN   TestReadBlankOnlyInputError
+--- PASS: TestReadBlankOnlyInputError (0.00s)
+=== RUN   TestReadInvalidJSONError
+--- PASS: TestReadInvalidJSONError (0.00s)
+=== RUN   TestReadInvalidDateError
+--- PASS: TestReadInvalidDateError (0.00s)
+=== RUN   TestReadUnexpectedStringValueError
+--- PASS: TestReadUnexpectedStringValueError (0.00s)
+=== RUN   TestReadLargeInput
+--- PASS: TestReadLargeInput (0.00s)
+=== RUN   TestWriteBasicFloat
+--- PASS: TestWriteBasicFloat (0.00s)
+=== RUN   TestWriteNaNAsNull
+--- PASS: TestWriteNaNAsNull (0.00s)
+=== RUN   TestWriteDateFormat
+--- PASS: TestWriteDateFormat (0.00s)
+=== RUN   TestWriteValueRawPreserved
+--- PASS: TestWriteValueRawPreserved (0.00s)
+=== RUN   TestWriteOneLinePerObservation
+--- PASS: TestWriteOneLinePerObservation (0.00s)
+=== RUN   TestWriteEmptySlice
+--- PASS: TestWriteEmptySlice (0.00s)
+=== RUN   TestRoundTrip
+--- PASS: TestRoundTrip (0.00s)
+=== RUN   TestRoundTripManyObservations
+--- PASS: TestRoundTripManyObservations (0.00s)
+=== RUN   TestRoundTripSeriesIDPreserved
+--- PASS: TestRoundTripSeriesIDPreserved (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/internal/pipeline	0.458s

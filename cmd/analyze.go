@@ -37,8 +37,13 @@ var analyzeSummaryCmd = &cobra.Command{
 		s := analyze.Summarize(seriesID, obs)
 
 		format := resolveFormat("")
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
 		if format == "json" {
-			enc := json.NewEncoder(os.Stdout)
+			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			return enc.Encode(s)
 		}
@@ -61,7 +66,7 @@ var analyzeSummaryCmd = &cobra.Command{
 			{"change", fmtStat(s.Change)},
 			{"change_pct", fmtStatPct(s.ChangePct)},
 		}
-		printKVTable(rows)
+		printKVTableTo(w, rows)
 		return nil
 	},
 }
@@ -87,8 +92,13 @@ var analyzeTrendCmd = &cobra.Command{
 		}
 
 		format := resolveFormat("")
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
 		if format == "json" {
-			enc := json.NewEncoder(os.Stdout)
+			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			return enc.Encode(tr)
 		}
@@ -102,7 +112,7 @@ var analyzeTrendCmd = &cobra.Command{
 			{"intercept", fmt.Sprintf("%.4f", tr.Intercept)},
 			{"r2", fmt.Sprintf("%.4f", tr.R2)},
 		}
-		printKVTable(rows)
+		printKVTableTo(w, rows)
 		return nil
 	},
 }

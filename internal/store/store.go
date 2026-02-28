@@ -20,11 +20,13 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -381,17 +383,22 @@ func (s *Store) GetObs(key string) (model.SeriesData, bool, error) {
 // Pass seriesID="" to list all keys.
 func (s *Store) ListObsKeys(seriesID string) ([]string, error) {
 	prefix := []byte("series:")
+	base := "series:"
 	if seriesID != "" {
 		prefix = []byte("series:" + seriesID)
+		base = "series:" + seriesID
 	}
 	var keys []string
 	err := s.db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket(bucketObs).Cursor()
 		for k, _ := c.Seek(prefix); k != nil; k, _ = c.Next() {
-			if len(k) < len(prefix) {
+			if !bytes.HasPrefix(k, prefix) {
 				break
 			}
-			keys = append(keys, string(k))
+			ks := string(k)
+			if seriesID == "" || ks == base || strings.HasPrefix(ks, base+"|") {
+				keys = append(keys, ks)
+			}
 		}
 		return nil
 	})

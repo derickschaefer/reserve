@@ -30,6 +30,34 @@ var (
 	obsLimit int
 )
 
+type latestRow struct {
+	SeriesID string
+	Date     string
+	ValueNum float64
+	Value    string
+}
+
+func latestRowFromObservation(seriesID string, obs *model.Observation) latestRow {
+	return latestRow{
+		SeriesID: seriesID,
+		Date:     obs.Date.Format("2006-01-02"),
+		ValueNum: obs.Value,
+		Value:    obs.ValueRaw,
+	}
+}
+
+func latestRowToSeriesData(r latestRow) *model.SeriesData {
+	t, _ := time.Parse("2006-01-02", r.Date)
+	return &model.SeriesData{
+		SeriesID: r.SeriesID,
+		Obs: []model.Observation{{
+			Date:     t,
+			Value:    r.ValueNum,
+			ValueRaw: r.Value,
+		}},
+	}
+}
+
 // ─── obs get ──────────────────────────────────────────────────────────────────
 
 var obsGetCmd = &cobra.Command{
@@ -143,11 +171,6 @@ var obsLatestCmd = &cobra.Command{
 		ids := normaliseIDs(args)
 		format := resolveFormat(deps.Config.Format)
 
-		type latestRow struct {
-			SeriesID string
-			Date     string
-			Value    string
-		}
 		var rows []latestRow
 		var warnings []string
 
@@ -157,11 +180,7 @@ var obsLatestCmd = &cobra.Command{
 				warnings = append(warnings, fmt.Sprintf("%s: %v", id, err))
 				continue
 			}
-			rows = append(rows, latestRow{
-				SeriesID: id,
-				Date:     obs.Date.Format("2006-01-02"),
-				Value:    obs.ValueRaw,
-			})
+			rows = append(rows, latestRowFromObservation(id, obs))
 		}
 
 		if format == render.FormatTable || format == "" {
@@ -178,14 +197,7 @@ var obsLatestCmd = &cobra.Command{
 
 		// For other formats, build a SeriesData result per series
 		for _, r := range rows {
-			t, _ := time.Parse("2006-01-02", r.Date)
-			data := &model.SeriesData{
-				SeriesID: r.SeriesID,
-				Obs: []model.Observation{{
-					Date:     t,
-					ValueRaw: r.Value,
-				}},
-			}
+			data := latestRowToSeriesData(r)
 			result := &model.Result{
 				Kind:        model.KindSeriesData,
 				GeneratedAt: time.Now(),

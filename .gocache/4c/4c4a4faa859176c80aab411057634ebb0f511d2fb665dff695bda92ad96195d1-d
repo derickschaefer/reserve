@@ -1,0 +1,6 @@
+./category.go
+./client.go
+./release.go
+./series.go
+./source.go
+./tag.go

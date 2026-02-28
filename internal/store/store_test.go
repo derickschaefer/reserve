@@ -385,6 +385,23 @@ func TestListObsKeysBySeriesPrefix(t *testing.T) {
 	}
 }
 
+func TestListObsKeysExactSeriesPrefixBoundary(t *testing.T) {
+	s := testDB(t)
+	_ = s.PutObs(store.ObsKey("GDP", "", "", "", "", ""), makeSeriesData("GDP", 2020, 1, 1.0))
+	_ = s.PutObs(store.ObsKey("GDPDEF", "", "", "", "", ""), makeSeriesData("GDPDEF", 2020, 1, 2.0))
+
+	keys, err := s.ListObsKeys("GDP")
+	if err != nil {
+		t.Fatalf("ListObsKeys: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Fatalf("expected exactly 1 GDP key, got %d: %v", len(keys), keys)
+	}
+	if keys[0] != "series:GDP" {
+		t.Fatalf("expected GDP key only, got %q", keys[0])
+	}
+}
+
 func TestListObsKeysEmpty(t *testing.T) {
 	s := testDB(t)
 	keys, err := s.ListObsKeys("")

@@ -37,15 +37,21 @@ var releaseListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+
 		format := resolveFormat(deps.Config.Format)
 		if !deps.Config.Quiet {
-			fmt.Fprintf(cmd.OutOrStdout(), "Total releases: %d\n\n", len(releases))
+			fmt.Fprintf(w, "Total releases: %d\n\n", len(releases))
 		}
-		if err := render.RenderReleases(cmd.OutOrStdout(), releases, format); err != nil {
+		if err := render.RenderReleases(w, releases, format); err != nil {
 			return err
 		}
 		if deps.Config.Verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "\n[%d items • %dms]\n", len(releases), time.Since(start).Milliseconds())
+			fmt.Fprintf(w, "\n[%d items • %dms]\n", len(releases), time.Since(start).Milliseconds())
 		}
 		return nil
 	},
@@ -75,8 +81,14 @@ var releaseGetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+
 		format := resolveFormat(deps.Config.Format)
-		return render.RenderReleases(cmd.OutOrStdout(), []model.Release{*rel}, format)
+		return render.RenderReleases(w, []model.Release{*rel}, format)
 	},
 }
 
@@ -106,9 +118,15 @@ var releaseDatesCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+
 		format := resolveFormat(deps.Config.Format)
 		if format == render.FormatTable || format == "" {
-			printSimpleTable(cmd.OutOrStdout(), []string{"RELEASE ID", "RELEASE NAME", "DATE"}, func(add func(...string)) {
+			printSimpleTable(w, []string{"RELEASE ID", "RELEASE NAME", "DATE"}, func(add func(...string)) {
 				for _, d := range dates {
 					add(fmt.Sprintf("%d", d.ReleaseID), d.ReleaseName, d.Date)
 				}
@@ -121,7 +139,7 @@ var releaseDatesCmd = &cobra.Command{
 			Command:     fmt.Sprintf("release dates %d", id),
 			Data:        dates,
 		}
-		return render.RenderTo(globalFlags.Out, result, format)
+		return render.Render(w, result, format)
 	},
 }
 

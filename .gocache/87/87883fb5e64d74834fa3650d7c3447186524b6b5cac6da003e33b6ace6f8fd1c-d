@@ -1,0 +1,130 @@
+=== RUN   TestPctChangePeriod1
+--- PASS: TestPctChangePeriod1 (0.00s)
+=== RUN   TestPctChangePeriod12
+--- PASS: TestPctChangePeriod12 (0.00s)
+=== RUN   TestPctChangeNaNPropagates
+--- PASS: TestPctChangeNaNPropagates (0.00s)
+=== RUN   TestPctChangeZeroDenominator
+--- PASS: TestPctChangeZeroDenominator (0.00s)
+=== RUN   TestPctChangeInvalidPeriod
+--- PASS: TestPctChangeInvalidPeriod (0.00s)
+=== RUN   TestPctChangeTooFewObs
+--- PASS: TestPctChangeTooFewObs (0.00s)
+=== RUN   TestPctChangeOutputLength
+--- PASS: TestPctChangeOutputLength (0.00s)
+=== RUN   TestPctChangeDatesPreserved
+--- PASS: TestPctChangeDatesPreserved (0.00s)
+=== RUN   TestDiffOrder1
+--- PASS: TestDiffOrder1 (0.00s)
+=== RUN   TestDiffOrder2
+--- PASS: TestDiffOrder2 (0.00s)
+=== RUN   TestDiffNaNPropagates
+--- PASS: TestDiffNaNPropagates (0.00s)
+=== RUN   TestDiffInvalidOrder
+--- PASS: TestDiffInvalidOrder (0.00s)
+=== RUN   TestDiffTooFewObs
+--- PASS: TestDiffTooFewObs (0.00s)
+=== RUN   TestLogPositiveValues
+--- PASS: TestLogPositiveValues (0.00s)
+=== RUN   TestLogNonPositiveProducesNaNAndWarning
+--- PASS: TestLogNonPositiveProducesNaNAndWarning (0.00s)
+=== RUN   TestLogNaNPassthrough
+--- PASS: TestLogNaNPassthrough (0.00s)
+=== RUN   TestLogOutputLength
+--- PASS: TestLogOutputLength (0.00s)
+=== RUN   TestIndexBasic
+--- PASS: TestIndexBasic (0.00s)
+=== RUN   TestIndexAnchorAtBase
+--- PASS: TestIndexAnchorAtBase (0.00s)
+=== RUN   TestIndexMissingAnchorDate
+--- PASS: TestIndexMissingAnchorDate (0.00s)
+=== RUN   TestIndexZeroAnchorValue
+--- PASS: TestIndexZeroAnchorValue (0.00s)
+=== RUN   TestIndexNaNAnchorValue
+--- PASS: TestIndexNaNAnchorValue (0.00s)
+=== RUN   TestIndexNaNPreserved
+--- PASS: TestIndexNaNPreserved (0.00s)
+=== RUN   TestNormalizeZScore
+--- PASS: TestNormalizeZScore (0.00s)
+=== RUN   TestNormalizeMinMax
+--- PASS: TestNormalizeMinMax (0.00s)
+=== RUN   TestNormalizeZScoreFlatSeries
+--- PASS: TestNormalizeZScoreFlatSeries (0.00s)
+=== RUN   TestNormalizeMinMaxFlatSeries
+--- PASS: TestNormalizeMinMaxFlatSeries (0.00s)
+=== RUN   TestNormalizeAllNaN
+--- PASS: TestNormalizeAllNaN (0.00s)
+=== RUN   TestNormalizeNaNPreserved
+--- PASS: TestNormalizeNaNPreserved (0.00s)
+=== RUN   TestNormalizeUnknownMethod
+--- PASS: TestNormalizeUnknownMethod (0.00s)
+=== RUN   TestResampleMonthlyToAnnualMean
+--- PASS: TestResampleMonthlyToAnnualMean (0.00s)
+=== RUN   TestResampleMonthlyToAnnualLast
+--- PASS: TestResampleMonthlyToAnnualLast (0.00s)
+=== RUN   TestResampleMonthlyToAnnualSum
+--- PASS: TestResampleMonthlyToAnnualSum (0.00s)
+=== RUN   TestResampleMonthlyToQuarterly
+--- PASS: TestResampleMonthlyToQuarterly (0.00s)
+=== RUN   TestResampleMultiYear
+--- PASS: TestResampleMultiYear (0.00s)
+=== RUN   TestResampleNaNSkipped
+--- PASS: TestResampleNaNSkipped (0.00s)
+=== RUN   TestResampleEmptyInput
+--- PASS: TestResampleEmptyInput (0.00s)
+=== RUN   TestResampleUnknownMethod
+--- PASS: TestResampleUnknownMethod (0.00s)
+=== RUN   TestResampleOutputDatesAreperiodStart
+--- PASS: TestResampleOutputDatesAreperiodStart (0.00s)
+=== RUN   TestFilterAfter
+--- PASS: TestFilterAfter (0.00s)
+=== RUN   TestFilterBefore
+--- PASS: TestFilterBefore (0.00s)
+=== RUN   TestFilterAfterAndBefore
+--- PASS: TestFilterAfterAndBefore (0.00s)
+=== RUN   TestFilterMinValue
+--- PASS: TestFilterMinValue (0.00s)
+=== RUN   TestFilterMaxValue
+--- PASS: TestFilterMaxValue (0.00s)
+=== RUN   TestFilterDropMissing
+--- PASS: TestFilterDropMissing (0.00s)
+=== RUN   TestFilterNaNKeptWhenDropMissingFalse
+--- PASS: TestFilterNaNKeptWhenDropMissingFalse (0.00s)
+=== RUN   TestFilterNoOptions
+--- PASS: TestFilterNoOptions (0.00s)
+=== RUN   TestFilterAllExcluded
+--- PASS: TestFilterAllExcluded (0.00s)
+=== RUN   TestRollMean
+--- PASS: TestRollMean (0.00s)
+=== RUN   TestRollMeanPartialWindow
+--- PASS: TestRollMeanPartialWindow (0.00s)
+=== RUN   TestRollMinPeriods
+--- PASS: TestRollMinPeriods (0.00s)
+=== RUN   TestRollStd
+--- PASS: TestRollStd (0.00s)
+=== RUN   TestRollMin
+--- PASS: TestRollMin (0.00s)
+=== RUN   TestRollMax
+--- PASS: TestRollMax (0.00s)
+=== RUN   TestRollSum
+--- PASS: TestRollSum (0.00s)
+=== RUN   TestRollNaNSkippedInWindow
+--- PASS: TestRollNaNSkippedInWindow (0.00s)
+=== RUN   TestRollNaNWindowBelowMinPeriods
+--- PASS: TestRollNaNWindowBelowMinPeriods (0.00s)
+=== RUN   TestRollInvalidWindow
+--- PASS: TestRollInvalidWindow (0.00s)
+=== RUN   TestRollMinPeriodsExceedsWindow
+--- PASS: TestRollMinPeriodsExceedsWindow (0.00s)
+=== RUN   TestRollUnknownStat
+--- PASS: TestRollUnknownStat (0.00s)
+=== RUN   TestRollPreservesLength
+--- PASS: TestRollPreservesLength (0.00s)
+=== RUN   TestRollPreservesDates
+--- PASS: TestRollPreservesDates (0.00s)
+=== RUN   TestPctChangeThenRoll
+--- PASS: TestPctChangeThenRoll (0.00s)
+=== RUN   TestResampleThenDiff
+--- PASS: TestResampleThenDiff (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/internal/transform	0.880s

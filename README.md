@@ -175,7 +175,7 @@ reserve llm --topic pipeline                # noun: llm (machine-readable contex
 ... | reserve chart
 ```
 
-Finally, two commands are standalone action verbs with no natural noun: `fetch` and `search`. `fetch` performs a batch accumulation across entity types; `search` performs a global full-text query across all FRED entity types. Neither belongs to a single resource, so no noun prefix applies.
+Finally, two commands are standalone action verbs with no natural noun: `fetch` and `search`. `fetch` performs a batch accumulation across entity types; `search` performs full-text query across supported global entities (series and tags). Neither belongs to a single resource, so no noun prefix applies.
 ```
 reserve fetch series GDP UNRATE CPIAUCSL --store
 reserve search "yield curve"
@@ -312,10 +312,10 @@ reserve tag related <TAG> [--limit N]
 
 ### search
 
-Global full-text search across all FRED entity types.
+Global full-text search across supported global entity types.
 
 ```bash
-reserve search "<query>" [--type series|category|release|tag|source|all] [--limit N]
+reserve search "<query>" [--type series|tag|all] [--limit N]
 ```
 
 Examples:
@@ -592,7 +592,7 @@ verified examples, and known gotchas — without requiring the LLM to crawl
 documentation or guess at flag names.
 
 ```bash
-reserve llm                              # table of contents — start here
+reserve llm                              # table of contents (default) — start here
 reserve llm --topic pipeline             # single topic
 reserve llm --topic pipeline,gotchas     # comma-separated topics
 reserve llm --topic all                  # full document (large context windows)
@@ -697,11 +697,11 @@ reserve store get CPIAUCSL --format jsonl --out cpi.jsonl
 
 ## Global Flags
 
-These flags apply to every command:
+These flags are available on every command:
 
 ```
 --format table|json|jsonl|csv|tsv|md    output format
---out <path>                            write output to file instead of stdout
+--out <path>                            write command output to file (renderer-backed commands)
 --api-key <key>                         override API key for this invocation only
 --timeout <duration>                    HTTP request timeout (default: 30s)
 --concurrency <n>                       parallel requests for batch operations (default: 8)

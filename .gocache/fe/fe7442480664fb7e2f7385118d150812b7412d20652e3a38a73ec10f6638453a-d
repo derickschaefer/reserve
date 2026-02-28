@@ -1,0 +1,42 @@
+=== RUN   TestLoadDefaults
+--- PASS: TestLoadDefaults (0.00s)
+=== RUN   TestLoadFromFile
+--- PASS: TestLoadFromFile (0.00s)
+=== RUN   TestLoadConfigPathRecorded
+--- PASS: TestLoadConfigPathRecorded (0.00s)
+=== RUN   TestLoadNoConfigFile
+--- PASS: TestLoadNoConfigFile (0.00s)
+=== RUN   TestLoadInvalidTimeoutIgnored
+--- PASS: TestLoadInvalidTimeoutIgnored (0.00s)
+=== RUN   TestLoadEnvAPIKeyOverridesFile
+--- PASS: TestLoadEnvAPIKeyOverridesFile (0.00s)
+=== RUN   TestLoadEnvDBPath
+--- PASS: TestLoadEnvDBPath (0.00s)
+=== RUN   TestLoadFlagAPIKeyOverridesEnvAndFile
+--- PASS: TestLoadFlagAPIKeyOverridesEnvAndFile (0.00s)
+=== RUN   TestLoadFlagEmptyDoesNotOverride
+--- PASS: TestLoadFlagEmptyDoesNotOverride (0.00s)
+=== RUN   TestValidateWithAPIKey
+--- PASS: TestValidateWithAPIKey (0.00s)
+=== RUN   TestValidateWithoutAPIKey
+--- PASS: TestValidateWithoutAPIKey (0.00s)
+=== RUN   TestValidateErrorMentionsAPIKey
+--- PASS: TestValidateErrorMentionsAPIKey (0.00s)
+=== RUN   TestRedactedAPIKeyNormal
+--- PASS: TestRedactedAPIKeyNormal (0.00s)
+=== RUN   TestRedactedAPIKeyShort
+--- PASS: TestRedactedAPIKeyShort (0.00s)
+=== RUN   TestRedactedAPIKeyNotPlaintext
+--- PASS: TestRedactedAPIKeyNotPlaintext (0.00s)
+=== RUN   TestWriteFileRoundTrip
+--- PASS: TestWriteFileRoundTrip (0.00s)
+=== RUN   TestWriteFilePermissions
+--- PASS: TestWriteFilePermissions (0.00s)
+=== RUN   TestWriteFileIsValidJSON
+--- PASS: TestWriteFileIsValidJSON (0.00s)
+=== RUN   TestTemplateDefaults
+--- PASS: TestTemplateDefaults (0.00s)
+=== RUN   TestTemplateBaseURL
+--- PASS: TestTemplateBaseURL (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/internal/config	0.708s

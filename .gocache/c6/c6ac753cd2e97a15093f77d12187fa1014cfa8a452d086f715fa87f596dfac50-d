@@ -1,0 +1,62 @@
+=== RUN   TestSummarizeBasicCounts
+--- PASS: TestSummarizeBasicCounts (0.00s)
+=== RUN   TestSummarizeMeanAndStd
+--- PASS: TestSummarizeMeanAndStd (0.00s)
+=== RUN   TestSummarizeMinMax
+--- PASS: TestSummarizeMinMax (0.00s)
+=== RUN   TestSummarizeMedian
+--- PASS: TestSummarizeMedian (0.00s)
+=== RUN   TestSummarizeMedianEvenCount
+--- PASS: TestSummarizeMedianEvenCount (0.00s)
+=== RUN   TestSummarizePercentiles
+--- PASS: TestSummarizePercentiles (0.00s)
+=== RUN   TestSummarizeFirstLast
+--- PASS: TestSummarizeFirstLast (0.00s)
+=== RUN   TestSummarizeChange
+--- PASS: TestSummarizeChange (0.00s)
+=== RUN   TestSummarizeChangeZeroFirst
+--- PASS: TestSummarizeChangeZeroFirst (0.00s)
+=== RUN   TestSummarizeSkew
+--- PASS: TestSummarizeSkew (0.00s)
+=== RUN   TestSummarizeNaNExcludedFromStats
+--- PASS: TestSummarizeNaNExcludedFromStats (0.00s)
+=== RUN   TestSummarizeEmptyInput
+--- PASS: TestSummarizeEmptyInput (0.00s)
+=== RUN   TestSummarizeAllNaN
+--- PASS: TestSummarizeAllNaN (0.00s)
+=== RUN   TestSummarizeSingleValue
+--- PASS: TestSummarizeSingleValue (0.00s)
+=== RUN   TestTrendLinearUpward
+--- PASS: TestTrendLinearUpward (0.00s)
+=== RUN   TestTrendLinearDownward
+--- PASS: TestTrendLinearDownward (0.00s)
+=== RUN   TestTrendFlat
+--- PASS: TestTrendFlat (0.00s)
+=== RUN   TestTrendR2Range
+--- PASS: TestTrendR2Range (0.00s)
+=== RUN   TestTrendSlopePerYearConsistent
+--- PASS: TestTrendSlopePerYearConsistent (0.00s)
+=== RUN   TestTrendNaNExcluded
+--- PASS: TestTrendNaNExcluded (0.00s)
+=== RUN   TestTrendTooFewObs
+--- PASS: TestTrendTooFewObs (0.00s)
+=== RUN   TestTrendTooFewObsAfterNaN
+--- PASS: TestTrendTooFewObsAfterNaN (0.00s)
+=== RUN   TestTrendAllNaN
+--- PASS: TestTrendAllNaN (0.00s)
+=== RUN   TestTrendSeriesIDPreserved
+--- PASS: TestTrendSeriesIDPreserved (0.00s)
+=== RUN   TestTrendMethodPreserved
+--- PASS: TestTrendMethodPreserved (0.00s)
+=== RUN   TestTrendTheilSenUpward
+--- PASS: TestTrendTheilSenUpward (0.00s)
+=== RUN   TestTrendTheilSenRobustToOutlier
+--- PASS: TestTrendTheilSenRobustToOutlier (0.00s)
+=== RUN   TestTrendTheilSenR2Range
+--- PASS: TestTrendTheilSenR2Range (0.00s)
+=== RUN   TestSummarizeThenTrendDirection
+--- PASS: TestSummarizeThenTrendDirection (0.00s)
+=== RUN   TestSummarizeCountMatchesNonNaN
+--- PASS: TestSummarizeCountMatchesNonNaN (0.00s)
+PASS
+ok  	github.com/derickschaefer/reserve/internal/analyze	0.572s

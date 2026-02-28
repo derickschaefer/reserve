@@ -13,11 +13,14 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -25,6 +28,8 @@ import (
 
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
+	"github.com/derickschaefer/reserve/internal/render"
+	"github.com/derickschaefer/reserve/internal/store"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,6 +506,115 @@ func TestPartialFailureWarnings(t *testing.T) {
 	)
 
 	r.summary(t, "PARTIAL FAILURE / WARNINGS")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Group 9 — Value Semantics (offline, no network listeners)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestValueSemanticsOffline(t *testing.T) {
+	printBanner(t, "VALUE SEMANTICS")
+	r := &result{}
+
+	// 1) Rendering keeps numeric value fidelity across machine formats.
+	sd := &model.SeriesData{
+		SeriesID: "UNRATE",
+		Obs: []model.Observation{{
+			Date:     time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+			Value:    4.25,
+			ValueRaw: "4.25",
+		}},
+	}
+	res := &model.Result{Kind: model.KindSeriesData, Data: sd}
+
+	var jsonBuf bytes.Buffer
+	_ = render.Render(&jsonBuf, res, render.FormatJSON)
+	jsonOut := jsonBuf.String()
+	r.check(t, containsStr(jsonOut, `"value": 4.25`),
+		"JSON output preserves numeric value 4.25",
+		fmt.Sprintf("JSON output missing expected numeric value: %s", jsonOut),
+	)
+	r.check(t, !containsStr(jsonOut, `"value": 0`),
+		"JSON output does not regress to zero value",
+		fmt.Sprintf("JSON output regressed to zero value: %s", jsonOut),
+	)
+
+	var jsonlBuf bytes.Buffer
+	_ = render.Render(&jsonlBuf, res, render.FormatJSONL)
+	jsonlOut := jsonlBuf.String()
+	r.check(t, containsStr(jsonlOut, `"value":4.25`) || containsStr(jsonlOut, `"value": 4.25`),
+		"JSONL output preserves numeric value 4.25",
+		fmt.Sprintf("JSONL output missing expected numeric value: %s", jsonlOut),
+	)
+
+	var csvBuf bytes.Buffer
+	_ = render.Render(&csvBuf, res, render.FormatCSV)
+	csvOut := csvBuf.String()
+	r.check(t, containsStr(csvOut, ",4.25,"),
+		"CSV output preserves numeric value 4.25",
+		fmt.Sprintf("CSV output missing expected numeric value: %s", csvOut),
+	)
+
+	// 2) Missing values stay null (jsonl) and '.' in delimited output.
+	sdMissing := &model.SeriesData{
+		SeriesID: "UNRATE",
+		Obs: []model.Observation{{
+			Date:     time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+			Value:    math.NaN(),
+			ValueRaw: ".",
+		}},
+	}
+	missingRes := &model.Result{Kind: model.KindSeriesData, Data: sdMissing}
+
+	var missJSONL bytes.Buffer
+	_ = render.Render(&missJSONL, missingRes, render.FormatJSONL)
+	r.check(t, containsStr(missJSONL.String(), `"value":null`) || containsStr(missJSONL.String(), `"value": null`),
+		"JSONL output encodes missing values as null",
+		fmt.Sprintf("JSONL missing-value encoding wrong: %s", missJSONL.String()),
+	)
+
+	var missCSV bytes.Buffer
+	_ = render.Render(&missCSV, missingRes, render.FormatCSV)
+	r.check(t, containsStr(missCSV.String(), ",.,"),
+		"CSV output encodes missing values as '.'",
+		fmt.Sprintf("CSV missing-value encoding wrong: %s", missCSV.String()),
+	)
+
+	// 3) Store key lookup uses exact series boundary (GDP != GDPDEF).
+	dbPath := filepath.Join(t.TempDir(), "value-semantics.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer s.Close()
+
+	_ = s.PutObs(store.ObsKey("GDP", "", "", "", "", ""), model.SeriesData{
+		SeriesID: "GDP",
+		Obs: []model.Observation{{
+			Date:     time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Value:    1.0,
+			ValueRaw: "1",
+		}},
+	})
+	_ = s.PutObs(store.ObsKey("GDPDEF", "", "", "", "", ""), model.SeriesData{
+		SeriesID: "GDPDEF",
+		Obs: []model.Observation{{
+			Date:     time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Value:    2.0,
+			ValueRaw: "2",
+		}},
+	})
+
+	keys, err := s.ListObsKeys("GDP")
+	if err != nil {
+		t.Fatalf("ListObsKeys(GDP): %v", err)
+	}
+	r.check(t, len(keys) == 1 && keys[0] == "series:GDP",
+		"Store key lookup for GDP excludes GDPDEF",
+		fmt.Sprintf("exact-series boundary failed: keys=%v", keys),
+	)
+
+	r.summary(t, "VALUE SEMANTICS")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

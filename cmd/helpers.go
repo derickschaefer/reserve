@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -151,11 +152,24 @@ func printSimpleTable(w io.Writer, headers []string, fill func(add func(...strin
 	tw.Render()
 }
 
-// parseIntID parses a string as a positive integer ID, with a descriptive label for errors.
+// outputWriter returns the destination writer for command output.
+// If --out is set, it opens/creates that file and returns a closer.
+func outputWriter(defaultWriter io.Writer) (io.Writer, func() error, error) {
+	if globalFlags.Out == "" {
+		return defaultWriter, func() error { return nil }, nil
+	}
+	f, err := os.Create(globalFlags.Out)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating output file: %w", err)
+	}
+	return f, f.Close, nil
+}
+
+// parseIntID parses a string as a non-negative integer ID, with a descriptive label for errors.
 func parseIntID(s, label string) (int, error) {
 	var id int
 	if _, err := fmt.Sscanf(s, "%d", &id); err != nil || id < 0 {
-		return 0, fmt.Errorf("invalid %s %q: expected a positive integer", label, s)
+		return 0, fmt.Errorf("invalid %s %q: expected a non-negative integer", label, s)
 	}
 	return id, nil
 }

@@ -18,11 +18,11 @@ var (
 
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
-	Short: "Search across all FRED entity types",
+	Short: "Search across supported global FRED entities",
 	Long: `Perform a full-text search across FRED.
 
 Use --type to restrict to a specific entity type:
-  series (default), category, release, tag, source, all`,
+  series (default), tag, all`,
 	Example: `  reserve search "consumer price index"
   reserve search "unemployment" --type series --limit 10
   reserve search "inflation" --type tag --format json`,

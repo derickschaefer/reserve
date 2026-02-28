@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
@@ -236,11 +238,44 @@ func init() {
 // ─── ID generation ────────────────────────────────────────────────────────────
 
 // newSnapshotID generates a time-sortable snapshot ID.
-// Format: YYYYMMDDHHmmss + 4 random hex chars — no external dependency needed.
+// Format: ULID (26 chars, Crockford base32).
 func newSnapshotID() string {
-	now := time.Now().UTC()
-	base := now.Format("20060102150405")
-	// Add pseudo-random suffix from nanoseconds
-	nano := now.UnixNano() & 0xFFFF
-	return fmt.Sprintf("%s%04x", base, nano)
+	var b [16]byte
+	ms := uint64(time.Now().UTC().UnixMilli())
+
+	// ULID stores 48-bit timestamp (ms) followed by 80 bits of randomness.
+	b[0] = byte(ms >> 40)
+	b[1] = byte(ms >> 32)
+	b[2] = byte(ms >> 24)
+	b[3] = byte(ms >> 16)
+	b[4] = byte(ms >> 8)
+	b[5] = byte(ms)
+
+	if _, err := rand.Read(b[6:]); err != nil {
+		// Rare fallback to deterministic bytes from time if entropy source fails.
+		binary.BigEndian.PutUint64(b[8:], uint64(time.Now().UTC().UnixNano()))
+	}
+	return encodeULIDBase32(b)
+}
+
+const ulidAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+func encodeULIDBase32(b [16]byte) string {
+	// 16 bytes = 128 bits = 26 Crockford base32 chars (130 bits, top 2 bits are zero).
+	out := make([]byte, 26)
+	bitPos := -2
+	for i := range out {
+		var v byte
+		for j := 0; j < 5; j++ {
+			v <<= 1
+			if bitPos >= 0 && bitPos < 128 {
+				byteIdx := bitPos / 8
+				shift := 7 - (bitPos % 8)
+				v |= (b[byteIdx] >> shift) & 1
+			}
+			bitPos++
+		}
+		out[i] = ulidAlphabet[v]
+	}
+	return string(out)
 }

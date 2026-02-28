@@ -1,0 +1,5 @@
+# test log
+getenv TMPDIR
+open /var/folders/ms/09cyfkq13_g615v8_fx534sc0000gn/T/TestOutputWriterFile3300046957/001/out.txt
+stat /var/folders/ms/09cyfkq13_g615v8_fx534sc0000gn/T/TestOutputWriterFile3300046957/001/out.txt
+open /var/folders/ms/09cyfkq13_g615v8_fx534sc0000gn/T

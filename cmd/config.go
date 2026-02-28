@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -78,6 +79,12 @@ var configGetCmd = &cobra.Command{
 
 		switch format {
 		case render.FormatJSON:
+			w, closeFn, err := outputWriter(cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
 			type configOut struct {
 				APIKey      string  `json:"api_key"`
 				Format      string  `json:"default_format"`
@@ -88,7 +95,7 @@ var configGetCmd = &cobra.Command{
 				DBPath      string  `json:"db_path"`
 				ConfigFile  string  `json:"config_file"`
 			}
-			enc := json.NewEncoder(os.Stdout)
+			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			return enc.Encode(configOut{
 				APIKey:      apiKey,
@@ -102,6 +109,12 @@ var configGetCmd = &cobra.Command{
 			})
 		default:
 			_ = result
+			w, closeFn, err := outputWriter(cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
 			rows := [][]string{
 				{"api_key", apiKey},
 				{"default_format", cfg.Format},
@@ -112,7 +125,7 @@ var configGetCmd = &cobra.Command{
 				{"db_path", cfg.DBPath},
 				{"config_file", src},
 			}
-			printKVTable(rows)
+			printKVTableTo(w, rows)
 			return nil
 		}
 	},
@@ -196,6 +209,10 @@ func loadConfigFile() (*config.File, string, error) {
 
 // printKVTable renders a two-column key/value table to stdout using aligned columns.
 func printKVTable(rows [][]string) {
+	printKVTableTo(os.Stdout, rows)
+}
+
+func printKVTableTo(w io.Writer, rows [][]string) {
 	maxKey := 0
 	for _, r := range rows {
 		if len(r[0]) > maxKey {
@@ -204,6 +221,6 @@ func printKVTable(rows [][]string) {
 	}
 	for _, r := range rows {
 		padding := strings.Repeat(" ", maxKey-len(r[0]))
-		fmt.Printf("  %s%s  %s\n", r[0], padding, r[1])
+		fmt.Fprintf(w, "  %s%s  %s\n", r[0], padding, r[1])
 	}
 }
