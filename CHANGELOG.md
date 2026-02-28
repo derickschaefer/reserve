@@ -1,12 +1,39 @@
 # Changelog
 
-THIS IS A DRAFT DOCUMENT AND WILL BE REFINED UPON v1.0.5 RELEASE
-
 All notable changes to `reserve` are documented here.
 
 The project uses **[Semantic Versioning](https://semver.org/)**. v1.0.5 is the
 first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### Unreleased (post-v1.0.5 maintenance)
+
+**Changed**
+
+- Go toolchain baseline updated to `go 1.25.7` in `go.mod` (from `1.25.5`)
+- `Makefile` test flow updated: `make test` now runs unit (`./cmd`, `./internal/...`) plus integration (`./tests/`)
+- `Makefile` test/lint/bench targets now use local `GOCACHE=$(CURDIR)/.gocache` for stable runs in sandboxed/restricted environments
+- `make test` output styling improved with phase banners and final suite summary
+
+**Fixed**
+
+- `obs latest` non-table output now preserves numeric value payloads (no zero-value regression in JSON/JSONL/CSV)
+- Store key lookup boundary handling now enforces exact series matching (`GDP` no longer collides with `GDPDEF`)
+- Snapshot ID generation now produces ULID-format IDs consistently
+- `fetch` command invocation state now avoids cross-run flag leakage
+- `llm` default topic aligned to `toc`
+- `parseIntID` messaging aligned with accepted non-negative integer semantics
+
+**Added**
+
+- New command-level unit tests (`cmd/*_test.go`) for:
+  - output writer behavior
+  - LLM topic parsing defaults
+  - `obs latest` value round-trip semantics
+  - snapshot ULID format/uniqueness/sortability
+- New integration test group `TestValueSemanticsOffline` with styled output and explicit value-fidelity assertions across JSON/JSONL/CSV and store key boundaries
 
 ---
 

@@ -82,7 +82,7 @@ Or install directly:
 go install github.com/derickschaefer/reserve@latest
 ```
 
-Requires Go 1.21+.
+Requires Go 1.25.7+.
 
 ---
 
@@ -576,7 +576,7 @@ Plain text output:
 
 ```bash 
 reserve v1.0.5
-go      go1.25.5
+go      go1.25.7
 os      linux/amd64
 built   2026-02-16T18:42:00Z
 ```
