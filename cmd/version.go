@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 package cmd
 
 import (
@@ -12,11 +15,11 @@ import (
 // Version is the canonical release string. The default here is the fallback
 // for `go run` and untagged builds. Production builds overwrite this via:
 //
-//	go build -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=v1.0.6"
+//	go build -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=v1.0.7"
 //
 // Set once in the Makefile VERSION variable; never edit this string directly
 // for a release.
-var Version = "v1.0.6"
+var Version = "v1.0.7"
 
 // versionInfo is the structured payload for --format json output.
 // All fields are exported so encoding/json picks them up.
@@ -30,7 +33,7 @@ type versionInfo struct {
 
 // BuildTime is optionally injected at build time alongside Version:
 //
-//	-ldflags "-X github.com/derickschaefer/reserve/cmd.Version=v1.0.6
+//	-ldflags "-X github.com/derickschaefer/reserve/cmd.Version=v1.0.7
 //	           -X github.com/derickschaefer/reserve/cmd.BuildTime=2026-02-28T12:00:00Z"
 var BuildTime = ""
 

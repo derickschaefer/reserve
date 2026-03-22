@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package fred implements the HTTP client for the Federal Reserve Bank of
 // St. Louis (FRED) API. All methods are context-aware, respect the shared
 // rate limiter, and retry on transient errors (429, 5xx).

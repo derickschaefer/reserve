@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package render converts Result values into human-readable or machine-parseable
 // output. Each format is a separate function; the top-level Render dispatcher
 // selects based on the format string.

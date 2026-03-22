@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 //go:build goexperiment.jsonv2
 
 // This file contains benchmarks that call encoding/json/v2 directly and a

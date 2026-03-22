@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package model defines the canonical data types used throughout reserve.
 // These types are the single source of truth for all FRED API entities and
 // the result envelope that every command returns.

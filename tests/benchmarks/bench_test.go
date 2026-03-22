@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package benchmarks measures encoding/json performance on real FRED API
 // payloads. Fixtures are pre-fetched FRED JSON responses committed to
 // tests/benchmarks/fixtures/ — no network access required at benchmark time.

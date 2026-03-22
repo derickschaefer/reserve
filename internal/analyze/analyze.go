@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package analyze computes statistical summaries and trend analysis over
 // slices of Observations. All functions are pure; no I/O.
 package analyze

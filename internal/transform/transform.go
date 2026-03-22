@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package transform implements stateless pipeline operators that take a slice
 // of Observations and return a new slice. Each operator is a pure function;
 // no side effects, no I/O.

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package chart provides ASCII terminal chart rendering for time series data.
 // Two renderers are available:
 //

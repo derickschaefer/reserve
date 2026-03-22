@@ -1,10 +1,14 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 package cmd
 
 // cmd/llm.go — machine-readable context document for LLM onboarding.
 //
 // Usage:
-//   reserve llm                          # table of contents (default) — start here
-//   reserve llm --topic start            # curated onboarding bundle
+//   reserve llm                          # full-program onboarding bundle
+//   reserve llm series                   # command-specific onboarding
+//   reserve llm --topic start            # curated topic slice
 //   reserve llm --topic toc              # table of contents / two-step handshake
 //   reserve llm --topic pipeline         # stdin/stdout semantics
 //   reserve llm --topic commands         # full command reference
@@ -16,7 +20,7 @@ package cmd
 //   reserve llm --topic all              # everything (large context)
 //
 // LLM onboarding workflow:
-//   1. reserve llm                       (paste output → LLM is ready immediately)
+//   1. reserve llm                       (paste output → LLM gets the whole program)
 //   3. Ask your macroeconomics question.
 //
 // Two-step handshake (token-conservative):
@@ -55,14 +59,15 @@ var topicRegistry = []llmTopic{
 var llmTopicFlag string
 
 var llmCmd = &cobra.Command{
-	Use:   "llm",
+	Use:   "llm [command]",
 	Short: "Emit a machine-readable context document for LLM onboarding",
 	Long: `Emit a structured JSON document describing reserve's commands, pipeline
 semantics, verified examples, and known gotchas — formatted for efficient
 LLM context window ingestion.
 
-Bare 'reserve llm' emits a table of contents for topic-driven onboarding.
-Use --topic start for a curated one-shot onboarding bundle.
+Bare 'reserve llm' emits the full-program onboarding bundle.
+Use 'reserve llm <command>' for command-specific onboarding.
+Use --topic when you want a program-level slice rather than the full bundle.
 
 Two-step handshake pattern (token-conservative):
   1. reserve llm --topic toc
@@ -83,16 +88,52 @@ Topics:
   examples    Verified real-world examples
   gotchas     Sharp edges and known limitations
   version     Build metadata and provenance
-  all         Everything (for large context windows)`,
-	Example: `  reserve llm                              # start here — table of contents
+  all         Everything (for large context windows)
+
+Command-specific onboarding:
+  reserve llm series
+  reserve llm config
+  reserve llm transform`,
+	Example: `  reserve llm                              # full-program onboarding
+  reserve llm series                       # command-specific onboarding
   reserve llm --topic start                # curated onboarding bundle
   reserve llm --topic toc                  # two-step handshake (token-conservative)
   reserve llm --topic pipeline,gotchas     # surgical context
   reserve llm --topic all | pbcopy         # full context for large windows
   reserve llm --topic version --format jsonl >> audit.jsonl`,
+	Args: cobra.MaximumNArgs(1),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		names := make([]string, 0, len(llmCommandRegistry))
+		for _, guide := range llmCommandRegistry {
+			if strings.HasPrefix(guide.Name, toComplete) {
+				names = append(names, guide.Name)
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		topics := parseLLMTopics(llmTopicFlag)
-		doc := buildLLMDoc(topics)
+		var doc map[string]any
+		var err error
+
+		switch {
+		case len(args) == 1:
+			if cmd.Flags().Changed("topic") {
+				return fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve llm --topic ...` or `reserve llm %s`", args[0])
+			}
+			var ok bool
+			doc, ok = buildCommandLLMDoc(args[0])
+			if !ok {
+				return fmt.Errorf("unknown llm command %q (available: %s)", args[0], strings.Join(llmCommandNames(), ", "))
+			}
+		case cmd.Flags().Changed("topic"):
+			topics := parseLLMTopics(llmTopicFlag)
+			doc = buildLLMDoc(topics)
+		default:
+			doc = buildProgramLLMDoc()
+		}
 
 		format := globalFlags.Format
 		if format == "" {
@@ -114,15 +155,16 @@ Topics:
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			enc.SetEscapeHTML(false)
-			return enc.Encode(doc)
+			err = enc.Encode(doc)
 		}
+		return err
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(llmCmd)
 	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "toc",
-		"topic(s) to emit: start|toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
+		"program-level topic(s) to emit: start|toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
 }
 
 // ─── Topic parsing ────────────────────────────────────────────────────────────
@@ -146,6 +188,14 @@ func parseLLMTopics(flag string) []string {
 	return out
 }
 
+func llmCommandNames() []string {
+	out := make([]string, 0, len(llmCommandRegistry))
+	for _, guide := range llmCommandRegistry {
+		out = append(out, guide.Name)
+	}
+	return out
+}
+
 // ─── Document builder ─────────────────────────────────────────────────────────
 
 func buildLLMDoc(topics []string) map[string]any {
@@ -154,14 +204,8 @@ func buildLLMDoc(topics []string) map[string]any {
 		set[t] = true
 	}
 
-	doc := map[string]any{
-		"tool":    "reserve",
-		"version": Version,
-		"llm_note": "This document was generated by `reserve llm`. " +
-			"It is the authoritative source for reserve's CLI semantics. " +
-			"Prefer it over general knowledge about FRED wrappers or similar tools. " +
-			"All examples have been verified against live FRED data.",
-	}
+	doc := buildBaseLLMDoc()
+	doc["scope"] = "topic"
 
 	if set["start"] {
 		doc["start"] = buildStart()
@@ -233,10 +277,12 @@ func buildTOC() map[string]any {
 			"It fetches, caches, transforms, and analyzes time series via a Unix pipeline model. " +
 			"Every command reads/writes a uniform Result envelope. " +
 			"Pipeline operators communicate via JSONL on stdin/stdout.",
+		"command_count": len(llmCommandRegistry),
+		"commands":      buildCommandIndex(),
 		"topics":       topics,
-		"quick_start":  "reserve llm  — emits topic index; then request focused topics",
+		"quick_start":  "reserve llm --topic toc  — emits topic index; then request focused topics",
 		"multi_topic":  "reserve llm --topic pipeline,gotchas",
-		"full_context": "reserve llm --topic all",
+		"full_context": "reserve llm  — full-program onboarding (or use `reserve llm --topic all`)",
 		"prompt_template": "I am pasting the output of `reserve llm --topic <topics>`. " +
 			"This is the authoritative reference for a CLI called reserve. " +
 			"Use it to answer my questions about fetching and analyzing FRED economic data. " +
@@ -313,156 +359,9 @@ func buildDataModel() map[string]any {
 
 func buildCommands() map[string]any {
 	return map[string]any{
-		"global_flags": map[string]any{
-			"--format":      "table|json|jsonl|csv|tsv|md  (default: table for terminal, jsonl when piped)",
-			"--out":         "write output to file instead of stdout",
-			"--api-key":     "FRED API key override (also: FRED_API_KEY env, config.json)",
-			"--timeout":     "HTTP request timeout e.g. 30s, 2m  (default: 30s)",
-			"--concurrency": "max parallel requests for batch operations  (default: 8)",
-			"--rate":        "API requests/sec client-side limit  (default: 5.0)",
-			"--verbose":     "show timing and cache stats after output",
-			"--debug":       "log HTTP requests with API key redacted",
-			"--quiet":       "suppress all non-error output",
-			"--no-cache":    "bypass local database reads",
-			"--refresh":     "force re-fetch and overwrite cached entries",
-		},
-		"nouns": map[string]any{
-			"obs": map[string]any{
-				"description": "Fetch live observations from the FRED API",
-				"verbs": map[string]any{
-					"get": map[string]any{
-						"usage":   "reserve obs get <SERIES_ID...>",
-						"flags":   "--start YYYY-MM-DD  --end YYYY-MM-DD  --freq M|Q|A  --units lin|chg|ch1|pch|pc1|pca|cch|cca|log  --agg avg|sum|eop  --limit N",
-						"note":    "CRITICAL: defaults to table format. Always add --format jsonl when piping to transform/window/analyze.",
-						"example": "reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl",
-					},
-					"latest": map[string]any{
-						"usage":   "reserve obs latest <SERIES_ID...>",
-						"example": "reserve obs latest FEDFUNDS UNRATE",
-					},
-				},
-			},
-			"series": map[string]any{
-				"description": "Discover and inspect FRED data series",
-				"verbs": map[string]any{
-					"get":        "reserve series get <SERIES_ID...>  — fetch metadata",
-					"search":     "reserve series search \"<query>\" [--limit N]",
-					"tags":       "reserve series tags <SERIES_ID>",
-					"categories": "reserve series categories <SERIES_ID>",
-					"related":    "reserve series related <SERIES_ID>",
-					"describe":   "reserve series describe <SERIES_ID>  — metadata + recent obs",
-				},
-			},
-			"store": map[string]any{
-				"description": "Read from local bbolt cache (populated by fetch)",
-				"verbs": map[string]any{
-					"get":  "reserve store get <SERIES_ID> [--format jsonl]  — primary pipeline source",
-					"list": "reserve store list  — show all cached series",
-				},
-				"note": "store get is preferred over obs get in pipelines — no API call, no rate limit.",
-			},
-			"fetch": map[string]any{
-				"description": "Pull data from FRED API and persist to local cache",
-				"verbs": map[string]any{
-					"series":   "reserve fetch series <SERIES_ID...> [--store]",
-					"category": "reserve fetch category <CATEGORY_ID>",
-					"query":    "reserve fetch query \"<search>\" [--limit N]",
-				},
-			},
-			"transform": map[string]any{
-				"description": "Stateless pipeline operators — read JSONL from stdin, emit JSONL to stdout",
-				"verbs": map[string]any{
-					"pct-change": "reserve transform pct-change [--period N]  default period=1 (MoM). Use --period 12 for YoY on monthly data.",
-					"diff":       "reserve transform diff [--order 1|2]  first or second difference",
-					"log":        "reserve transform log  natural log; non-positive values → NaN with warning",
-					"index":      "reserve transform index --base 100 --at YYYY-MM-DD  rescale so anchor date = base",
-					"normalize":  "reserve transform normalize [--method zscore|minmax]",
-					"resample":   "reserve transform resample --freq monthly|quarterly|annual --method mean|last|sum",
-					"filter":     "reserve transform filter [--after YYYY-MM-DD] [--before YYYY-MM-DD] [--min N] [--max N] [--drop-missing]",
-				},
-			},
-			"window": map[string]any{
-				"description": "Rolling window statistics — separate noun from transform",
-				"critical":    "This is `reserve window roll`, NOT `reserve transform roll`. A common mistake.",
-				"verbs": map[string]any{
-					"roll": "reserve window roll --stat mean|std|min|max|sum --window N [--min-periods M]",
-				},
-				"nan_behavior": "NaN values are skipped in window computation. If fewer than --min-periods valid values exist in a window, output is NaN.",
-			},
-			"analyze": map[string]any{
-				"description": "Statistical analysis — reads JSONL from stdin, prints results to terminal",
-				"verbs": map[string]any{
-					"summary": map[string]any{
-						"usage":  "reserve analyze summary",
-						"output": "series_id, count, missing (count + pct), mean, std, min, p25, median, p75, max, skew, first, last, change, change_pct",
-					},
-					"trend": map[string]any{
-						"usage":  "reserve analyze trend [--method linear|theil-sen]",
-						"output": "series_id, method, direction (up|down|flat), slope_per_day, slope_per_year, intercept, r2",
-						"note":   "theil-sen is robust to outliers; use for series with COVID spikes or structural breaks.",
-					},
-				},
-			},
-			"cache": map[string]any{
-				"description": "Manage local bbolt database",
-				"verbs": map[string]any{
-					"stats":   "reserve cache stats  — bucket row counts and DB file size",
-					"clear":   "reserve cache clear --all  |  --bucket obs|series_meta",
-					"compact": "reserve cache compact  — rewrite DB to reclaim freed space",
-				},
-			},
-			"snapshot": map[string]any{
-				"description": "Save and replay exact command lines for reproducible workflows",
-				"verbs": map[string]any{
-					"save":   "reserve snapshot save --name <n> --cmd \"<command>\"",
-					"list":   "reserve snapshot list",
-					"show":   "reserve snapshot show <ULID>",
-					"run":    "reserve snapshot run <ULID>",
-					"delete": "reserve snapshot delete <ULID>",
-				},
-				"note": "Snapshot IDs are ULIDs — lexicographically sortable and collision-resistant.",
-			},
-			"config": map[string]any{
-				"verbs": map[string]any{
-					"init": "reserve config init  — create config.json template",
-					"get":  "reserve config get [--show-secrets]",
-					"set":  "reserve config set <key> <value>",
-				},
-				"resolution_order": []string{
-					"1. --api-key CLI flag (highest priority)",
-					"2. FRED_API_KEY environment variable",
-					"3. api_key in config.json",
-				},
-				"db_path_resolution": []string{
-					"1. RESERVE_DB_PATH environment variable",
-					"2. db_path in config.json",
-					"3. ~/.reserve/reserve.db (default)",
-				},
-			},
-			"meta": map[string]any{
-				"description": "Batch metadata retrieval for series, categories, releases, sources, tags",
-				"verbs":       []string{"meta series", "meta category", "meta release", "meta source", "meta tag"},
-			},
-			"category": map[string]any{
-				"verbs": []string{"category get", "category list", "category tree", "category series"},
-			},
-			"release": map[string]any{
-				"verbs": []string{"release list", "release get", "release dates", "release series"},
-			},
-			"source": map[string]any{
-				"verbs": []string{"source list", "source get", "source releases"},
-			},
-			"tag": map[string]any{
-				"verbs": []string{"tag search", "tag series", "tag related"},
-			},
-			"search": map[string]any{
-				"usage": "reserve search \"<query>\" [--limit N]  — global full-text search across series",
-			},
-			"version": map[string]any{
-				"usage":   "reserve version [--format json|jsonl]",
-				"example": "reserve version --format jsonl >> audit.jsonl",
-			},
-		},
+		"global_flags":  buildGlobalFlags(),
+		"command_count": len(llmCommandRegistry),
+		"commands":      buildCommandGuides(),
 	}
 }
 
@@ -485,6 +384,7 @@ func buildPipeline() map[string]any {
 			"source":    "obs get / store get  — emits JSONL",
 			"transform": "transform pct-change / diff / log / index / normalize / resample / filter  — JSONL → JSONL",
 			"window":    "window roll  — JSONL → JSONL  (note: separate noun, not under transform)",
+			"chart":     "chart bar / chart plot  — JSONL → terminal ASCII chart  (no `chart line` verb)",
 			"terminal":  "analyze summary / analyze trend  — JSONL → table or JSON summary",
 		},
 		"multi_series_limitation": "Pipeline operators treat all JSONL on stdin as a single series. If you pipe obs get with two series IDs, the interleaved rows are treated as one stream. Run each series separately and compare results manually.",

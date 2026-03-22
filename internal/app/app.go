@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package app wires together configuration, the API client, and the local
 // store into a single Deps struct that commands receive at runtime.
 package app

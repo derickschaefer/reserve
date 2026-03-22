@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package cmd implements the reserve CLI command tree.
 // This file defines the root command and registers all global persistent flags.
 package cmd

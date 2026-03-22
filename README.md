@@ -598,7 +598,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash 
-reserve v1.0.6
+reserve v1.0.7
 go      go1.25.7
 os      linux/amd64
 built   2026-02-28T18:42:00Z

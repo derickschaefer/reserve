@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package config handles loading and resolving reserve configuration.
 // Resolution order (first non-empty value wins):
 //  1. CLI flag --api-key

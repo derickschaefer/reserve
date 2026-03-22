@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package util provides shared utilities: time parsing, observation value
 // formatting, and error helpers.
 //

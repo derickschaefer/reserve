@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package store provides a thin bbolt wrapper for reserve's local data store.
 //
 // Design philosophy: the store is an intentional data accumulator, not a

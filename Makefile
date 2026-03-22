@@ -1,5 +1,5 @@
 BINARY   := reserve
-VERSION  := v1.0.6
+VERSION  := v1.0.7
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
@@ -161,7 +161,7 @@ verify-signature:
 		exit 1; \
 	fi
 	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "Usage: make verify-signature RELEASE_TAG=v1.0.6"; \
+		echo "Usage: make verify-signature RELEASE_TAG=v1.0.7"; \
 		exit 1; \
 	fi
 	cosign verify-blob \

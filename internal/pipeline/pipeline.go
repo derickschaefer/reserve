@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Derick Schaefer
+// Licensed under the MIT License. See LICENSE file for details.
+
 // Package pipeline provides helpers for reading and writing Observation
 // streams via stdin/stdout in JSONL format — the canonical pipe format.
 package pipeline
