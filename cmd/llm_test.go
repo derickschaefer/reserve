@@ -111,3 +111,49 @@ func TestLLMCommandRegistryMatchesTopLevelCommands(t *testing.T) {
 		t.Fatalf("llm command registry mismatch:\n got: %v\nwant: %v", got, want)
 	}
 }
+
+func TestAllCommandGuidesHaveRequiredFields(t *testing.T) {
+	required := []string{
+		"purpose",
+		"summary",
+		"description",
+		"mental_model",
+		"when_to_use",
+		"when_not_to_use",
+		"common_user_intents",
+		"pipeline_role",
+		"input_output_contract",
+		"verbs",
+		"flags",
+		"output_kinds",
+		"examples",
+		"gotchas",
+		"related_commands",
+	}
+
+	for _, guide := range llmCommandRegistry {
+		doc := guide.Build()
+		for _, field := range required {
+			v, ok := doc[field]
+			if !ok {
+				t.Fatalf("%s guide missing required field %q", guide.Name, field)
+			}
+			switch vv := v.(type) {
+			case string:
+				if vv == "" {
+					t.Fatalf("%s guide has empty string field %q", guide.Name, field)
+				}
+			case []string:
+				if len(vv) == 0 {
+					t.Fatalf("%s guide has empty list field %q", guide.Name, field)
+				}
+			case map[string]any:
+				if len(vv) == 0 {
+					t.Fatalf("%s guide has empty map field %q", guide.Name, field)
+				}
+			default:
+				t.Fatalf("%s guide field %q has unsupported type %T", guide.Name, field, v)
+			}
+		}
+	}
+}
