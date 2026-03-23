@@ -222,7 +222,7 @@ The noun-verb commands follow consistent flag conventions and produce the same `
 
 ### series
 
-Discover and inspect FRED data series.
+Discover and inspect FRED data series. Use `series get` for immediate metadata lookup on known IDs; use `fetch` when you want batch acquisition workflows.
 
 ```bash
 reserve series get <SERIES_ID...>           # metadata for one or more series
@@ -245,7 +245,7 @@ reserve series categories GDP
 
 ### obs
 
-Fetch time series observations from a selected source. The default source is live FRED API access.
+Fetch time series observations from a selected source. The default source is live FRED API access. Use `obs get` for immediate retrieval on stdout; use `fetch series --store` when you want to build or refresh a reusable local dataset first.
 
 ```bash
 reserve obs get <SERIES_ID...> [flags]
@@ -370,18 +370,20 @@ reserve meta source <SOURCE_ID...>
 
 ### fetch
 
-Fetch data from the FRED API and accumulate it in the local database.
+Fetch metadata or observations from the FRED API in batch. Use `series get` or `obs get` when you want data immediately on stdout; use `fetch`, especially `fetch series --store`, when you want to acquire and persist a reusable local working set.
 
 ```bash
-reserve fetch series <SERIES_ID...> [--start YYYY-MM-DD] [--end YYYY-MM-DD] --store
+reserve fetch series <SERIES_ID...> [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--store]
+reserve fetch category <CATEGORY_ID|root>
+reserve fetch query "<query>" [--limit N]
 ```
 
-Flags:
+For `fetch series`:
 
 ```
---store              write fetched observations to the local database
---start YYYY-MM-DD   start date for observations
---end   YYYY-MM-DD   end date for observations
+--store              fetch observations and persist them to the local database; also stores series metadata
+--start YYYY-MM-DD   start date for fetched observations
+--end   YYYY-MM-DD   end date for fetched observations
 ```
 
 Examples:
@@ -390,11 +392,11 @@ Examples:
 # Build a local dataset with four core macro series from 2010 onward
 reserve fetch series GDP CPIAUCSL UNRATE FEDFUNDS --start 2010-01-01 --store
 
-# Update an existing series with the latest data
+# Refresh one cached series from a known start date
 reserve fetch series GDP --start 2010-01-01 --store
 ```
 
-Data is stored in `~/.reserve/reserve.db` by default (override with `db_path` in `config.json` or the `RESERVE_DB_PATH` environment variable). You own the data — there is no automatic expiry on fetched observations.
+Stored data is written to `~/.reserve/reserve.db` by default (override with `db_path` in `config.json` or the `RESERVE_DB_PATH` environment variable). There is no automatic expiry on stored observations.
 
 ---
 
