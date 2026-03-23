@@ -20,8 +20,8 @@ var analyzeCmd = &cobra.Command{
 	Long: `Analyze operators read JSONL observations from stdin and print results.
 
 Examples:
-  reserve store get GDP --format jsonl | reserve analyze summary
-  reserve store get UNRATE --format jsonl | reserve transform pct-change | reserve analyze trend`,
+  reserve obs get GDP --from cache --format jsonl | reserve analyze summary
+  reserve obs get UNRATE --from cache --format jsonl | reserve transform pct-change | reserve analyze trend`,
 }
 
 // ─── analyze summary ─────────────────────────────────────────────────────────
@@ -29,8 +29,8 @@ Examples:
 var analyzeSummaryCmd = &cobra.Command{
 	Use:   "summary",
 	Short: "Descriptive statistics: count, mean, std, min, max, median, skew",
-	Example: `  reserve store get GDP --format jsonl | reserve analyze summary
-  reserve store get UNRATE --format jsonl | reserve transform pct-change | reserve analyze summary`,
+	Example: `  reserve obs get GDP --from cache --format jsonl | reserve analyze summary
+  reserve obs get UNRATE --from cache --format jsonl | reserve transform pct-change | reserve analyze summary`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -81,8 +81,8 @@ var analyzeTrendMethod string
 var analyzeTrendCmd = &cobra.Command{
 	Use:   "trend",
 	Short: "Fit a linear trend: slope, intercept, R², direction",
-	Example: `  reserve store get GDP --format jsonl | reserve analyze trend
-  reserve store get UNRATE --format jsonl | reserve analyze trend --method theil-sen`,
+	Example: `  reserve obs get GDP --from cache --format jsonl | reserve analyze trend
+  reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend --method theil-sen`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {

@@ -87,7 +87,7 @@ var fetchSeriesCmd = &cobra.Command{
 
 		// With observations
 		opts := fred.ObsOptions{Start: fetchStart, End: fetchEnd}
-		datas, warnings := batchGetObs(cmd.Context(), deps, ids, opts)
+		datas, warnings, _ := batchGetObs(cmd.Context(), deps, ids, opts, liveObsSource{})
 
 		// Persist to local store if --store flag is set.
 		//
@@ -306,7 +306,7 @@ var fetchQueryCmd = &cobra.Command{
 			ids[i] = m.ID
 		}
 		opts := fred.ObsOptions{Start: fetchStart, End: fetchEnd}
-		datas, warnings := batchGetObs(cmd.Context(), deps, ids, opts)
+		datas, warnings, _ := batchGetObs(cmd.Context(), deps, ids, opts, liveObsSource{})
 
 		for _, data := range datas {
 			result := &model.Result{

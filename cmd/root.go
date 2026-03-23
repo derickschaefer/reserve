@@ -47,9 +47,10 @@ Get a free API key at: https://fred.stlouisfed.org/docs/api/api_key.html
 Quick start:
   reserve config init          # create a config.json with your API key
   reserve series get GDP       # fetch GDP series metadata
-  reserve obs get GDP          # fetch GDP observations
+  reserve obs get GDP          # fetch GDP observations (default: live)
+  reserve obs get GDP --from cache --format jsonl
   reserve version              # show version and build info
-  reserve llm                  # emit LLM onboarding context (start here for AI-assisted analysis)`,
+  reserve onboard              # emit onboarding context (start here for AI-assisted analysis)`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

@@ -74,7 +74,7 @@ run 'reserve cache compact' after clearing.`,
   reserve cache clear --bucket series_meta`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !cacheClearAll && cacheClearBucket == "" {
-			return fmt.Errorf("specify --all or --bucket <n>\n\nBuckets: obs, series_meta, snapshots")
+			return fmt.Errorf("specify --all or --bucket <n>\n\nBuckets: obs, series_meta")
 		}
 
 		deps, err := buildDeps()
@@ -162,7 +162,7 @@ func init() {
 	cacheCmd.AddCommand(cacheCompactCmd)
 
 	cacheClearCmd.Flags().BoolVar(&cacheClearAll, "all", false, "clear all buckets")
-	cacheClearCmd.Flags().StringVar(&cacheClearBucket, "bucket", "", "clear a specific bucket: obs|series_meta|snapshots")
+	cacheClearCmd.Flags().StringVar(&cacheClearBucket, "bucket", "", "clear a specific bucket: obs|series_meta")
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

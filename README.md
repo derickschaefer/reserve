@@ -27,15 +27,13 @@ Federal Reserve Bank of St. Louis FRED® API.
   - [search](#search) — global full-text search
   - [meta](#meta) — batch metadata retrieval
   - [fetch](#fetch) — accumulate data locally
-  - [store](#store) — inspect local data
   - [transform](#transform) — pipeline operators
   - [window](#window) — rolling statistics
   - [analyze](#analyze) — statistical analysis
   - [cache](#cache) — manage local database
-  - [snapshot](#snapshot) — reproducible workflows
   - [config](#config) — configuration management
   - [version](#version) — binary version and build info
-  - [llm](#llm) — LLM onboarding context
+  - [onboard](#onboard) — machine-readable onboarding context
 - [Pipeline Usage](#pipeline-usage)
 - [Output Formats](#output-formats)
 - [Global Flags](#global-flags)
@@ -141,20 +139,20 @@ reserve obs latest GDP UNRATE CPIAUCSL
 
 ```bash
 reserve fetch series GDP CPIAUCSL UNRATE FEDFUNDS --start 2010-01-01 --store
-reserve store list
+reserve obs get GDP --from cache
 ```
 
 **5. Run the analysis pipeline**
 
 ```bash
 # Quarter-over-quarter GDP growth with summary statistics
-reserve store get GDP --format jsonl | reserve transform pct-change | reserve analyze summary
+reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve analyze summary
 
 # Long-run unemployment trend
-reserve store get UNRATE --format jsonl | reserve analyze trend
+reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend
 
 # Annual CPI averages
-reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq annual --method mean
+reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method mean
 ```
 
 ---
@@ -163,9 +161,9 @@ reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq an
 
 `reserve` operates in two distinct modes:
 
-**Live mode** — Discovery and retrieval commands (`series`, `obs`, `category`, `search`, etc.) hit the FRED API directly. No caching layer, always fresh data.
+**Live mode** — Discovery and retrieval commands (`series`, `obs`, `category`, `search`, etc.) hit the FRED API directly by default. `obs get` uses `--from live` implicitly when no source is specified.
 
-**Analysis mode** — You explicitly accumulate data into a local [bbolt](https://github.com/etcd-io/bbolt) database using `fetch --store`. Transform and analyze commands operate on that local dataset, making analysis fast, reproducible, and offline-capable.
+**Analysis mode** — You explicitly accumulate data into a local [bbolt](https://github.com/etcd-io/bbolt) database using `fetch --store`, then read it back with `obs get --from cache`. That makes analysis fast, reproducible, and offline-capable.
 
 The pipeline is Unix-native. Commands that produce observations write JSONL to stdout; transform and analyze commands read JSONL from stdin. Chain them with `|`. When stdout is a terminal, output defaults to a formatted table. When piped, it defaults to JSONL.
 
@@ -175,19 +173,19 @@ The pipeline is Unix-native. Commands that produce observations write JSONL to s
 
 `reserve` uses a pragmatic command model that is worth understanding before you explore the full command reference.
 
-Most commands follow a **noun-verb** pattern: the top-level command names a resource, and its subcommands are operations on that resource. This maps naturally onto the structure of the FRED API and the local data store.
+Most commands follow a **noun-verb** pattern: the top-level command names a resource, and its subcommands are operations on that resource. This maps naturally onto the structure of the FRED API and the local data model.
 ```
 reserve series get UNRATE            # noun: series  / verb: get
 reserve category tree root           # noun: category / verb: tree
 reserve release list                 # noun: release  / verb: list
-reserve store get CPIAUCSL           # noun: store    / verb: get
+reserve obs get CPIAUCSL --from cache # noun: obs     / verb: get
 reserve config set api_key XYZ      # noun: config   / verb: set
 ```
 
-Two top-level commands are nouns by acronym rather than by entity type: `obs` (observations) and `llm` (LLM onboarding context). They follow the same noun-verb structure; the noun is just abbreviated.
+Two top-level commands are nouns by acronym or function rather than by entity type: `obs` (observations) and `onboard` (machine-readable onboarding context). They still fit the same top-level command model.
 ```
 reserve obs get UNRATE --start 2020-01-01   # noun: obs (observations)
-reserve llm --topic pipeline                # noun: llm (machine-readable context)
+reserve onboard --topic pipeline            # onboarding context for agents and advanced users
 ```
 
 **Pipeline operators** — `transform`, `window`, `analyze`, and `chart` — are pure verbs. They have no resource noun because they do not target a named entity. They operate on whatever JSONL stream arrives on stdin. The data source is implicit, so there is nothing meaningful to name.
@@ -195,7 +193,7 @@ reserve llm --topic pipeline                # noun: llm (machine-readable contex
 ... | reserve transform pct-change --period 12
 ... | reserve window roll --stat mean --window 6
 ... | reserve analyze trend
-... | reserve chart
+... | reserve chart plot
 ```
 
 Finally, two commands are standalone action verbs with no natural noun: `fetch` and `search`. `fetch` performs a batch accumulation across entity types; `search` performs full-text query across supported global entities (series and tags). Neither belongs to a single resource, so no noun prefix applies.
@@ -209,8 +207,8 @@ In summary:
 | Class | Pattern | Examples |
 |---|---|---|
 | FRED API wrappers | noun verb | `series`, `category`, `release`, `source`, `tag`, `meta` |
-| Local store operations | noun verb | `store`, `cache`, `config`, `snapshot` |
-| Abbreviated nouns | noun verb | `obs`, `llm` |
+| Local state operations | noun verb | `cache`, `config` |
+| Specialized top-level commands | noun verb | `obs`, `onboard` |
 | Pipeline operators | verb only | `transform`, `window`, `analyze`, `chart` |
 | Cross-cutting actions | verb only | `fetch`, `search` |
 | Utility | standalone | `version`, `completion`, `help` |
@@ -244,7 +242,7 @@ reserve series categories GDP
 
 ### obs
 
-Fetch time series observations live from the FRED API.
+Fetch time series observations from a selected source. The default source is live FRED API access.
 
 ```bash
 reserve obs get <SERIES_ID...> [flags]
@@ -259,6 +257,7 @@ Flags for `obs get`:
 --freq  daily|weekly|monthly|quarterly|annual
 --units lin|chg|ch1|pch|pc1|pca|cch|cca|log
 --agg   avg|sum|eop
+--from  live|cache    data origin (default: live)
 --limit N            max observations (0 = all)
 ```
 
@@ -268,6 +267,8 @@ Examples:
 
 ```bash
 reserve obs get UNRATE --start 2020-01-01 --end 2024-12-31
+reserve obs get GDP --from cache
+reserve obs get GDP --from cache --format jsonl
 reserve obs get CPIAUCSL --freq monthly --units pc1    # year-over-year % change
 reserve obs get GDP CPIAUCSL --format csv --out data.csv
 reserve obs latest GDP UNRATE CPIAUCSL FEDFUNDS
@@ -394,21 +395,6 @@ Data is stored in `~/.reserve/reserve.db` by default (override with `db_path` in
 
 ---
 
-### store
-
-Inspect data you have accumulated locally.
-
-```bash
-reserve store list                     # all series in the database
-reserve store get <SERIES_ID>          # read stored observations as a table
-reserve store get GDP --format jsonl   # emit as JSONL for pipeline input
-reserve store get CPIAUCSL --format csv --out cpi.csv
-```
-
-`store get` supports all output formats and is the primary data source for the analysis pipeline.
-
----
-
 ### transform
 
 Pipeline operators. Each reads JSONL from stdin, applies a transformation, and writes JSONL to stdout.
@@ -438,19 +424,19 @@ Examples:
 
 ```bash
 # Quarter-over-quarter GDP growth rate
-reserve store get GDP --format jsonl | reserve transform pct-change
+reserve obs get GDP --from cache --format jsonl | reserve transform pct-change
 
 # Year-over-year CPI inflation (monthly data)
-reserve store get CPIAUCSL --format jsonl | reserve transform pct-change --period 12
+reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12
 
 # Index GDP to 100 at the start of 2010
-reserve store get GDP --format jsonl | reserve transform index --base 100 --at 2010-01-01
+reserve obs get GDP --from cache --format jsonl | reserve transform index --base 100 --at 2010-01-01
 
 # Annual average CPI
-reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq annual --method mean
+reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method mean
 
 # Post-2020 observations only
-reserve store get UNRATE --format jsonl | reserve transform filter --after 2020-01-01
+reserve obs get UNRATE --from cache --format jsonl | reserve transform filter --after 2020-01-01
 ```
 
 ---
@@ -469,10 +455,10 @@ Examples:
 
 ```bash
 # 12-month rolling average unemployment rate
-reserve store get UNRATE --format jsonl | reserve window roll --stat mean --window 12
+reserve obs get UNRATE --from cache --format jsonl | reserve window roll --stat mean --window 12
 
 # 4-quarter rolling standard deviation of GDP growth
-reserve store get GDP --format jsonl | reserve transform pct-change \
+reserve obs get GDP --from cache --format jsonl | reserve transform pct-change \
   | reserve window roll --stat std --window 4
 ```
 
@@ -513,10 +499,10 @@ reserve analyze trend [--method linear|theil-sen]
 Examples:
 
 ```bash
-reserve store get UNRATE --format jsonl | reserve analyze summary
-reserve store get GDP --format jsonl | reserve transform pct-change | reserve analyze summary
-reserve store get UNRATE --format jsonl | reserve analyze trend
-reserve store get UNRATE --format jsonl | reserve analyze trend --method theil-sen
+reserve obs get UNRATE --from cache --format jsonl | reserve analyze summary
+reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve analyze summary
+reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend
+reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend --method theil-sen
 ```
 
 ---
@@ -541,32 +527,6 @@ reserve cache compact                       # reclaim disk space after clearing
 # Typical maintenance workflow after a large clear:
 reserve cache clear --all
 reserve cache compact
-```
-
----
-
-### snapshot
-
-Save and replay exact command lines for reproducible workflows.
-
-```bash
-reserve snapshot save --name <name> --cmd "<command>"
-reserve snapshot list
-reserve snapshot show <ID>
-reserve snapshot run <ID>
-reserve snapshot delete <ID>
-```
-
-Snapshot IDs are ULIDs — lexicographically sortable and collision-resistant.
-
-Examples:
-
-```bash
-reserve snapshot save --name "gdp-qoq" \
-  --cmd "store get GDP --format jsonl | transform pct-change | analyze summary"
-
-reserve snapshot list
-reserve snapshot run 01JABCDEF0000000000000000
 ```
 
 ---
@@ -598,7 +558,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash 
-reserve v1.0.7
+reserve v1.0.8
 go      go1.25.7
 os      linux/amd64
 built   2026-02-28T18:42:00Z
@@ -606,20 +566,19 @@ built   2026-02-28T18:42:00Z
 
 ---
 
-### llm
+### onboard
 
-Emit a machine-readable context document for LLM onboarding. Designed to be
-pasted directly into a Claude, ChatGPT, or any LLM session to give the AI
-authoritative knowledge of reserve's commands, pipeline semantics, data model,
-verified examples, and known gotchas — without requiring the LLM to crawl
-documentation or guess at flag names.
+Emit a machine-readable onboarding document for agents, LLMs, and advanced users.
+It is designed to be pasted directly into Claude, ChatGPT, or another agent session
+so the model gets authoritative reserve semantics without guessing at commands or flags.
 
 ```bash
-reserve llm                              # table of contents (default) — start here
-reserve llm --topic pipeline             # single topic
-reserve llm --topic pipeline,gotchas     # comma-separated topics
-reserve llm --topic all                  # full document (large context windows)
-reserve llm --topic all | pbcopy         # copy to clipboard
+reserve onboard                          # full-program onboarding
+reserve onboard obs                      # command-specific onboarding
+reserve onboard --topic pipeline         # single topic
+reserve onboard --topic pipeline,gotchas # comma-separated topics
+reserve onboard --topic all              # full document (large context windows)
+reserve onboard --topic all | pbcopy     # copy to clipboard
 ```
 
 **Topics:**
@@ -638,11 +597,11 @@ reserve llm --topic all | pbcopy         # copy to clipboard
 **Workflow:**
 ```bash
 # Step 1 — handshake: let the AI tell you what it needs
-reserve llm --topic toc
+reserve onboard --topic toc
 # paste into your LLM session
 
 # Step 2 — surgical context: paste only what the AI requested
-reserve llm --topic pipeline,data-model,gotchas
+reserve onboard --topic pipeline,data-model,gotchas
 # paste → LLM confirms ready
 
 # Step 3 — ask your question
@@ -668,23 +627,23 @@ literally, not as `\u003c` / `\u003e`.
 Any command that produces observations can be piped into a transform or analyze command:
 
 ```bash
-# Full macro pipeline: fetch → transform → analyze
-reserve store get GDP --format jsonl \
+# Full macro pipeline: fetch → cache read → transform → analyze
+reserve obs get GDP --from cache --format jsonl \
   | reserve transform pct-change \
   | reserve analyze summary
 
 # Post-COVID unemployment: filter → rolling average
-reserve store get UNRATE --format jsonl \
+reserve obs get UNRATE --from cache --format jsonl \
   | reserve transform filter --after 2020-01-01 \
   | reserve window roll --stat mean --window 12
 
 # Inflation signal: resample monthly CPI to annual → trend
-reserve store get CPIAUCSL --format jsonl \
+reserve obs get CPIAUCSL --from cache --format jsonl \
   | reserve transform resample --freq annual --method mean \
   | reserve analyze trend
 
 # Year-over-year unemployment change → CSV file
-reserve store get UNRATE --format jsonl \
+reserve obs get UNRATE --from cache --format jsonl \
   | reserve transform pct-change --period 12 \
   | reserve transform filter --drop-missing \
   > unrate_yoy.csv
@@ -713,7 +672,7 @@ Write to a file with `--out`:
 
 ```bash
 reserve obs get GDP --format csv --out gdp.csv
-reserve store get CPIAUCSL --format jsonl --out cpi.jsonl
+reserve obs get CPIAUCSL --from cache --format jsonl --out cpi.jsonl
 ```
 
 ---

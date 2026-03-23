@@ -17,9 +17,9 @@ var chartCmd = &cobra.Command{
 	Long: `Chart commands read JSONL observations from stdin and render to the terminal.
 
 Pipeline examples:
-  reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
-  reserve store get UNRATE --format jsonl | reserve chart plot
-  reserve store get GDP --format jsonl | reserve transform pct-change | reserve chart plot --title "GDP QoQ Growth"`,
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
+  reserve obs get UNRATE --from cache --format jsonl | reserve chart plot
+  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve chart plot --title "GDP QoQ Growth"`,
 }
 
 // ─── chart bar ───────────────────────────────────────────────────────────────
@@ -37,23 +37,23 @@ var chartBarCmd = &cobra.Command{
 Best suited for low-frequency or resampled data (annual, quarterly). For
 monthly or daily series, pipe through transform resample first:
 
-  reserve store get CPIAUCSL --format jsonl \
+  reserve obs get CPIAUCSL --from cache --format jsonl \
     | reserve transform resample --freq annual --method mean \
     | reserve chart bar
 
 Negative values are supported — bars extend left from a zero baseline.
 NaN observations are silently skipped.`,
 	Example: `  # Annual CPI — the natural use case
-  reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
 
   # Quarterly GDP growth
-  reserve store get GDP --format jsonl | reserve transform pct-change | reserve transform resample --freq annual --method mean | reserve chart bar
+  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve transform resample --freq annual --method mean | reserve chart bar
 
   # Fed funds rate by year
-  reserve store get FEDFUNDS --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
+  reserve obs get FEDFUNDS --from cache --format jsonl | reserve transform resample --freq annual --method mean | reserve chart bar
 
   # Last 10 years only
-  reserve store get UNRATE --format jsonl | reserve transform filter --after 2015-01-01 | reserve transform resample --freq annual --method mean | reserve chart bar --max-bars 10`,
+  reserve obs get UNRATE --from cache --format jsonl | reserve transform filter --after 2015-01-01 | reserve transform resample --freq annual --method mean | reserve chart bar --max-bars 10`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -84,10 +84,10 @@ var chartPlotCmd = &cobra.Command{
 
 NaN values appear as gaps in the curve, not zeros. Width auto-detects from
 $COLUMNS (falls back to 80). Override with --width and --height.`,
-	Example: `  reserve store get UNRATE --format jsonl | reserve chart plot
-  reserve store get CPIAUCSL --format jsonl | reserve chart plot --height 8
-  reserve store get GDP --format jsonl | reserve transform pct-change | reserve chart plot --title "GDP QoQ %"
-  reserve store get UNRATE --format jsonl | reserve window roll --stat mean --window 12 | reserve chart plot
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve chart plot
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve chart plot --height 8
+  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve chart plot --title "GDP QoQ %"
+  reserve obs get UNRATE --from cache --format jsonl | reserve window roll --stat mean --window 12 | reserve chart plot
   reserve obs get FEDFUNDS --start 2015-01-01 --format jsonl | reserve chart plot --width 100 --height 16`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)

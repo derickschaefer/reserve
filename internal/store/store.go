@@ -11,7 +11,6 @@
 //
 //	obs         — accumulated observations keyed by series+params
 //	series_meta — metadata for fetched series
-//	snapshots   — saved command lines for reproducible workflows
 //	config      — reserved for future use (api_key etc. stay in config.json)
 //	_meta       — internal: schema version, created_at
 //
@@ -44,12 +43,11 @@ const schemaVersion = 2
 var (
 	bucketObs        = []byte("obs")
 	bucketSeriesMeta = []byte("series_meta")
-	bucketSnapshots  = []byte("snapshots")
 	bucketInternal   = []byte("_meta")
 )
 
-// AllBuckets lists every top-level bucket for stats and clear operations.
-var AllBuckets = []string{"obs", "series_meta", "snapshots"}
+// AllBuckets lists every user-facing bucket for stats and clear operations.
+var AllBuckets = []string{"obs", "series_meta"}
 
 // Store wraps a bbolt database.
 type Store struct {
@@ -95,7 +93,7 @@ func (s *Store) Path() string {
 func (s *Store) migrate() error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		// Create all buckets if they don't exist.
-		for _, name := range [][]byte{bucketObs, bucketSeriesMeta, bucketSnapshots, bucketInternal} {
+		for _, name := range [][]byte{bucketObs, bucketSeriesMeta, bucketInternal} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return fmt.Errorf("creating bucket %s: %w", name, err)
 			}
@@ -408,66 +406,6 @@ func (s *Store) ListObsKeys(seriesID string) ([]string, error) {
 	return keys, err
 }
 
-// ─── Snapshots ────────────────────────────────────────────────────────────────
-
-// Snapshot represents a saved command for reproducible workflows.
-type Snapshot struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	CommandLine string    `json:"command_line"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
-// PutSnapshot saves a snapshot. The key is snap:<ID>.
-func (s *Store) PutSnapshot(snap Snapshot) error {
-	b, err := json.Marshal(snap)
-	if err != nil {
-		return fmt.Errorf("encoding snapshot: %w", err)
-	}
-	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(bucketSnapshots).Put([]byte("snap:"+snap.ID), b)
-	})
-}
-
-// GetSnapshot retrieves a snapshot by ID.
-func (s *Store) GetSnapshot(id string) (Snapshot, bool, error) {
-	var snap Snapshot
-	err := s.db.View(func(tx *bolt.Tx) error {
-		v := tx.Bucket(bucketSnapshots).Get([]byte("snap:" + id))
-		if v == nil {
-			return nil
-		}
-		return json.Unmarshal(v, &snap)
-	})
-	if err != nil {
-		return snap, false, err
-	}
-	return snap, snap.ID != "", nil
-}
-
-// ListSnapshots returns all snapshots in creation order.
-func (s *Store) ListSnapshots() ([]Snapshot, error) {
-	var snaps []Snapshot
-	err := s.db.View(func(tx *bolt.Tx) error {
-		return tx.Bucket(bucketSnapshots).ForEach(func(k, v []byte) error {
-			var snap Snapshot
-			if err := json.Unmarshal(v, &snap); err != nil {
-				return err
-			}
-			snaps = append(snaps, snap)
-			return nil
-		})
-	})
-	return snaps, err
-}
-
-// DeleteSnapshot removes a snapshot by ID.
-func (s *Store) DeleteSnapshot(id string) error {
-	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(bucketSnapshots).Delete([]byte("snap:" + id))
-	})
-}
-
 // ─── Stats & Maintenance ──────────────────────────────────────────────────────
 
 // BucketStats holds row count and byte size for a single bucket.
@@ -477,12 +415,11 @@ type BucketStats struct {
 	Bytes int64
 }
 
-// Stats returns row counts and approximate sizes for all buckets.
+// Stats returns row counts and approximate sizes for all user-facing buckets.
 func (s *Store) Stats() ([]BucketStats, error) {
 	buckets := map[string][]byte{
 		"obs":         bucketObs,
 		"series_meta": bucketSeriesMeta,
-		"snapshots":   bucketSnapshots,
 	}
 
 	var stats []BucketStats

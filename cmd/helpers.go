@@ -94,12 +94,122 @@ func batchGetSeries(ctx context.Context, deps *app.Deps, ids []string) ([]model.
 	return metas, warnings
 }
 
+type obsResult struct {
+	data  *model.SeriesData
+	err   error
+	idx   int
+	cache bool
+}
+
+type obsSource interface {
+	name() string
+	get(context.Context, *app.Deps, string, fred.ObsOptions) (*model.SeriesData, bool, error)
+}
+
+type liveObsSource struct{}
+
+func (liveObsSource) name() string { return "live" }
+
+func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
+	data, err := deps.Client.GetObservations(ctx, id, opts)
+	return data, false, err
+}
+
+type cacheObsSource struct{}
+
+func (cacheObsSource) name() string { return "cache" }
+
+func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
+	if err := deps.RequireStore(); err != nil {
+		return nil, false, fmt.Errorf("source 'cache' unavailable: %w", err)
+	}
+
+	key := obsCacheKey(id, opts)
+	if key != "" {
+		data, ok, err := deps.Store.GetObs(key)
+		if err != nil {
+			return nil, false, fmt.Errorf("reading cache: %w", err)
+		}
+		if ok {
+			attachCachedMeta(deps, id, &data)
+			return &data, true, nil
+		}
+		return nil, false, fmt.Errorf("no cached observations for %s matching the requested parameters", id)
+	}
+
+	keys, err := deps.Store.ListObsKeys(id)
+	if err != nil {
+		return nil, false, fmt.Errorf("reading cache: %w", err)
+	}
+	if len(keys) == 0 {
+		return nil, false, fmt.Errorf("no cached observations for %s", id)
+	}
+
+	data, ok, err := deps.Store.GetObs(keys[0])
+	if err != nil {
+		return nil, false, fmt.Errorf("reading cache: %w", err)
+	}
+	if !ok {
+		return nil, false, fmt.Errorf("cached observation data missing for %s", id)
+	}
+	attachCachedMeta(deps, id, &data)
+	return &data, true, nil
+}
+
+func resolveObsSource(name string) (obsSource, error) {
+	switch name {
+	case "", "live":
+		return liveObsSource{}, nil
+	case "cache":
+		return cacheObsSource{}, nil
+	case "snowflake", "postgres", "s3", "http":
+		return nil, fmt.Errorf("source '%s' not configured", name)
+	default:
+		return nil, fmt.Errorf("unknown source: %s", name)
+	}
+}
+
+func obsCacheKey(seriesID string, opts fred.ObsOptions) string {
+	if opts.Start == "" && opts.End == "" && opts.Freq == "" && opts.Units == "" && opts.Agg == "" {
+		return ""
+	}
+	return storeObsKey(seriesID, opts)
+}
+
+func storeObsKey(seriesID string, opts fred.ObsOptions) string {
+	return fmt.Sprintf("series:%s%s%s%s%s%s",
+		seriesID,
+		optionalObsKeyPart("start", opts.Start),
+		optionalObsKeyPart("end", opts.End),
+		optionalObsKeyPart("freq", opts.Freq),
+		optionalObsKeyPart("units", opts.Units),
+		optionalObsKeyPart("agg", opts.Agg),
+	)
+}
+
+func optionalObsKeyPart(label, value string) string {
+	if value == "" {
+		return ""
+	}
+	return "|" + label + ":" + value
+}
+
+func attachCachedMeta(deps *app.Deps, id string, data *model.SeriesData) {
+	if deps.Store == nil {
+		return
+	}
+	if meta, ok, err := deps.Store.GetSeriesMeta(id); err == nil && ok {
+		data.Meta = &meta
+	}
+}
+
 // batchGetObs fetches observations for multiple series IDs concurrently.
-func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.ObsOptions) ([]*model.SeriesData, []string) {
+func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.ObsOptions, src obsSource) ([]*model.SeriesData, []string, bool) {
 	type result struct {
 		data *model.SeriesData
 		err  error
 		idx  int
+		cache bool
 	}
 
 	concurrency := deps.Config.Concurrency
@@ -119,8 +229,8 @@ func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.Ob
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			data, err := deps.Client.GetObservations(ctx, id, opts)
-			results[i] = result{idx: i, data: data, err: err}
+			data, cache, err := src.get(ctx, deps, id, opts)
+			results[i] = result{idx: i, data: data, cache: cache, err: err}
 		}()
 	}
 	wg.Wait()
@@ -128,14 +238,16 @@ func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.Ob
 	// Return in original ID order
 	var datas []*model.SeriesData
 	var warnings []string
+	anyCache := false
 	for i, r := range results {
 		if r.err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", ids[i], r.err))
 		} else if r.data != nil {
 			datas = append(datas, r.data)
+			anyCache = anyCache || r.cache
 		}
 	}
-	return datas, warnings
+	return datas, warnings, anyCache
 }
 
 // printSimpleTable renders a simple table with headers using tablewriter.

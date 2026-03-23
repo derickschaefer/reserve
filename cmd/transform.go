@@ -22,8 +22,8 @@ var transformCmd = &cobra.Command{
 	Long: `Transform operators read JSONL observations from stdin and write to stdout.
 
 Pipeline example:
-  reserve store get GDP --format jsonl | reserve transform pct-change
-  reserve store get CPIAUCSL --format jsonl | reserve transform diff --order 1 | reserve analyze summary`,
+  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform diff --order 1 | reserve analyze summary`,
 }
 
 // ─── pct-change ───────────────────────────────────────────────────────────────
@@ -33,8 +33,8 @@ var transformPctPeriod int
 var transformPctCmd = &cobra.Command{
 	Use:   "pct-change",
 	Short: "Percent change from N periods ago: (v[t]-v[t-N])/|v[t-N]| * 100",
-	Example: `  reserve store get GDP --format jsonl | reserve transform pct-change
-  reserve store get CPIAUCSL --format jsonl | reserve transform pct-change --period 12`,
+	Example: `  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -55,8 +55,8 @@ var transformDiffOrder int
 var transformDiffCmd = &cobra.Command{
 	Use:   "diff",
 	Short: "First or second difference: v[t] - v[t-1]",
-	Example: `  reserve store get UNRATE --format jsonl | reserve transform diff
-  reserve store get GDP --format jsonl | reserve transform diff --order 2`,
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform diff
+  reserve obs get GDP --from cache --format jsonl | reserve transform diff --order 2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -75,7 +75,7 @@ var transformDiffCmd = &cobra.Command{
 var transformLogCmd = &cobra.Command{
 	Use:     "log",
 	Short:   "Natural log of each observation value",
-	Example: `  reserve store get GDP --format jsonl | reserve transform log`,
+	Example: `  reserve obs get GDP --from cache --format jsonl | reserve transform log`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -96,8 +96,8 @@ var transformNormMethod string
 var transformNormCmd = &cobra.Command{
 	Use:   "normalize",
 	Short: "Normalize observations: zscore (default) or minmax",
-	Example: `  reserve store get UNRATE --format jsonl | reserve transform normalize
-  reserve store get CPIAUCSL --format jsonl | reserve transform normalize --method minmax`,
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform normalize
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform normalize --method minmax`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -121,7 +121,7 @@ var (
 var transformIndexCmd = &cobra.Command{
 	Use:     "index",
 	Short:   "Re-index series so value at --at date equals --base",
-	Example: `  reserve store get CPIAUCSL --format jsonl | reserve transform index --base 100 --at 2010-01-01`,
+	Example: `  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform index --base 100 --at 2010-01-01`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if transformIndexAt == "" {
 			return fmt.Errorf("--at YYYY-MM-DD is required")
@@ -152,8 +152,8 @@ var (
 var transformResampleCmd = &cobra.Command{
 	Use:   "resample",
 	Short: "Downsample to lower frequency: monthly, quarterly, or annual",
-	Example: `  reserve store get UNRATE --format jsonl | reserve transform resample --freq quarterly --method mean
-  reserve store get CPIAUCSL --format jsonl | reserve transform resample --freq annual --method last`,
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform resample --freq quarterly --method mean
+  reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method last`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -183,8 +183,8 @@ var (
 var transformFilterCmd = &cobra.Command{
 	Use:   "filter",
 	Short: "Filter observations by date range or value bounds",
-	Example: `  reserve store get UNRATE --format jsonl | reserve transform filter --after 2020-01-01
-  reserve store get GDP --format jsonl | reserve transform filter --min 20000 --max 25000`,
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform filter --after 2020-01-01
+  reserve obs get GDP --from cache --format jsonl | reserve transform filter --min 20000 --max 25000`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {
@@ -232,8 +232,8 @@ var (
 var windowRollCmd = &cobra.Command{
 	Use:   "roll",
 	Short: "Rolling window statistic: mean, std, min, max, or sum",
-	Example: `  reserve store get UNRATE --format jsonl | reserve window roll --stat mean --window 12
-  reserve store get GDP --format jsonl | reserve window roll --stat std --window 4 --min-periods 2`,
+	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve window roll --stat mean --window 12
+  reserve obs get GDP --from cache --format jsonl | reserve window roll --stat std --window 4 --min-periods 2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
 		if err != nil {

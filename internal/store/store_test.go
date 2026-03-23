@@ -416,102 +416,6 @@ func TestListObsKeysEmpty(t *testing.T) {
 	}
 }
 
-// ─── Snapshots ────────────────────────────────────────────────────────────────
-
-func TestPutGetSnapshot(t *testing.T) {
-	s := testDB(t)
-	snap := store.Snapshot{
-		ID:          "01JABCDEF0000000000000000",
-		Name:        "gdp-qoq",
-		CommandLine: "store get GDP --format jsonl | transform pct-change",
-		CreatedAt:   time.Now().UTC().Truncate(time.Second),
-	}
-
-	if err := s.PutSnapshot(snap); err != nil {
-		t.Fatalf("PutSnapshot: %v", err)
-	}
-
-	got, found, err := s.GetSnapshot(snap.ID)
-	if err != nil {
-		t.Fatalf("GetSnapshot: %v", err)
-	}
-	if !found {
-		t.Fatal("expected to find snapshot after put")
-	}
-	if got.ID != snap.ID {
-		t.Errorf("ID: expected %q, got %q", snap.ID, got.ID)
-	}
-	if got.Name != snap.Name {
-		t.Errorf("Name: expected %q, got %q", snap.Name, got.Name)
-	}
-	if got.CommandLine != snap.CommandLine {
-		t.Errorf("CommandLine: expected %q, got %q", snap.CommandLine, got.CommandLine)
-	}
-}
-
-func TestGetSnapshotNotFound(t *testing.T) {
-	s := testDB(t)
-	_, found, err := s.GetSnapshot("notexist")
-	if err != nil {
-		t.Fatalf("GetSnapshot: %v", err)
-	}
-	if found {
-		t.Error("expected not found for missing snapshot")
-	}
-}
-
-func TestListSnapshots(t *testing.T) {
-	s := testDB(t)
-	for i, name := range []string{"snap-a", "snap-b", "snap-c"} {
-		_ = s.PutSnapshot(store.Snapshot{
-			ID:          string(rune('1'+i)) + "ABCDEF",
-			Name:        name,
-			CommandLine: "reserve store get GDP",
-			CreatedAt:   time.Now(),
-		})
-	}
-
-	snaps, err := s.ListSnapshots()
-	if err != nil {
-		t.Fatalf("ListSnapshots: %v", err)
-	}
-	if len(snaps) != 3 {
-		t.Errorf("expected 3 snapshots, got %d", len(snaps))
-	}
-}
-
-func TestDeleteSnapshot(t *testing.T) {
-	s := testDB(t)
-	snap := store.Snapshot{
-		ID: "DELETEME", Name: "test",
-		CommandLine: "reserve store get GDP", CreatedAt: time.Now(),
-	}
-	_ = s.PutSnapshot(snap)
-
-	if err := s.DeleteSnapshot("DELETEME"); err != nil {
-		t.Fatalf("DeleteSnapshot: %v", err)
-	}
-
-	_, found, err := s.GetSnapshot("DELETEME")
-	if err != nil {
-		t.Fatalf("GetSnapshot after delete: %v", err)
-	}
-	if found {
-		t.Error("snapshot should not be found after delete")
-	}
-}
-
-func TestListSnapshotsEmpty(t *testing.T) {
-	s := testDB(t)
-	snaps, err := s.ListSnapshots()
-	if err != nil {
-		t.Fatalf("ListSnapshots on empty db: %v", err)
-	}
-	if len(snaps) != 0 {
-		t.Errorf("expected 0 snapshots on fresh db, got %d", len(snaps))
-	}
-}
-
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 func TestStatsEmpty(t *testing.T) {
@@ -588,9 +492,6 @@ func TestClearAll(t *testing.T) {
 	s := testDB(t)
 	_ = s.PutSeriesMeta(makeMeta("GDP", "GDP"))
 	_ = s.PutObs(store.ObsKey("GDP", "", "", "", "", ""), makeSeriesData("GDP", 2020, 1, 1.0))
-	_ = s.PutSnapshot(store.Snapshot{
-		ID: "S1", Name: "test", CommandLine: "reserve store get GDP", CreatedAt: time.Now(),
-	})
 
 	if err := s.ClearAll(); err != nil {
 		t.Fatalf("ClearAll: %v", err)
@@ -598,11 +499,10 @@ func TestClearAll(t *testing.T) {
 
 	metas, _ := s.ListSeriesMeta()
 	keys, _ := s.ListObsKeys("")
-	snaps, _ := s.ListSnapshots()
 
-	if len(metas) != 0 || len(keys) != 0 || len(snaps) != 0 {
-		t.Errorf("ClearAll: metas=%d keys=%d snaps=%d (all should be 0)",
-			len(metas), len(keys), len(snaps))
+	if len(metas) != 0 || len(keys) != 0 {
+		t.Errorf("ClearAll: metas=%d keys=%d (all should be 0)",
+			len(metas), len(keys))
 	}
 }
 

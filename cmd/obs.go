@@ -31,6 +31,7 @@ var (
 	obsUnits string
 	obsAgg   string
 	obsLimit int
+	obsFrom  string
 )
 
 type latestRow struct {
@@ -68,6 +69,7 @@ var obsGetCmd = &cobra.Command{
 	Short: "Fetch observations for one or more series",
 	Example: `  reserve obs get GDP
   reserve obs get CPIAUCSL --start 2020-01-01 --end 2024-12-31
+  reserve obs get CPIAUCSL --from cache --format jsonl
   reserve obs get UNRATE --freq monthly --units pc1
   reserve obs get GDP CPIAUCSL --format csv --out data.csv`,
 	Args: cobra.MinimumNArgs(1),
@@ -100,22 +102,34 @@ var obsGetCmd = &cobra.Command{
 			Agg:   obsAgg,
 			Limit: obsLimit,
 		}
+		src, err := resolveObsSource(obsFrom)
+		if err != nil {
+			return err
+		}
 
 		start := time.Now()
 		ids := normaliseIDs(args)
 		format := resolveFormat(deps.Config.Format)
+		commandFrom := ""
+		if obsFrom != "" {
+			commandFrom = " --from " + obsFrom
+		}
+		if deps.Config.Debug {
+			fmt.Fprintf(cmd.ErrOrStderr(), "DEBUG obs.get source=%s ids=%d\n", src.name(), len(ids))
+		}
 
 		if len(ids) == 1 {
-			data, err := deps.Client.GetObservations(cmd.Context(), ids[0], opts)
+			data, cacheHit, err := src.get(cmd.Context(), deps, ids[0], opts)
 			if err != nil {
 				return err
 			}
 			result := &model.Result{
 				Kind:        model.KindSeriesData,
 				GeneratedAt: time.Now(),
-				Command:     fmt.Sprintf("obs get %s", ids[0]),
+				Command:     fmt.Sprintf("obs get %s%s", ids[0], commandFrom),
 				Data:        data,
 				Stats: model.ResultStats{
+					CacheHit:   cacheHit,
 					DurationMs: time.Since(start).Milliseconds(),
 					Items:      len(data.Obs),
 				},
@@ -128,16 +142,17 @@ var obsGetCmd = &cobra.Command{
 		}
 
 		// Multiple series: fetch concurrently, output sequentially
-		results, warnings := batchGetObs(cmd.Context(), deps, ids, opts)
+		results, warnings, anyCache := batchGetObs(cmd.Context(), deps, ids, opts, src)
 
 		for _, data := range results {
 			result := &model.Result{
 				Kind:        model.KindSeriesData,
 				GeneratedAt: time.Now(),
-				Command:     fmt.Sprintf("obs get %s", data.SeriesID),
+				Command:     fmt.Sprintf("obs get %s%s", data.SeriesID, commandFrom),
 				Data:        data,
 				Warnings:    warnings,
 				Stats: model.ResultStats{
+					CacheHit:   anyCache,
 					DurationMs: time.Since(start).Milliseconds(),
 					Items:      len(data.Obs),
 				},
@@ -232,5 +247,6 @@ func init() {
 		c.Flags().StringVar(&obsUnits, "units", "", "units: lin|chg|ch1|pch|pc1|pca|cch|cca|log")
 		c.Flags().StringVar(&obsAgg, "agg", "", "aggregation: avg|sum|eop")
 		c.Flags().IntVar(&obsLimit, "limit", 0, "max observations (0 = all)")
+		c.Flags().StringVar(&obsFrom, "from", "", "data source: live|cache (default: live)")
 	}
 }

@@ -3,29 +3,29 @@
 
 package cmd
 
-// cmd/llm.go — machine-readable context document for LLM onboarding.
+// cmd/llm.go — machine-readable context document for reserve onboarding.
 //
 // Usage:
-//   reserve llm                          # full-program onboarding bundle
-//   reserve llm series                   # command-specific onboarding
-//   reserve llm --topic start            # curated topic slice
-//   reserve llm --topic toc              # table of contents / two-step handshake
-//   reserve llm --topic pipeline         # stdin/stdout semantics
-//   reserve llm --topic commands         # full command reference
-//   reserve llm --topic data-model       # types, NaN, Result envelope
-//   reserve llm --topic examples         # verified end-to-end examples
-//   reserve llm --topic gotchas          # sharp edges and known gaps
-//   reserve llm --topic version          # build metadata
-//   reserve llm --topic toc,pipeline     # comma-separated multi-topic
-//   reserve llm --topic all              # everything (large context)
+//   reserve onboard                      # full-program onboarding bundle
+//   reserve onboard series               # command-specific onboarding
+//   reserve onboard --topic start        # curated topic slice
+//   reserve onboard --topic toc          # table of contents / two-step handshake
+//   reserve onboard --topic pipeline     # stdin/stdout semantics
+//   reserve onboard --topic commands     # full command reference
+//   reserve onboard --topic data-model   # types, NaN, Result envelope
+//   reserve onboard --topic examples     # verified end-to-end examples
+//   reserve onboard --topic gotchas      # sharp edges and known gaps
+//   reserve onboard --topic version      # build metadata
+//   reserve onboard --topic toc,pipeline # comma-separated multi-topic
+//   reserve onboard --topic all          # everything (large context)
 //
-// LLM onboarding workflow:
-//   1. reserve llm                       (paste output → LLM gets the whole program)
+// Onboarding workflow:
+//   1. reserve onboard                   (paste output → agent gets the whole program)
 //   3. Ask your macroeconomics question.
 //
 // Two-step handshake (token-conservative):
-//   1. reserve llm --topic toc           (paste → LLM requests topics it needs)
-//   2. reserve llm --topic <requested>   (paste → LLM says ready)
+//   1. reserve onboard --topic toc       (paste → agent requests topics it needs)
+//   2. reserve onboard --topic <requested> (paste → agent says ready)
 //   3. Ask your macroeconomics question.
 
 import (
@@ -45,7 +45,7 @@ type llmTopic struct {
 
 var topicRegistry = []llmTopic{
 	{"start", "Curated onboarding bundle: commands + pipeline + gotchas + examples. One command, ready to work."},
-	{"toc", "Topic index and LLM interaction guide. Use for the two-step handshake pattern."},
+	{"toc", "Topic index and onboarding interaction guide. Use for the two-step handshake pattern."},
 	{"commands", "Full command reference: all nouns, verbs, flags, output formats."},
 	{"pipeline", "stdin/stdout semantics, JSONL format, operator chaining, format requirements."},
 	{"data-model", "Core types: Observation, SeriesData, Result envelope, NaN conventions."},
@@ -59,25 +59,25 @@ var topicRegistry = []llmTopic{
 var llmTopicFlag string
 
 var llmCmd = &cobra.Command{
-	Use:   "llm [command]",
-	Short: "Emit a machine-readable context document for LLM onboarding",
+	Use:   "onboard [command]",
+	Short: "Emit a machine-readable context document for onboarding",
 	Long: `Emit a structured JSON document describing reserve's commands, pipeline
 semantics, verified examples, and known gotchas — formatted for efficient
-LLM context window ingestion.
+agent and advanced-user onboarding.
 
-Bare 'reserve llm' emits the full-program onboarding bundle.
-Use 'reserve llm <command>' for command-specific onboarding.
+Bare 'reserve onboard' emits the full-program onboarding bundle.
+Use 'reserve onboard <command>' for command-specific onboarding.
 Use --topic when you want a program-level slice rather than the full bundle.
 
 Two-step handshake pattern (token-conservative):
-  1. reserve llm --topic toc
-     Paste into your LLM session. The LLM identifies which topics it needs.
-  2. reserve llm --topic <requested topics>
-     Paste the targeted output. The LLM confirms it is ready.
+  1. reserve onboard --topic toc
+     Paste into your agent or LLM session. It identifies which topics it needs.
+  2. reserve onboard --topic <requested topics>
+     Paste the targeted output. It confirms it is ready.
   3. Ask your question.
 
 For large context windows:
-  reserve llm --topic all
+  reserve onboard --topic all
 
 Topics:
   start       Curated onboarding bundle — commands, pipeline, gotchas, examples
@@ -91,16 +91,16 @@ Topics:
   all         Everything (for large context windows)
 
 Command-specific onboarding:
-  reserve llm series
-  reserve llm config
-  reserve llm transform`,
-	Example: `  reserve llm                              # full-program onboarding
-  reserve llm series                       # command-specific onboarding
-  reserve llm --topic start                # curated onboarding bundle
-  reserve llm --topic toc                  # two-step handshake (token-conservative)
-  reserve llm --topic pipeline,gotchas     # surgical context
-  reserve llm --topic all | pbcopy         # full context for large windows
-  reserve llm --topic version --format jsonl >> audit.jsonl`,
+  reserve onboard series
+  reserve onboard config
+  reserve onboard transform`,
+	Example: `  reserve onboard                          # full-program onboarding
+  reserve onboard series                   # command-specific onboarding
+  reserve onboard --topic start            # curated onboarding bundle
+  reserve onboard --topic toc              # two-step handshake (token-conservative)
+  reserve onboard --topic pipeline,gotchas # surgical context
+  reserve onboard --topic all | pbcopy     # full context for large windows
+  reserve onboard --topic version --format jsonl >> audit.jsonl`,
 	Args: cobra.MaximumNArgs(1),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) > 0 {
@@ -121,12 +121,12 @@ Command-specific onboarding:
 		switch {
 		case len(args) == 1:
 			if cmd.Flags().Changed("topic") {
-				return fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve llm --topic ...` or `reserve llm %s`", args[0])
+				return fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve onboard --topic ...` or `reserve onboard %s`", args[0])
 			}
 			var ok bool
 			doc, ok = buildCommandLLMDoc(args[0])
 			if !ok {
-				return fmt.Errorf("unknown llm command %q (available: %s)", args[0], strings.Join(llmCommandNames(), ", "))
+				return fmt.Errorf("unknown onboard command %q (available: %s)", args[0], strings.Join(llmCommandNames(), ", "))
 			}
 		case cmd.Flags().Changed("topic"):
 			topics := parseLLMTopics(llmTopicFlag)
@@ -245,12 +245,12 @@ func buildStart() map[string]any {
 	return map[string]any{
 		"description": "Curated onboarding bundle for immediate productive use. " +
 			"Contains the full command reference, pipeline semantics, verified examples, " +
-			"and known gotchas — the minimum context an LLM needs to work confidently with reserve.",
-		"suggested_prompt": "I am pasting the output of `reserve llm`. " +
+			"and known gotchas — the minimum context an agent or advanced user needs to work confidently with reserve.",
+		"suggested_prompt": "I am pasting the output of `reserve onboard`. " +
 			"This is the authoritative reference for a CLI called `reserve` — " +
 			"a Go tool for fetching, caching, transforming, and analyzing FRED® economic data via a Unix pipeline model. " +
 			"Three rules to internalize before we start: " +
-			"(1) always add --format jsonl on source commands (obs get, store get) when piping — they default to table format and will break downstream operators without it; " +
+			"(1) always add --format jsonl on source commands like `obs get` when piping — they default to table format and will break downstream operators without it; " +
 			"(2) rolling windows use `reserve window roll`, not `reserve transform roll` — window is a separate noun; " +
 			"(3) pipeline operators treat all stdin as a single series — run each series separately for meaningful analysis. " +
 			"When you are ready to help me explore FRED economic data, say so.",
@@ -269,7 +269,7 @@ func buildTOC() map[string]any {
 		topics[i] = map[string]any{
 			"name":        t.Name,
 			"description": t.Description,
-			"fetch":       fmt.Sprintf("reserve llm --topic %s", t.Name),
+			"fetch":       fmt.Sprintf("reserve onboard --topic %s", t.Name),
 		}
 	}
 	return map[string]any{
@@ -280,10 +280,10 @@ func buildTOC() map[string]any {
 		"command_count": len(llmCommandRegistry),
 		"commands":      buildCommandIndex(),
 		"topics":       topics,
-		"quick_start":  "reserve llm --topic toc  — emits topic index; then request focused topics",
-		"multi_topic":  "reserve llm --topic pipeline,gotchas",
-		"full_context": "reserve llm  — full-program onboarding (or use `reserve llm --topic all`)",
-		"prompt_template": "I am pasting the output of `reserve llm --topic <topics>`. " +
+		"quick_start":  "reserve onboard --topic toc  — emits topic index; then request focused topics",
+		"multi_topic":  "reserve onboard --topic pipeline,gotchas",
+		"full_context": "reserve onboard  — full-program onboarding (or use `reserve onboard --topic all`)",
+		"prompt_template": "I am pasting the output of `reserve onboard --topic <topics>`. " +
 			"This is the authoritative reference for a CLI called reserve. " +
 			"Use it to answer my questions about fetching and analyzing FRED economic data. " +
 			"Tell me when you are ready.",
@@ -378,17 +378,17 @@ func buildPipeline() map[string]any {
 		},
 		"correct_pipeline_pattern": "reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl | reserve transform pct-change --period 12 | reserve window roll --stat mean --window 3 | reserve analyze trend",
 		"wrong_pipeline_pattern":   "reserve obs get CPIAUCSL --start 2020-01-01 | reserve transform pct-change  ← missing --format jsonl, will fail",
-		"format_autodetection":     "transform and window commands auto-detect: if stdout is a terminal they emit table, if piped they emit jsonl. The SOURCE command (obs get, store get) does NOT auto-detect — it must be told explicitly.",
-		"preferred_source":         "reserve store get is preferred over reserve obs get in pipelines. store get reads from the local bbolt cache — no API call, no rate limiting, no network dependency.",
+		"format_autodetection":     "transform and window commands auto-detect: if stdout is a terminal they emit table, if piped they emit jsonl. The SOURCE command (`obs get`) does NOT auto-detect — it must be told explicitly.",
+		"preferred_source":         "For cached pipeline reads, use `reserve obs get <ID> --from cache --format jsonl`. It reads from the local bbolt cache — no network, no rate limiting.",
 		"operator_chain_anatomy": map[string]any{
-			"source":    "obs get / store get  — emits JSONL",
+			"source":    "obs get  — emits JSONL when `--format jsonl` is used",
 			"transform": "transform pct-change / diff / log / index / normalize / resample / filter  — JSONL → JSONL",
 			"window":    "window roll  — JSONL → JSONL  (note: separate noun, not under transform)",
 			"chart":     "chart bar / chart plot  — JSONL → terminal ASCII chart  (no `chart line` verb)",
 			"terminal":  "analyze summary / analyze trend  — JSONL → table or JSON summary",
 		},
 		"multi_series_limitation": "Pipeline operators treat all JSONL on stdin as a single series. If you pipe obs get with two series IDs, the interleaved rows are treated as one stream. Run each series separately and compare results manually.",
-		"store_get_pattern":       "reserve store get CPIAUCSL --format jsonl | reserve transform pct-change --period 12 | reserve analyze summary",
+		"store_get_pattern":       "reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12 | reserve analyze summary",
 	}
 }
 
@@ -460,7 +460,7 @@ func buildGotchas() map[string]any {
 			{
 				"id":      "format-jsonl-required",
 				"title":   "Always --format jsonl on the source command when piping",
-				"detail":  "obs get and store get default to table format regardless of whether stdout is a terminal. Table output starts with '+---' border characters which are not valid JSON. Downstream operators fail with 'invalid character +'. This is the single most common mistake.",
+				"detail":  "obs get defaults to table format regardless of whether stdout is a terminal. Table output starts with '+---' border characters which are not valid JSON. Downstream operators fail with 'invalid character +'. This is the single most common mistake.",
 				"wrong":   "reserve obs get CPIAUCSL | reserve transform pct-change",
 				"correct": "reserve obs get CPIAUCSL --format jsonl | reserve transform pct-change",
 			},
@@ -498,9 +498,9 @@ func buildGotchas() map[string]any {
 		},
 		"pipeline_tips": []map[string]any{
 			{
-				"id":     "store-over-obs",
-				"title":  "Prefer store get over obs get in pipelines",
-				"detail": "reserve store get reads from local bbolt — no network, no rate limiting, instant. Use 'reserve fetch series <ID> --store' once to accumulate data, then build pipelines against the local store.",
+				"id":     "cache-source",
+				"title":  "Use `obs get --from cache` for local pipelines",
+				"detail": "Use `reserve fetch series <ID> --store` once to accumulate local data, then read it with `reserve obs get <ID> --from cache --format jsonl` for offline, rate-limit-free pipelines.",
 			},
 			{
 				"id":     "analyze-is-terminal",

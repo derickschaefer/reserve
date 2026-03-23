@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -117,7 +118,7 @@ func TestNewAPIEndpoints(t *testing.T) {
 		for path, h := range handlers {
 			mux.HandleFunc(path, h)
 		}
-		return httptest.NewServer(mux)
+		return newIPv4TestServer(t, mux)
 	}
 
 	// ── Category endpoints ────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ func TestBatchConcurrency(t *testing.T) {
 	var peakActive int64
 	var mu sync.Mutex
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	srv := newIPv4TestServer(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		current := atomic.AddInt64(&activeCount, 1)
 		mu.Lock()
 		if current > peakActive {
@@ -436,7 +437,7 @@ func TestPartialFailureWarnings(t *testing.T) {
 	r := &result{}
 
 	// Server that returns 200 for SERIES01 and 400 for all others
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	srv := newIPv4TestServer(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		id := req.URL.Query().Get("series_id")
 		if id == "SERIES01" {
 			json.NewEncoder(w).Encode(map[string]interface{}{
@@ -618,6 +619,21 @@ func TestValueSemanticsOffline(t *testing.T) {
 	)
 
 	r.summary(t, "VALUE SEMANTICS")
+}
+
+func newIPv4TestServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen on IPv4 loopback: %v", err)
+	}
+
+	srv := httptest.NewUnstartedServer(handler)
+	srv.Listener = ln
+	srv.Start()
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

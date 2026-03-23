@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestParseLLMTopicsDefaultIsTOC(t *testing.T) {
+func TestParseOnboardTopicsDefaultIsTOC(t *testing.T) {
 	got := parseLLMTopics("")
 	want := []string{"toc"}
 	if !reflect.DeepEqual(got, want) {
@@ -17,7 +17,7 @@ func TestParseLLMTopicsDefaultIsTOC(t *testing.T) {
 	}
 }
 
-func TestParseLLMTopicsAll(t *testing.T) {
+func TestParseOnboardTopicsAll(t *testing.T) {
 	got := parseLLMTopics("all")
 	if len(got) != len(topicRegistry) {
 		t.Fatalf("all topics size mismatch: got %d want %d", len(got), len(topicRegistry))
@@ -29,7 +29,7 @@ func TestParseLLMTopicsAll(t *testing.T) {
 	}
 }
 
-func TestBuildProgramLLMDocIncludesAllCommandGuides(t *testing.T) {
+func TestBuildProgramOnboardDocIncludesAllCommandGuides(t *testing.T) {
 	doc := buildProgramLLMDoc()
 
 	if got := doc["scope"]; got != "program" {
@@ -54,7 +54,7 @@ func TestBuildProgramLLMDocIncludesAllCommandGuides(t *testing.T) {
 	}
 }
 
-func TestBuildCommandLLMDoc(t *testing.T) {
+func TestBuildCommandOnboardDoc(t *testing.T) {
 	doc, ok := buildCommandLLMDoc("series")
 	if !ok {
 		t.Fatalf("expected series guide")
@@ -85,13 +85,13 @@ func TestBuildCommandLLMDoc(t *testing.T) {
 	}
 }
 
-func TestBuildCommandLLMDocUnknown(t *testing.T) {
+func TestBuildCommandOnboardDocUnknown(t *testing.T) {
 	if _, ok := buildCommandLLMDoc("does-not-exist"); ok {
 		t.Fatalf("expected unknown command to fail lookup")
 	}
 }
 
-func TestLLMCommandRegistryMatchesTopLevelCommands(t *testing.T) {
+func TestOnboardCommandRegistryMatchesTopLevelCommands(t *testing.T) {
 	got := llmCommandNames()
 	sort.Strings(got)
 
@@ -108,7 +108,7 @@ func TestLLMCommandRegistryMatchesTopLevelCommands(t *testing.T) {
 	sort.Strings(want)
 
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("llm command registry mismatch:\n got: %v\nwant: %v", got, want)
+		t.Fatalf("onboard command registry mismatch:\n got: %v\nwant: %v", got, want)
 	}
 }
 
@@ -154,6 +154,14 @@ func TestAllCommandGuidesHaveRequiredFields(t *testing.T) {
 			default:
 				t.Fatalf("%s guide field %q has unsupported type %T", guide.Name, field, v)
 			}
+		}
+	}
+}
+
+func TestStoreCommandRemoved(t *testing.T) {
+	for _, c := range rootCmd.Commands() {
+		if c.Name() == "store" {
+			t.Fatalf("store command should be removed from the root command tree")
 		}
 	}
 }
