@@ -19,7 +19,7 @@ Federal Reserve Bank of St. Louis FRED® API.
 - [The Command Model](#the-command-model)
 - [Command Reference](#command-reference)
   - [series](#series) — discover and inspect data series
-  - [obs](#obs) — fetch live observations
+  - [obs](#obs) — retrieve observations
   - [category](#category) — browse the data hierarchy
   - [release](#release) — data releases
   - [source](#source) — data source institutions
@@ -53,9 +53,9 @@ The FRED® API is one of the richest free economic data sources in the world —
 
 - **Command-object model.** Every subcommand is a first-class object with a defined input schema, validation, and a uniform `Result` envelope. Commands compose cleanly, behave predictably, and are trivial to extend. No monolithic scripts, no implicit globals.
 
-- **Embedded database — no server required.** Observation data is persisted in a single file, embedded database that is created on the fly.  Th actual embedded database is [bbolt](https://github.com/etcd-io/bbolt), a proven embedded key-value store used in production systems.  It can scale to hold ten's of millions of datapoints with ease. No Postgres, no SQL Server, no running process. However, if your use cases require data to be centralized in a server or cloud data platform (e.g. Snowflake), comma-seperated value outputs are supported throughout reserve.
+- **Embedded database — no server required.** Observation data is persisted in a single embedded database file that is created on the fly. The actual embedded database is [bbolt](https://github.com/etcd-io/bbolt), a proven embedded key-value store used in production systems. It can scale to hold tens of millions of datapoints with ease. No Postgres, no SQL Server, no running process. If your use cases require data to be centralized in a server or cloud data platform such as Snowflake, comma-separated value outputs are supported throughout reserve.
 
-- **Pipeline-ready for large data environments.** `reserve` speaks JSONL on stdin/stdout — the lingua franca of Unix data pipelines. Chain transforms and analyses with `|`, redirect to files, or feed downstream tools. Every operator is NaN-aware and handles FRED's missing-value conventions correctly at scale. CSV formating is also supported for importing data into other data stores or spreadsheets.
+- **Pipeline-ready for large data environments.** `reserve` speaks JSONL on stdin/stdout — the lingua franca of Unix data pipelines. Chain transforms and analyses with `|`, redirect to files, or feed downstream tools. Every operator is NaN-aware and handles FRED's missing-value conventions correctly at scale. CSV formatting is also supported for importing data into other data stores or spreadsheets.
 
 - **LLM and agentic workflow ready.** JSONL is the native input format for modern AI pipelines. Pipe `reserve` output directly into LLM tool-call chains, vector embedding workflows, or agentic analysis frameworks — economic time series, transformed and structured, exactly where your model expects it.
 
@@ -173,8 +173,6 @@ The pipeline is Unix-native. Commands that produce observations write JSONL to s
 
 `reserve` uses a pragmatic command model that is worth understanding before you explore the full command reference.
 
-The test suite is anchored to this current command contract. Durable tests assert the shipped surface and key help semantics for commands such as `obs`, `series`, and `onboard`; they are not intended to preserve historical assertions about older removed commands except where that protects the current architecture.
-
 Most commands follow a **noun-verb** pattern: the top-level command names a resource, and its subcommands are operations on that resource. This maps naturally onto the structure of the FRED API and the local data model.
 ```
 reserve series get UNRATE            # noun: series  / verb: get
@@ -184,7 +182,9 @@ reserve obs get CPIAUCSL --from cache # noun: obs     / verb: get
 reserve config set api_key XYZ      # noun: config   / verb: set
 ```
 
-Two top-level commands are nouns by acronym or function rather than by entity type: `obs` (observations) and `onboard` (machine-readable onboarding context). They still fit the same top-level command model.
+`obs` is still a normal FRED wrapper noun. It is slightly unusual only because the name is abbreviated; conceptually it belongs alongside `series`, `category`, `release`, `source`, `tag`, and `meta`.
+
+`onboard` is different: it is a support/meta command that emits machine-readable documentation for agents, LLMs, and advanced users.
 ```
 reserve obs get UNRATE --start 2020-01-01   # noun: obs (observations)
 reserve onboard --topic pipeline            # onboarding context for agents and advanced users
@@ -198,7 +198,7 @@ reserve onboard --topic pipeline            # onboarding context for agents and 
 ... | reserve chart plot
 ```
 
-Finally, two commands are standalone action verbs with no natural noun: `fetch` and `search`. `fetch` performs a batch accumulation across entity types; `search` performs full-text query across supported global entities (series and tags). Neither belongs to a single resource, so no noun prefix applies.
+Finally, `fetch` and `search` are action-oriented commands rather than resource nouns. `fetch` performs batch acquisition across supported entity types, while `search` performs full-text query across supported global entities such as series and tags.
 ```
 reserve fetch series GDP UNRATE CPIAUCSL --store
 reserve search "yield curve"
@@ -208,11 +208,12 @@ In summary:
 
 | Class | Pattern | Examples |
 |---|---|---|
-| FRED API wrappers | noun verb | `series`, `category`, `release`, `source`, `tag`, `meta` |
+| FRED API wrappers | noun verb | `obs`, `series`, `category`, `release`, `source`, `tag`, `meta` |
 | Local state operations | noun verb | `cache`, `config` |
-| Specialized top-level commands | noun verb | `obs`, `onboard` |
+| Support / meta commands | noun verb | `onboard` |
 | Pipeline operators | verb only | `transform`, `window`, `analyze`, `chart` |
-| Cross-cutting actions | verb only | `fetch`, `search` |
+| Batch acquisition | verb noun | `fetch` |
+| Standalone query | verb only | `search` |
 | Utility | standalone | `version`, `completion`, `help` |
 
 The noun-verb commands follow consistent flag conventions and produce the same `Result` envelope. The pipeline operators follow consistent stdin/stdout JSONL semantics. Within each class, behavior is uniform and predictable.
