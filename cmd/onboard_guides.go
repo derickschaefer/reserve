@@ -5,14 +5,14 @@ package cmd
 
 import "fmt"
 
-type llmCommandGuide struct {
+type onboardCommandGuide struct {
 	Name     string
 	Category string
 	Summary  string
 	Build    func() map[string]any
 }
 
-var llmCommandRegistry = []llmCommandGuide{
+var onboardCommandRegistry = []onboardCommandGuide{
 	{Name: "analyze", Category: "pipeline", Summary: "Terminal statistical summaries and trend fitting for JSONL observation streams.", Build: buildAnalyzeGuide},
 	{Name: "cache", Category: "maintenance", Summary: "Inspect and maintain the local bbolt cache file.", Build: buildCacheGuide},
 	{Name: "category", Category: "discovery", Summary: "Explore the FRED category tree and list series under categories.", Build: buildCategoryGuide},
@@ -20,7 +20,7 @@ var llmCommandRegistry = []llmCommandGuide{
 	{Name: "completion", Category: "support", Summary: "Generate shell completion scripts for bash, zsh, fish, and PowerShell.", Build: buildCompletionGuide},
 	{Name: "config", Category: "setup", Summary: "Create, inspect, and update reserve configuration and API key settings.", Build: buildConfigGuide},
 	{Name: "fetch", Category: "ingest", Summary: "Pull metadata or observations from FRED and optionally persist them locally.", Build: buildFetchGuide},
-	{Name: "onboard", Category: "support", Summary: "Emit machine-readable onboarding JSON for the whole program or a specific command.", Build: buildLLMSelfGuide},
+	{Name: "onboard", Category: "support", Summary: "Emit machine-readable onboarding JSON for the whole program or a specific command.", Build: buildOnboardSelfGuide},
 	{Name: "meta", Category: "discovery", Summary: "Batch metadata lookup across series, categories, releases, sources, and tags.", Build: buildMetaGuide},
 	{Name: "obs", Category: "source", Summary: "Fetch live FRED observations directly from the API.", Build: buildObsGuide},
 	{Name: "release", Category: "discovery", Summary: "Browse FRED data releases, release dates, and release-linked series.", Build: buildReleaseGuide},
@@ -33,7 +33,7 @@ var llmCommandRegistry = []llmCommandGuide{
 	{Name: "window", Category: "pipeline", Summary: "Compute rolling-window statistics from JSONL observation streams.", Build: buildWindowGuide},
 }
 
-func buildBaseLLMDoc() map[string]any {
+func buildBaseOnboardDoc() map[string]any {
 	return map[string]any{
 		"tool":    "reserve",
 		"version": Version,
@@ -44,33 +44,37 @@ func buildBaseLLMDoc() map[string]any {
 	}
 }
 
-func buildProgramLLMDoc() map[string]any {
-	doc := buildBaseLLMDoc()
+func buildProgramOnboardDoc() map[string]any {
+	doc := buildBaseOnboardDoc()
 	doc["scope"] = "program"
 	doc["program"] = map[string]any{
 		"description": "Full-program onboarding for reserve. Use this when the model can keep substantial local context " +
 			"and needs a durable understanding of the entire CLI rather than a single command family.",
-		"command_count":   len(llmCommandRegistry),
-		"global_flags":    buildGlobalFlags(),
-		"workflow":        buildProgramWorkflow(),
-		"command_guides":  buildCommandGuides(),
-		"pipeline":        buildPipeline(),
-		"data_model":      buildDataModel(),
-		"gotchas":         buildGotchas(),
-		"examples":        buildExamples(),
-		"version_detail":  buildVersionDetail(),
+		"command_count":  len(onboardCommandRegistry),
+		"global_flags":   buildGlobalFlags(),
+		"workflow":       buildProgramWorkflow(),
+		"command_guides": buildCommandGuides(),
+		"export": map[string]any{
+			"usage":   "reserve onboard export <DIR>",
+			"outputs": "writes program.json plus one JSON file per top-level command guide",
+		},
+		"pipeline":       buildPipeline(),
+		"data_model":     buildDataModel(),
+		"gotchas":        buildGotchas(),
+		"examples":       buildExamples(),
+		"version_detail": buildVersionDetail(),
 		"suggested_prompt": "I am pasting the output of `reserve onboard`. This is the authoritative reference for the entire reserve CLI. " +
 			"Use it as the source of truth for commands, pipeline semantics, and known gotchas. Tell me when you are ready.",
 	}
 	return doc
 }
 
-func buildCommandLLMDoc(name string) (map[string]any, bool) {
-	for _, guide := range llmCommandRegistry {
+func buildCommandOnboardDoc(name string) (map[string]any, bool) {
+	for _, guide := range onboardCommandRegistry {
 		if guide.Name != name {
 			continue
 		}
-		doc := buildBaseLLMDoc()
+		doc := buildBaseOnboardDoc()
 		doc["scope"] = "command"
 		doc["command_name"] = guide.Name
 		doc["command"] = guide.Build()
@@ -80,16 +84,16 @@ func buildCommandLLMDoc(name string) (map[string]any, bool) {
 }
 
 func buildCommandGuides() map[string]any {
-	out := make(map[string]any, len(llmCommandRegistry))
-	for _, guide := range llmCommandRegistry {
+	out := make(map[string]any, len(onboardCommandRegistry))
+	for _, guide := range onboardCommandRegistry {
 		out[guide.Name] = guide.Build()
 	}
 	return out
 }
 
 func buildCommandIndex() []map[string]any {
-	out := make([]map[string]any, 0, len(llmCommandRegistry))
-	for _, guide := range llmCommandRegistry {
+	out := make([]map[string]any, 0, len(onboardCommandRegistry))
+	for _, guide := range onboardCommandRegistry {
 		out = append(out, map[string]any{
 			"name":     guide.Name,
 			"category": guide.Category,
@@ -123,6 +127,7 @@ func buildProgramWorkflow() []string {
 		"Choose a source command for data: `reserve obs get` for live API reads or `reserve obs get --from cache` for local cached reads.",
 		"Build JSONL pipelines with `transform`, `window`, `analyze`, and `chart`.",
 		"Persist durable local data with `reserve fetch series --store`, read it back with `obs get --from cache`, and maintain it with `cache`.",
+		"Export onboarding bundles with `reserve onboard export <DIR>` when you want project-ready JSON files instead of stdout output.",
 		"Use `version` for provenance in reports or packaged builds.",
 	}
 }
@@ -443,22 +448,24 @@ func buildFetchGuide() map[string]any {
 	)
 }
 
-func buildLLMSelfGuide() map[string]any {
+func buildOnboardSelfGuide() map[string]any {
 	return makeGuide(
 		"Emit machine-readable onboarding JSON for reserve itself.",
 		"`onboard` is the meta-command for teaching an external agent, LLM, or advanced user how reserve works. It supports whole-program onboarding, topic slices, and command-specific onboarding.",
-		"Use bare `reserve onboard` for full-program context, `reserve onboard --topic ...` for topic slices, and `reserve onboard <command>` for focused command onboarding.",
+		"Use bare `reserve onboard` for full-program context, `reserve onboard --topic ...` for topic slices, `reserve onboard <command>` for focused command onboarding, and `reserve onboard export <DIR>` for multi-file project bundles.",
 		"Support command. Produces structured JSON, not observation data.",
 		"Writes JSON or JSONL describing reserve semantics. It does not call the FRED API.",
 		map[string]any{
 			"program": "reserve onboard",
 			"topic":   "reserve onboard --topic start|toc|commands|pipeline|data-model|examples|gotchas|version|all",
 			"focus":   "reserve onboard <command>",
+			"export":  "reserve onboard export <DIR>",
 		},
 		map[string]any{
 			"program": "no command-specific flags",
 			"topic":   "--topic <topic-list>",
 			"focus":   "one positional top-level command name",
+			"export":  "writes program.json plus one JSON file per command guide",
 		},
 		[]string{"JSON document", "JSONL single-document output"},
 		[]string{
@@ -477,6 +484,7 @@ func buildLLMSelfGuide() map[string]any {
 			"reserve onboard",
 			"reserve onboard --topic pipeline,gotchas",
 			"reserve onboard series",
+			"reserve onboard export ./onboard",
 		},
 		[]string{
 			"`--topic` is the topic-slice interface for program-level docs. Command-specific docs use the positional command argument.",

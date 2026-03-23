@@ -11,9 +11,9 @@ import (
 
 	"github.com/derickschaefer/reserve/internal/app"
 	"github.com/derickschaefer/reserve/internal/config"
+	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/store"
-	"github.com/derickschaefer/reserve/internal/fred"
 )
 
 func TestLatestRowRoundTripPreservesNumericValue(t *testing.T) {
@@ -80,6 +80,28 @@ func TestResolveObsSourceRecognisesPlannedButUnconfiguredSources(t *testing.T) {
 	}
 	if _, err := resolveObsSource("bogus"); err == nil || err.Error() != "unknown source: bogus" {
 		t.Fatalf("unexpected bogus resolution error: %v", err)
+	}
+}
+
+func TestValidateObsSourceConfigSkipsAPIKeyForCache(t *testing.T) {
+	deps := &app.Deps{Config: &config.Config{DBPath: "/tmp/reserve.db"}}
+	src, err := resolveObsSource("cache")
+	if err != nil {
+		t.Fatalf("resolveObsSource(cache): %v", err)
+	}
+	if err := validateObsSourceConfig(deps, src); err != nil {
+		t.Fatalf("cache source should not require API key: %v", err)
+	}
+}
+
+func TestValidateObsSourceConfigRequiresAPIKeyForLive(t *testing.T) {
+	deps := &app.Deps{Config: &config.Config{}}
+	src, err := resolveObsSource("live")
+	if err != nil {
+		t.Fatalf("resolveObsSource(live): %v", err)
+	}
+	if err := validateObsSourceConfig(deps, src); err == nil {
+		t.Fatalf("live source should require API key")
 	}
 }
 

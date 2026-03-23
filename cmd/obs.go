@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/derickschaefer/reserve/internal/app"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
@@ -78,7 +79,12 @@ var obsGetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := deps.Config.Validate(); err != nil {
+
+		src, err := resolveObsSource(obsFrom)
+		if err != nil {
+			return err
+		}
+		if err := validateObsSourceConfig(deps, src); err != nil {
 			return err
 		}
 
@@ -101,10 +107,6 @@ var obsGetCmd = &cobra.Command{
 			Units: obsUnits,
 			Agg:   obsAgg,
 			Limit: obsLimit,
-		}
-		src, err := resolveObsSource(obsFrom)
-		if err != nil {
-			return err
 		}
 
 		start := time.Now()
@@ -166,6 +168,13 @@ var obsGetCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func validateObsSourceConfig(deps *app.Deps, src obsSource) error {
+	if src.requiresAPIKey() {
+		return deps.Config.Validate()
+	}
+	return nil
 }
 
 // ─── obs latest ───────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 BINARY   := reserve
-VERSION  := v1.0.8
+VERSION  := v1.0.9
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
@@ -73,7 +73,7 @@ test-unit:
 
 ## ── Integration Tests ────────────────────────────────────────────────────────
 
-## test-integration: run integration tests (live checks skip if no API key configured)
+## test-integration: run integration tests (durable CLI contracts, offline mocks, live checks skip if unavailable)
 test-integration:
 	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)  🔬  INTEGRATION TESTS (tests/)$(RESET)\n"

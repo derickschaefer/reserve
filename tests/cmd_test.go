@@ -4,9 +4,9 @@
 // ============================================================================
 // FILE:        tests/phase2_test.go
 // PROJECT:     reserve
-// DESCRIPTION: Phase 2 test suite covering:
+// DESCRIPTION: Durable CLI contract suite covering:
 //
-//   1. Subcommand Routing   — every noun/verb pair resolves without error
+//   1. Command Surface      — durable root/help contracts for shipped commands
 //   2. New API Endpoints    — mock HTTP server for category/release/source/tag
 //   3. Batch Concurrency    — worker pool respects --concurrency ceiling
 //   4. Partial Failures     — per-item errors collected as warnings
@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
-	"net/http/httptest"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -37,69 +38,53 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Group 5 — Subcommand Routing
+// Group 5 — Command Surface
 // ─────────────────────────────────────────────────────────────────────────────
 
-func TestSubcommandRouting(t *testing.T) {
-	printBanner(t, "SUBCOMMAND ROUTING")
+func TestCommandSurface(t *testing.T) {
+	printBanner(t, "COMMAND SURFACE")
 	r := &result{}
 
-	// All Phase 2 noun/verb pairs that should be registered on the root command.
-	// We verify they appear in the command tree (Cobra's Find will locate them).
-	pairs := [][]string{
-		{"category", "get"},
-		{"category", "list"},
-		{"category", "tree"},
-		{"category", "series"},
-		{"release", "list"},
-		{"release", "get"},
-		{"release", "dates"},
-		{"release", "series"},
-		{"source", "list"},
-		{"source", "get"},
-		{"source", "releases"},
-		{"tag", "search"},
-		{"tag", "series"},
-		{"tag", "related"},
-		{"search"},
-		{"meta", "series"},
-		{"meta", "category"},
-		{"meta", "release"},
-		{"meta", "source"},
-		{"meta", "tag"},
-		{"fetch", "series"},
-		{"fetch", "category"},
-		{"fetch", "query"},
-		{"series", "related"},
-		{"series", "describe"},
-		{"completion"},
-	}
-
-	// Import the cmd package indirectly via the binary entry-point:
-	// We test routing by calling the client directly — the command tree
-	// is already exercised in integration; here we verify fred client methods exist.
-	// (Direct Cobra tree inspection requires importing cmd, which creates circular
-	// imports in the tests package. We verify via compile-time evidence instead.)
-	//
-	// The fact that ./... compiles (asserted in every other test run) means
-	// every noun/verb is registered. So here we do a smoke-check: the pairs
-	// list above must be non-empty and all unique.
-	seen := make(map[string]bool)
-	for _, pair := range pairs {
-		key := fmt.Sprintf("%v", pair)
-		r.check(t, !seen[key],
-			fmt.Sprintf("subcommand %v is unique in routing table", pair),
-			fmt.Sprintf("subcommand %v is DUPLICATED in routing table", pair),
+	rootHelp := runReserveHelp(t, "--help")
+	for _, cmdName := range []string{
+		"analyze", "cache", "category", "chart", "completion", "config",
+		"fetch", "meta", "obs", "onboard", "release", "search",
+		"series", "source", "tag", "transform", "version", "window",
+	} {
+		r.check(t, strings.Contains(rootHelp, "\n  "+cmdName),
+			fmt.Sprintf("root help includes [%s]", cmdName),
+			fmt.Sprintf("root help is missing [%s]", cmdName),
 		)
-		seen[key] = true
 	}
-
-	r.check(t, len(pairs) >= 25,
-		fmt.Sprintf("Phase 2 routing table has ≥25 noun/verb pairs (%d registered)", len(pairs)),
-		fmt.Sprintf("Phase 2 routing table too small: %d pairs", len(pairs)),
+	r.check(t, !strings.Contains(rootHelp, "\n  store"),
+		"root help does not advertise deprecated command [store]",
+		"root help still advertises deprecated command [store]",
 	)
 
-	r.summary(t, "SUBCOMMAND ROUTING")
+	obsGetHelp := runReserveHelp(t, "obs", "get", "--help")
+	for _, token := range []string{"--from string", "live|cache", "--start string", "--end string"} {
+		r.check(t, strings.Contains(obsGetHelp, token),
+			fmt.Sprintf("obs get help includes [%s]", token),
+			fmt.Sprintf("obs get help is missing [%s]", token),
+		)
+	}
+
+	onboardHelp := runReserveHelp(t, "onboard", "--help")
+	for _, token := range []string{"reserve onboard [command]", "--topic string", "reserve onboard series", "export"} {
+		r.check(t, strings.Contains(onboardHelp, token),
+			fmt.Sprintf("onboard help includes [%s]", token),
+			fmt.Sprintf("onboard help is missing [%s]", token),
+		)
+	}
+
+	seriesHelp := runReserveHelp(t, "series", "--help")
+	for _, sub := range []string{"get", "search", "tags", "categories"} {
+		r.check(t, strings.Contains(seriesHelp, sub),
+			fmt.Sprintf("series help includes [%s]", sub),
+			fmt.Sprintf("series help is missing [%s]", sub),
+		)
+	}
+	r.summary(t, "COMMAND SURFACE")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,19 +95,8 @@ func TestNewAPIEndpoints(t *testing.T) {
 	printBanner(t, "NEW API ENDPOINTS")
 	r := &result{}
 
-	newClient := func(baseURL string) *fred.Client {
-		return fred.NewClient("test_key", baseURL+"/", 5*time.Second, 1000, false)
-	}
-	mockServer := func(handlers map[string]http.HandlerFunc) *httptest.Server {
-		mux := http.NewServeMux()
-		for path, h := range handlers {
-			mux.HandleFunc(path, h)
-		}
-		return newIPv4TestServer(t, mux)
-	}
-
 	// ── Category endpoints ────────────────────────────────────────────────────
-	catSrv := mockServer(map[string]http.HandlerFunc{
+	client := newMockFREDClient(t, map[string]http.HandlerFunc{
 		"/category": func(w http.ResponseWriter, req *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"categories": []map[string]interface{}{
@@ -147,8 +121,6 @@ func TestNewAPIEndpoints(t *testing.T) {
 			})
 		},
 	})
-	defer catSrv.Close()
-	client := newClient(catSrv.URL)
 
 	cat, err := client.GetCategory(context.Background(), 0)
 	r.check(t, err == nil && cat != nil && cat.ID == 0,
@@ -173,7 +145,7 @@ func TestNewAPIEndpoints(t *testing.T) {
 	)
 
 	// ── Release endpoints ─────────────────────────────────────────────────────
-	relSrv := mockServer(map[string]http.HandlerFunc{
+	relClient := newMockFREDClient(t, map[string]http.HandlerFunc{
 		"/releases": func(w http.ResponseWriter, req *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"releases": []map[string]interface{}{
@@ -206,8 +178,6 @@ func TestNewAPIEndpoints(t *testing.T) {
 			})
 		},
 	})
-	defer relSrv.Close()
-	relClient := newClient(relSrv.URL)
 
 	releases, err := relClient.ListReleases(context.Background(), 0)
 	r.check(t, err == nil && len(releases) == 2,
@@ -234,7 +204,7 @@ func TestNewAPIEndpoints(t *testing.T) {
 	)
 
 	// ── Source endpoints ──────────────────────────────────────────────────────
-	srcSrv := mockServer(map[string]http.HandlerFunc{
+	srcClient := newMockFREDClient(t, map[string]http.HandlerFunc{
 		"/sources": func(w http.ResponseWriter, req *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"sources": []map[string]interface{}{
@@ -258,8 +228,6 @@ func TestNewAPIEndpoints(t *testing.T) {
 			})
 		},
 	})
-	defer srcSrv.Close()
-	srcClient := newClient(srcSrv.URL)
 
 	sources, err := srcClient.ListSources(context.Background(), 0)
 	r.check(t, err == nil && len(sources) == 2,
@@ -280,7 +248,7 @@ func TestNewAPIEndpoints(t *testing.T) {
 	)
 
 	// ── Tag endpoints ─────────────────────────────────────────────────────────
-	tagSrv := mockServer(map[string]http.HandlerFunc{
+	tagClient := newMockFREDClient(t, map[string]http.HandlerFunc{
 		"/tags": func(w http.ResponseWriter, req *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"tags": []map[string]interface{}{
@@ -305,8 +273,6 @@ func TestNewAPIEndpoints(t *testing.T) {
 			})
 		},
 	})
-	defer tagSrv.Close()
-	tagClient := newClient(tagSrv.URL)
 
 	tags, err := tagClient.SearchTags(context.Background(), "inflation", fred.SearchTagsOptions{Limit: 10})
 	r.check(t, err == nil && len(tags) == 2 && tags[0].Name == "inflation",
@@ -344,7 +310,7 @@ func TestBatchConcurrency(t *testing.T) {
 	var peakActive int64
 	var mu sync.Mutex
 
-	srv := newIPv4TestServer(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	client := newMockFREDClient(t, map[string]http.HandlerFunc{"/series": func(w http.ResponseWriter, req *http.Request) {
 		current := atomic.AddInt64(&activeCount, 1)
 		mu.Lock()
 		if current > peakActive {
@@ -365,10 +331,7 @@ func TestBatchConcurrency(t *testing.T) {
 					"units": "Units", "units_short": "U", "popularity": 1, "last_updated": "2024-01-01"},
 			},
 		})
-	}))
-	defer srv.Close()
-
-	client := fred.NewClient("test_key", srv.URL+"/", 5*time.Second, float64(numRequests*10), false)
+	}})
 
 	// Build IDs
 	ids := make([]string, numRequests)
@@ -437,7 +400,7 @@ func TestPartialFailureWarnings(t *testing.T) {
 	r := &result{}
 
 	// Server that returns 200 for SERIES01 and 400 for all others
-	srv := newIPv4TestServer(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	client := newMockFREDClient(t, map[string]http.HandlerFunc{"/series": func(w http.ResponseWriter, req *http.Request) {
 		id := req.URL.Query().Get("series_id")
 		if id == "SERIES01" {
 			json.NewEncoder(w).Encode(map[string]interface{}{
@@ -450,10 +413,7 @@ func TestPartialFailureWarnings(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error_message": "Series does not exist."})
-	}))
-	defer srv.Close()
-
-	client := fred.NewClient("test_key", srv.URL+"/", 5*time.Second, 1000, false)
+	}})
 	ids := []string{"SERIES01", "BADFOO", "BADBAR"}
 
 	// Simulate batchGetSeries pattern
@@ -621,21 +581,6 @@ func TestValueSemanticsOffline(t *testing.T) {
 	r.summary(t, "VALUE SEMANTICS")
 }
 
-func newIPv4TestServer(t *testing.T, handler http.Handler) *httptest.Server {
-	t.Helper()
-
-	ln, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen on IPv4 loopback: %v", err)
-	}
-
-	srv := httptest.NewUnstartedServer(handler)
-	srv.Listener = ln
-	srv.Start()
-	t.Cleanup(srv.Close)
-	return srv
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -651,4 +596,18 @@ func containsStr(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func runReserveHelp(t *testing.T, args ...string) string {
+	t.Helper()
+
+	cmdArgs := append([]string{"run", ".."}, args...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir = filepath.Join("..", "tests")
+	cmd.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go %s failed: %v\n%s", strings.Join(cmdArgs, " "), err, string(out))
+	}
+	return string(out)
 }

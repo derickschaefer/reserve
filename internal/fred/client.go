@@ -65,6 +65,14 @@ func NewClient(apiKey, baseURL string, timeout time.Duration, ratePerSec float64
 	}
 }
 
+// SetHTTPClient overrides the HTTP client used for requests.
+// This is primarily useful for tests that need deterministic transports.
+func (c *Client) SetHTTPClient(httpClient *http.Client) {
+	if httpClient != nil {
+		c.httpClient = httpClient
+	}
+}
+
 // get performs a GET request to the FRED API, handling rate limiting and retries.
 func (c *Client) get(ctx context.Context, endpoint string, params url.Values, out interface{}) error {
 	if err := c.limiter.Wait(ctx); err != nil {

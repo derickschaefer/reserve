@@ -103,12 +103,14 @@ type obsResult struct {
 
 type obsSource interface {
 	name() string
+	requiresAPIKey() bool
 	get(context.Context, *app.Deps, string, fred.ObsOptions) (*model.SeriesData, bool, error)
 }
 
 type liveObsSource struct{}
 
-func (liveObsSource) name() string { return "live" }
+func (liveObsSource) name() string         { return "live" }
+func (liveObsSource) requiresAPIKey() bool { return true }
 
 func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
 	data, err := deps.Client.GetObservations(ctx, id, opts)
@@ -117,7 +119,8 @@ func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fr
 
 type cacheObsSource struct{}
 
-func (cacheObsSource) name() string { return "cache" }
+func (cacheObsSource) name() string         { return "cache" }
+func (cacheObsSource) requiresAPIKey() bool { return false }
 
 func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
 	if err := deps.RequireStore(); err != nil {
@@ -206,9 +209,9 @@ func attachCachedMeta(deps *app.Deps, id string, data *model.SeriesData) {
 // batchGetObs fetches observations for multiple series IDs concurrently.
 func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.ObsOptions, src obsSource) ([]*model.SeriesData, []string, bool) {
 	type result struct {
-		data *model.SeriesData
-		err  error
-		idx  int
+		data  *model.SeriesData
+		err   error
+		idx   int
 		cache bool
 	}
 

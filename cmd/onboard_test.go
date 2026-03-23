@@ -4,13 +4,16 @@
 package cmd
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
 )
 
 func TestParseOnboardTopicsDefaultIsTOC(t *testing.T) {
-	got := parseLLMTopics("")
+	got := parseOnboardTopics("")
 	want := []string{"toc"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("default topics mismatch: got %v want %v", got, want)
@@ -18,7 +21,7 @@ func TestParseOnboardTopicsDefaultIsTOC(t *testing.T) {
 }
 
 func TestParseOnboardTopicsAll(t *testing.T) {
-	got := parseLLMTopics("all")
+	got := parseOnboardTopics("all")
 	if len(got) != len(topicRegistry) {
 		t.Fatalf("all topics size mismatch: got %d want %d", len(got), len(topicRegistry))
 	}
@@ -30,7 +33,7 @@ func TestParseOnboardTopicsAll(t *testing.T) {
 }
 
 func TestBuildProgramOnboardDocIncludesAllCommandGuides(t *testing.T) {
-	doc := buildProgramLLMDoc()
+	doc := buildProgramOnboardDoc()
 
 	if got := doc["scope"]; got != "program" {
 		t.Fatalf("scope = %v, want program", got)
@@ -41,21 +44,21 @@ func TestBuildProgramOnboardDocIncludesAllCommandGuides(t *testing.T) {
 		t.Fatalf("program section missing or wrong type")
 	}
 
-	if got := program["command_count"]; got != len(llmCommandRegistry) {
-		t.Fatalf("command_count = %v, want %d", got, len(llmCommandRegistry))
+	if got := program["command_count"]; got != len(onboardCommandRegistry) {
+		t.Fatalf("command_count = %v, want %d", got, len(onboardCommandRegistry))
 	}
 
 	guides, ok := program["command_guides"].(map[string]any)
 	if !ok {
 		t.Fatalf("command_guides missing or wrong type")
 	}
-	if len(guides) != len(llmCommandRegistry) {
-		t.Fatalf("command_guides size = %d, want %d", len(guides), len(llmCommandRegistry))
+	if len(guides) != len(onboardCommandRegistry) {
+		t.Fatalf("command_guides size = %d, want %d", len(guides), len(onboardCommandRegistry))
 	}
 }
 
 func TestBuildCommandOnboardDoc(t *testing.T) {
-	doc, ok := buildCommandLLMDoc("series")
+	doc, ok := buildCommandOnboardDoc("series")
 	if !ok {
 		t.Fatalf("expected series guide")
 	}
@@ -86,13 +89,13 @@ func TestBuildCommandOnboardDoc(t *testing.T) {
 }
 
 func TestBuildCommandOnboardDocUnknown(t *testing.T) {
-	if _, ok := buildCommandLLMDoc("does-not-exist"); ok {
+	if _, ok := buildCommandOnboardDoc("does-not-exist"); ok {
 		t.Fatalf("expected unknown command to fail lookup")
 	}
 }
 
 func TestOnboardCommandRegistryMatchesTopLevelCommands(t *testing.T) {
-	got := llmCommandNames()
+	got := onboardCommandNames()
 	sort.Strings(got)
 
 	var want []string
@@ -131,7 +134,7 @@ func TestAllCommandGuidesHaveRequiredFields(t *testing.T) {
 		"related_commands",
 	}
 
-	for _, guide := range llmCommandRegistry {
+	for _, guide := range onboardCommandRegistry {
 		doc := guide.Build()
 		for _, field := range required {
 			v, ok := doc[field]
@@ -163,5 +166,47 @@ func TestStoreCommandRemoved(t *testing.T) {
 		if c.Name() == "store" {
 			t.Fatalf("store command should be removed from the root command tree")
 		}
+	}
+}
+
+func TestExportOnboardBundleWritesProgramAndCommandFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := exportOnboardBundle(dir); err != nil {
+		t.Fatalf("exportOnboardBundle: %v", err)
+	}
+
+	programPath := filepath.Join(dir, "program.json")
+	if _, err := os.Stat(programPath); err != nil {
+		t.Fatalf("program.json missing: %v", err)
+	}
+
+	for _, guide := range onboardCommandRegistry {
+		path := filepath.Join(dir, guide.Name+".json")
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("%s missing: %v", path, err)
+		}
+	}
+}
+
+func TestExportOnboardBundleWritesValidJSON(t *testing.T) {
+	dir := t.TempDir()
+	if err := exportOnboardBundle(dir); err != nil {
+		t.Fatalf("exportOnboardBundle: %v", err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "obs.json"))
+	if err != nil {
+		t.Fatalf("read obs.json: %v", err)
+	}
+
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("unmarshal obs.json: %v", err)
+	}
+	if got := doc["scope"]; got != "command" {
+		t.Fatalf("scope = %v, want command", got)
+	}
+	if got := doc["command_name"]; got != "obs" {
+		t.Fatalf("command_name = %v, want obs", got)
 	}
 }

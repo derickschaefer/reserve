@@ -173,6 +173,8 @@ The pipeline is Unix-native. Commands that produce observations write JSONL to s
 
 `reserve` uses a pragmatic command model that is worth understanding before you explore the full command reference.
 
+The test suite is anchored to this current command contract. Durable tests assert the shipped surface and key help semantics for commands such as `obs`, `series`, and `onboard`; they are not intended to preserve historical assertions about older removed commands except where that protects the current architecture.
+
 Most commands follow a **noun-verb** pattern: the top-level command names a resource, and its subcommands are operations on that resource. This maps naturally onto the structure of the FRED API and the local data model.
 ```
 reserve series get UNRATE            # noun: series  / verb: get
@@ -558,7 +560,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash 
-reserve v1.0.8
+reserve v1.0.9
 go      go1.25.7
 os      linux/amd64
 built   2026-02-28T18:42:00Z
@@ -579,6 +581,7 @@ reserve onboard --topic pipeline         # single topic
 reserve onboard --topic pipeline,gotchas # comma-separated topics
 reserve onboard --topic all              # full document (large context windows)
 reserve onboard --topic all | pbcopy     # copy to clipboard
+reserve onboard export ./onboard         # write program.json + per-command docs
 ```
 
 **Topics:**
@@ -605,6 +608,12 @@ reserve onboard --topic pipeline,data-model,gotchas
 # paste → LLM confirms ready
 
 # Step 3 — ask your question
+```
+
+**Project export:**
+```bash
+reserve onboard export ./onboard
+# writes program.json plus command docs like obs.json, series.json, and config.json
 ```
 
 **Suggested prompt:**

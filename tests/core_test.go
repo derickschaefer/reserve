@@ -33,9 +33,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -150,17 +148,12 @@ func TestFredAPIConnectivity(t *testing.T) {
 		cfg.Rate,
 		false,
 	)
+	requireReachableHost(t, mustFormatHostPort("api.stlouisfed.org", 443))
 	dateRegex := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	const seriesID = "UNRATE"
 
 	// ── Check 1: DNS resolution ──────────────────────────────────────────────
-	_, dnsErr := net.LookupHost("api.stlouisfed.org")
-	r.check(t,
-		dnsErr == nil,
-		"DNS resolution: api.stlouisfed.org is reachable",
-		"DNS resolution: api.stlouisfed.org is unreachable",
-		fmt.Sprintf("%v", dnsErr),
-	)
+	r.pass(t, "DNS and TCP reachability checks passed for api.stlouisfed.org:443")
 
 	// ── Check 2: Series metadata returns successfully ────────────────────────
 	meta, metaErr := client.GetSeries(context.Background(), seriesID)
@@ -423,19 +416,12 @@ func TestAPIClientBehaviour(t *testing.T) {
 	r := &result{}
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
-	mockServer := func(handlers map[string]http.HandlerFunc) *httptest.Server {
-		mux := http.NewServeMux()
-		for path, h := range handlers {
-			mux.HandleFunc(path, h)
-		}
-		return httptest.NewServer(mux)
-	}
-	newClient := func(baseURL string) *fred.Client {
-		return fred.NewClient("test_key", baseURL+"/", 5*time.Second, 1000, false)
+	newClient := func(handlers map[string]http.HandlerFunc) *fred.Client {
+		return newMockFREDClient(t, handlers)
 	}
 
 	// ── Checks 1–4: GetSeries success path ───────────────────────────────────
-	srv := mockServer(map[string]http.HandlerFunc{
+	client := newClient(map[string]http.HandlerFunc{
 		"/series": func(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
 			if q.Get("series_id") != "GDP" {
@@ -458,9 +444,8 @@ func TestAPIClientBehaviour(t *testing.T) {
 			})
 		},
 	})
-	defer srv.Close()
 
-	meta, err := newClient(srv.URL).GetSeries(context.Background(), "GDP")
+	meta, err := client.GetSeries(context.Background(), "GDP")
 	r.check(t, err == nil && meta != nil,
 		"GetSeries: request succeeds without error",
 		fmt.Sprintf("GetSeries failed: %v", err),
@@ -485,7 +470,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 	}
 
 	// ── Check 5: API error propagates correctly ───────────────────────────────
-	errSrv := mockServer(map[string]http.HandlerFunc{
+	errClient := newClient(map[string]http.HandlerFunc{
 		"/series": func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{
@@ -493,9 +478,8 @@ func TestAPIClientBehaviour(t *testing.T) {
 			})
 		},
 	})
-	defer errSrv.Close()
 
-	_, apiErr := newClient(errSrv.URL).GetSeries(context.Background(), "FAKESERIES")
+	_, apiErr := errClient.GetSeries(context.Background(), "FAKESERIES")
 	r.check(t,
 		apiErr != nil && strings.Contains(apiErr.Error(), "does not exist"),
 		"GetSeries: API error message propagates correctly",
@@ -503,7 +487,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 	)
 
 	// ── Checks 6–8: GetObservations parses values and NaN correctly ───────────
-	obsSrv := mockServer(map[string]http.HandlerFunc{
+	obsClient := newClient(map[string]http.HandlerFunc{
 		"/series/observations": func(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"observations": []map[string]string{
@@ -514,9 +498,8 @@ func TestAPIClientBehaviour(t *testing.T) {
 			})
 		},
 	})
-	defer obsSrv.Close()
 
-	data, obsErr := newClient(obsSrv.URL).GetObservations(context.Background(), "GDP", fred.ObsOptions{})
+	data, obsErr := obsClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{})
 	r.check(t, obsErr == nil && len(data.Obs) == 3,
 		fmt.Sprintf("GetObservations: returned 3 observations (got %d)", len(data.Obs)),
 		fmt.Sprintf("GetObservations failed or wrong count: err=%v, count=%d", obsErr, len(data.Obs)),
@@ -537,16 +520,15 @@ func TestAPIClientBehaviour(t *testing.T) {
 
 	// ── Check 9: Date params forwarded correctly ──────────────────────────────
 	var gotStart, gotEnd string
-	paramSrv := mockServer(map[string]http.HandlerFunc{
+	paramClient := newClient(map[string]http.HandlerFunc{
 		"/series/observations": func(w http.ResponseWriter, r *http.Request) {
 			gotStart = r.URL.Query().Get("observation_start")
 			gotEnd = r.URL.Query().Get("observation_end")
 			json.NewEncoder(w).Encode(map[string]interface{}{"observations": []map[string]string{}})
 		},
 	})
-	defer paramSrv.Close()
 
-	newClient(paramSrv.URL).GetObservations(context.Background(), "GDP", fred.ObsOptions{
+	paramClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{
 		Start: "2020-01-01", End: "2024-12-31",
 	})
 	r.check(t, gotStart == "2020-01-01" && gotEnd == "2024-12-31",
@@ -556,7 +538,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 
 	// ── Check 10: Retry on 5xx succeeds after transient failures ─────────────
 	attempts := 0
-	retrySrv := mockServer(map[string]http.HandlerFunc{
+	retryClient := newClient(map[string]http.HandlerFunc{
 		"/series": func(w http.ResponseWriter, r *http.Request) {
 			attempts++
 			if attempts < 3 {
@@ -568,9 +550,8 @@ func TestAPIClientBehaviour(t *testing.T) {
 			})
 		},
 	})
-	defer retrySrv.Close()
 
-	_, retryErr := newClient(retrySrv.URL).GetSeries(context.Background(), "GDP")
+	_, retryErr := retryClient.GetSeries(context.Background(), "GDP")
 	r.check(t, retryErr == nil && attempts == 3,
 		fmt.Sprintf("Retry: succeeded after %d attempts (2×503 then 200)", attempts),
 		fmt.Sprintf("Retry: err=%v, attempts=%d (expected success at attempt 3)", retryErr, attempts),
@@ -578,7 +559,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 
 	// ── Check 11: SearchSeries sends correct params ───────────────────────────
 	var gotSearchText string
-	searchSrv := mockServer(map[string]http.HandlerFunc{
+	searchClient := newClient(map[string]http.HandlerFunc{
 		"/series/search": func(w http.ResponseWriter, r *http.Request) {
 			gotSearchText = r.URL.Query().Get("search_text")
 			json.NewEncoder(w).Encode(map[string]interface{}{
@@ -591,9 +572,8 @@ func TestAPIClientBehaviour(t *testing.T) {
 			})
 		},
 	})
-	defer searchSrv.Close()
 
-	results, searchErr := newClient(searchSrv.URL).SearchSeries(
+	results, searchErr := searchClient.SearchSeries(
 		context.Background(), "inflation", fred.SearchSeriesOptions{Limit: 5},
 	)
 	r.check(t,

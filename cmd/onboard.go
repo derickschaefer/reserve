@@ -3,7 +3,7 @@
 
 package cmd
 
-// cmd/llm.go — machine-readable context document for reserve onboarding.
+// cmd/onboard.go — machine-readable context document for reserve onboarding.
 //
 // Usage:
 //   reserve onboard                      # full-program onboarding bundle
@@ -31,6 +31,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -38,12 +40,12 @@ import (
 
 // ─── Topic registry ───────────────────────────────────────────────────────────
 
-type llmTopic struct {
+type onboardTopic struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-var topicRegistry = []llmTopic{
+var topicRegistry = []onboardTopic{
 	{"start", "Curated onboarding bundle: commands + pipeline + gotchas + examples. One command, ready to work."},
 	{"toc", "Topic index and onboarding interaction guide. Use for the two-step handshake pattern."},
 	{"commands", "Full command reference: all nouns, verbs, flags, output formats."},
@@ -56,9 +58,29 @@ var topicRegistry = []llmTopic{
 
 // ─── Command ──────────────────────────────────────────────────────────────────
 
-var llmTopicFlag string
+var onboardTopicFlag string
 
-var llmCmd = &cobra.Command{
+var onboardExportCmd = &cobra.Command{
+	Use:   "export <DIR>",
+	Short: "Write onboarding JSON documents to a directory",
+	Long: `Export reserve onboarding as a bundle of JSON files.
+
+This writes one pretty-printed JSON file for the full program onboarding
+('program.json') plus one JSON file for each top-level command guide such as
+'obs.json', 'series.json', and 'config.json'.
+
+This export mode is intended for project uploads, shared workspaces, and
+other agent contexts where multiple focused onboarding files are preferable
+to one large stdout document.`,
+	Example: `  reserve onboard export ./onboard
+  reserve onboard export ./claude-project/context`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return exportOnboardBundle(args[0])
+	},
+}
+
+var onboardCmd = &cobra.Command{
 	Use:   "onboard [command]",
 	Short: "Emit a machine-readable context document for onboarding",
 	Long: `Emit a structured JSON document describing reserve's commands, pipeline
@@ -93,12 +115,16 @@ Topics:
 Command-specific onboarding:
   reserve onboard series
   reserve onboard config
-  reserve onboard transform`,
+  reserve onboard transform
+
+Bundle export:
+  reserve onboard export ./onboard`,
 	Example: `  reserve onboard                          # full-program onboarding
   reserve onboard series                   # command-specific onboarding
   reserve onboard --topic start            # curated onboarding bundle
   reserve onboard --topic toc              # two-step handshake (token-conservative)
   reserve onboard --topic pipeline,gotchas # surgical context
+  reserve onboard export ./onboard         # write program.json + per-command JSON files
   reserve onboard --topic all | pbcopy     # full context for large windows
   reserve onboard --topic version --format jsonl >> audit.jsonl`,
 	Args: cobra.MaximumNArgs(1),
@@ -106,8 +132,8 @@ Command-specific onboarding:
 		if len(args) > 0 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		names := make([]string, 0, len(llmCommandRegistry))
-		for _, guide := range llmCommandRegistry {
+		names := make([]string, 0, len(onboardCommandRegistry))
+		for _, guide := range onboardCommandRegistry {
 			if strings.HasPrefix(guide.Name, toComplete) {
 				names = append(names, guide.Name)
 			}
@@ -124,15 +150,15 @@ Command-specific onboarding:
 				return fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve onboard --topic ...` or `reserve onboard %s`", args[0])
 			}
 			var ok bool
-			doc, ok = buildCommandLLMDoc(args[0])
+			doc, ok = buildCommandOnboardDoc(args[0])
 			if !ok {
-				return fmt.Errorf("unknown onboard command %q (available: %s)", args[0], strings.Join(llmCommandNames(), ", "))
+				return fmt.Errorf("unknown onboard command %q (available: %s)", args[0], strings.Join(onboardCommandNames(), ", "))
 			}
 		case cmd.Flags().Changed("topic"):
-			topics := parseLLMTopics(llmTopicFlag)
-			doc = buildLLMDoc(topics)
+			topics := parseOnboardTopics(onboardTopicFlag)
+			doc = buildOnboardDoc(topics)
 		default:
-			doc = buildProgramLLMDoc()
+			doc = buildProgramOnboardDoc()
 		}
 
 		format := globalFlags.Format
@@ -162,14 +188,15 @@ Command-specific onboarding:
 }
 
 func init() {
-	rootCmd.AddCommand(llmCmd)
-	llmCmd.Flags().StringVar(&llmTopicFlag, "topic", "toc",
+	rootCmd.AddCommand(onboardCmd)
+	onboardCmd.AddCommand(onboardExportCmd)
+	onboardCmd.Flags().StringVar(&onboardTopicFlag, "topic", "toc",
 		"program-level topic(s) to emit: start|toc|commands|pipeline|data-model|examples|gotchas|version|all (comma-separated)")
 }
 
 // ─── Topic parsing ────────────────────────────────────────────────────────────
 
-func parseLLMTopics(flag string) []string {
+func parseOnboardTopics(flag string) []string {
 	if flag == "" {
 		flag = "toc"
 	}
@@ -188,9 +215,9 @@ func parseLLMTopics(flag string) []string {
 	return out
 }
 
-func llmCommandNames() []string {
-	out := make([]string, 0, len(llmCommandRegistry))
-	for _, guide := range llmCommandRegistry {
+func onboardCommandNames() []string {
+	out := make([]string, 0, len(onboardCommandRegistry))
+	for _, guide := range onboardCommandRegistry {
 		out = append(out, guide.Name)
 	}
 	return out
@@ -198,13 +225,13 @@ func llmCommandNames() []string {
 
 // ─── Document builder ─────────────────────────────────────────────────────────
 
-func buildLLMDoc(topics []string) map[string]any {
+func buildOnboardDoc(topics []string) map[string]any {
 	set := make(map[string]bool, len(topics))
 	for _, t := range topics {
 		set[t] = true
 	}
 
-	doc := buildBaseLLMDoc()
+	doc := buildBaseOnboardDoc()
 	doc["scope"] = "topic"
 
 	if set["start"] {
@@ -237,6 +264,43 @@ func buildLLMDoc(topics []string) map[string]any {
 	}
 
 	return doc
+}
+
+func exportOnboardBundle(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating export directory: %w", err)
+	}
+
+	docs := make(map[string]map[string]any, len(onboardCommandRegistry)+1)
+	docs["program.json"] = buildProgramOnboardDoc()
+	for _, guide := range onboardCommandRegistry {
+		doc, ok := buildCommandOnboardDoc(guide.Name)
+		if !ok {
+			return fmt.Errorf("building onboard doc for %s", guide.Name)
+		}
+		docs[guide.Name+".json"] = doc
+	}
+
+	for name, doc := range docs {
+		path := filepath.Join(dir, name)
+		if err := writeOnboardJSON(path, doc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeOnboardJSON(path string, doc map[string]any) error {
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding %s: %w", path, err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	return nil
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
@@ -277,12 +341,12 @@ func buildTOC() map[string]any {
 			"It fetches, caches, transforms, and analyzes time series via a Unix pipeline model. " +
 			"Every command reads/writes a uniform Result envelope. " +
 			"Pipeline operators communicate via JSONL on stdin/stdout.",
-		"command_count": len(llmCommandRegistry),
+		"command_count": len(onboardCommandRegistry),
 		"commands":      buildCommandIndex(),
-		"topics":       topics,
-		"quick_start":  "reserve onboard --topic toc  — emits topic index; then request focused topics",
-		"multi_topic":  "reserve onboard --topic pipeline,gotchas",
-		"full_context": "reserve onboard  — full-program onboarding (or use `reserve onboard --topic all`)",
+		"topics":        topics,
+		"quick_start":   "reserve onboard --topic toc  — emits topic index; then request focused topics",
+		"multi_topic":   "reserve onboard --topic pipeline,gotchas",
+		"full_context":  "reserve onboard  — full-program onboarding (or use `reserve onboard --topic all`)",
 		"prompt_template": "I am pasting the output of `reserve onboard --topic <topics>`. " +
 			"This is the authoritative reference for a CLI called reserve. " +
 			"Use it to answer my questions about fetching and analyzing FRED economic data. " +
@@ -360,7 +424,7 @@ func buildDataModel() map[string]any {
 func buildCommands() map[string]any {
 	return map[string]any{
 		"global_flags":  buildGlobalFlags(),
-		"command_count": len(llmCommandRegistry),
+		"command_count": len(onboardCommandRegistry),
 		"commands":      buildCommandGuides(),
 	}
 }
