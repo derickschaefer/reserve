@@ -55,7 +55,7 @@ test-config:
 test-pipeline:
 	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/pipeline/...
 
-## test-store: unit tests for internal/store (bbolt CRUD, keys, snapshots, isolation)
+## test-store: unit tests for internal/store (bbolt CRUD, keys, maintenance, isolation)
 test-store:
 	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/store/...
 
