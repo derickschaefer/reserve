@@ -18,7 +18,7 @@ BENCH_FLAGS    := -benchmem -count=$(BENCH_COUNT)
 BENCH_OUT_V1   := bench_v1.txt
 BENCH_OUT_V2   := bench_v2exp.txt
 
-.PHONY: build test test-all test-unit test-integration \
+.PHONY: build dist test test-all test-unit test-integration \
         test-analyze test-chart test-config test-pipeline test-store test-transform \
         test-cover bench bench-v2 bench-compare bench-parity bench-identity \
         bench-setup lint clean run install verify-signature release-checksums help
@@ -28,6 +28,10 @@ BENCH_OUT_V2   := bench_v2exp.txt
 ## build: compile the reserve binary
 build:
 	GOCACHE=$(GOCACHE_DIR) go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) .
+
+## dist: build Cloudflare distribution layout under ./dist
+dist:
+	GOCACHE=$(GOCACHE_DIR) VERSION=$(VERSION) scripts/build-dist.sh $(VERSION)
 
 ## install: install to $$GOPATH/bin
 install:
@@ -149,10 +153,11 @@ bench-identity:
 lint:
 	GOCACHE=$(GOCACHE_DIR) go vet $(GOFLAGS) ./...
 
-## release-checksums: generate SHA256SUMS for archives in ./dist
+## release-checksums: generate SHA256SUMS for archives in ./dist/releases/$(VERSION)
 release-checksums:
-	@cd dist && sha256sum *.tar.gz *.zip > SHA256SUMS
-	@echo "Wrote dist/SHA256SUMS"
+	@cd dist/releases/$(VERSION) && sha256sum *.tar.gz *.zip > SHA256SUMS
+	@cp dist/releases/$(VERSION)/SHA256SUMS dist/releases/latest/SHA256SUMS
+	@echo "Wrote dist/releases/$(VERSION)/SHA256SUMS"
 
 ## verify-signature: verify keyless cosign signature for dist/SHA256SUMS (optional RELEASE_TAG=vX.Y.Z)
 verify-signature:

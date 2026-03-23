@@ -70,30 +70,44 @@ The FRED® API is one of the richest free economic data sources in the world —
 ## Install
 
 ```bash
+curl -fsSL https://download.reservecli.dev/install.sh | sh
+```
+
+Pinned version:
+
+```bash
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.0.9
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://download.reservecli.dev/install.ps1 | iex
+```
+
+These installers download from your configured `download.reservecli.dev` distribution endpoint. Publishing to that endpoint is a manual release step.
+
+From source:
+
+```bash
 git clone https://github.com/derickschaefer/reserve
 cd reserve
 go build -o reserve .
 ```
 
-Or install directly:
-
-```bash
-go install github.com/derickschaefer/reserve@latest
-```
-
-Requires Go 1.25.7+.
+Requires Go 1.25.7+ for source builds.
 
 ---
 
 ## Release Integrity
 
-Release assets are signed with **keyless Sigstore/cosign signatures** from
+Release artifacts are signed with **keyless Sigstore/cosign signatures** from
 GitHub Actions OIDC.
 
 - Workflow: `.github/workflows/release-keyless.yml`
 - Verification guide: [`docs/release-security.md`](docs/release-security.md)
 
-Quick verification (after downloading release assets):
+Quick verification (after downloading release assets from your distribution endpoint):
 
 ```bash
 sha256sum -c SHA256SUMS
