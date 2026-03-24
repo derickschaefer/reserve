@@ -28,3 +28,7 @@ Thumbs.db
 /tmp/
 
 .gocache/
+.gomodcache/
+
+# Distribution artifacts
+dist/
