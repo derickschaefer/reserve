@@ -1,6 +1,6 @@
 # TEST.md — Reserve Test Suite
 
-This document describes every test file, test group, and benchmark in the `reserve` project. It is the authoritative reference for understanding what is tested, how to run it, and what each test is verifying.
+This document describes the current test surface in the `reserve` project. It is the authoritative reference for understanding what is tested, how to run it, and what each test group is verifying.
 
 ---
 
@@ -8,43 +8,48 @@ This document describes every test file, test group, and benchmark in the `reser
 
 1. [Overview](#overview)
 2. [Running the Tests](#running-the-tests)
-3. [Unit Tests](#unit-tests)
+3. [Command Tests](#command-tests)
+4. [Unit Tests](#unit-tests)
    - [internal/analyze](#internalanalyze)
    - [internal/chart](#internalchart)
    - [internal/config](#internalconfig)
    - [internal/pipeline](#internalpipeline)
    - [internal/store](#internalstore)
    - [internal/transform](#internaltransform)
-4. [Integration Tests](#integration-tests)
-   - [tests/reserve_test.go](#testsreserve_testgo)
-   - [tests/phase2_test.go](#testsphase2_testgo)
-5. [Benchmarks](#benchmarks)
+5. [Integration Tests](#integration-tests)
+   - [tests/core_test.go](#testscore_testgo)
+   - [tests/cmd_test.go](#testscmd_testgo)
+6. [Benchmarks](#benchmarks)
    - [Setup](#setup)
    - [bench_test.go — v1 baseline](#bench_testgo--v1-baseline)
    - [bench_v2_test.go — explicit v2 API and parity](#bench_v2_testgo--explicit-v2-api-and-parity)
    - [Running and comparing](#running-and-comparing)
    - [Key findings](#key-findings)
-6. [Test Isolation Philosophy](#test-isolation-philosophy)
+7. [Test Isolation Philosophy](#test-isolation-philosophy)
 
 ---
 
 ## Overview
 
-The test suite is organized into three layers:
+The test suite is organized into four layers:
 
 | Layer | Location | Count | Network required |
 |---|---|---|---|
+| Command tests | `cmd/` | targeted command/unit tests | Never |
 | Unit tests | `internal/*/` | 167 tests | Never |
 | Integration tests | `tests/` | ~50 checks | Optional (skips gracefully) |
 | Benchmarks | `tests/benchmarks/` | 20 benchmarks, 2 tests | Never (fixtures pre-fetched) |
 
-All unit tests and benchmarks run fully offline. Integration tests that require a live FRED API key skip automatically when no credentials are present.
+Command tests, unit tests, and benchmarks run fully offline. Integration tests that require a live FRED API key skip automatically when no credentials are present.
 
 ---
 
 ## Running the Tests
 
 ```bash
+# Command tests
+go test ./cmd/...
+
 # All unit tests
 go test ./internal/...
 
@@ -65,6 +70,33 @@ go test ./...
 # Benchmarks (see Benchmarks section for full instructions)
 go test ./tests/benchmarks/... -bench=. -benchmem -count=10
 ```
+
+---
+
+## Command Tests
+
+### cmd/
+
+Command tests cover CLI-specific behavior that does not belong in the lower-level packages.
+
+Key areas currently covered:
+
+- `cmd/onboard_test.go`
+  - topic parsing defaults and `all` expansion
+  - command guide generation
+  - registry coverage against the real Cobra top-level command tree
+  - required-field consistency for command onboarding JSON
+  - `onboard export` bundle generation and JSON validity
+- `cmd/obs_test.go`
+  - `obs get --from` source selection
+  - default source = `live`
+  - rejection of unknown sources
+  - planned-but-unconfigured source handling
+  - cache reads not requiring an API key
+  - cache-backed observation reads from the local store
+- `cmd/helpers_test.go`
+  - output writer selection
+  - integer ID parsing helpers
 
 ---
 
@@ -130,9 +162,9 @@ Covers `ReadObservations` (JSONL decode from stdin) and `WriteJSONL` (JSONL enco
 
 ### internal/store
 
-**File:** `internal/store/store_test.go` — 48 tests
+**File:** `internal/store/store_test.go`
 
-Covers the bbolt database abstraction: opening, key construction, series metadata CRUD, observation CRUD, snapshot CRUD, database statistics, bucket clearing, and test isolation.
+Covers the bbolt database abstraction: opening, key construction, series metadata CRUD, observation CRUD, database statistics, bucket clearing, and test isolation.
 
 **Open/Close tests** verify that `Open` creates a database file at the specified path, that parent directories are created automatically if they don't exist, and that `Close` is idempotent (second call does not panic).
 
@@ -143,8 +175,6 @@ Covers the bbolt database abstraction: opening, key construction, series metadat
 **Obs tests** verify put/get round-trip, not-found returning false, NaN surviving the bbolt round-trip (stored as null, read back as NaN), date preservation through marshal/unmarshal, overwrite behavior, and multiple independent keys for the same series coexisting without interference.
 
 **ListObsKeys tests** verify listing all keys, filtering by series prefix, and empty results on a fresh database.
-
-**Snapshot tests** verify put/get round-trip, not-found, listing all snapshots, deletion, and empty list on a fresh database.
 
 **Stats tests** verify zero counts on a fresh database and correct row counts after writes.
 
@@ -184,7 +214,7 @@ Covers all transformation operators: `PctChange`, `Diff`, `Log`, `Index`, `Norma
 
 ## Integration Tests
 
-Integration tests live in the `tests/` package and import internal packages directly. They are organized into named groups and produce a readable pass/fail summary. Groups that require live credentials skip automatically with a descriptive message.
+Integration tests live in the `tests/` package and import internal packages directly. They are organized into named groups and produce readable pass/fail summaries. Groups that require live credentials skip automatically with a descriptive message.
 
 ### tests/core_test.go
 
@@ -194,7 +224,7 @@ Four test groups covering API connectivity, payload parsing, HTTP client behavio
 
 **TestPayloadIntegrity** — fully offline, never skips. Verifies `ParseObsValue` for numeric strings (`"305.109"`, `"0"`, `"-1.5"`), FRED missing-value sentinel (`"."`), empty string, and whitespace-padded sentinel — all six producing the correct `float64` or `NaN`. Verifies `FormatValue(NaN)` renders as `"."`. Verifies decimal display rules (whole numbers show one decimal place). Verifies config layering (`config.json` values load, env overrides file, flag overrides env) inline using sub-tests. Verifies the rate limiter allows requests at a high limit and blocks under context cancellation at a very low limit.
 
-**TestAPIClientBehaviour** — fully offline, uses `httptest.NewServer`. Verifies `GetSeries` parses series ID and title from a mock response, propagates API error messages correctly, `GetObservations` parses numeric values and FRED `"."` sentinel as NaN, preserves `ValueRaw`, forwards `observation_start` and `observation_end` query parameters correctly, retries on HTTP 503 (succeeds on the third attempt after two transient failures), and `SearchSeries` sends the correct `search_text` parameter and returns parsed results.
+**TestAPIClientBehaviour** — fully offline, uses an injected mock HTTP client. Verifies `GetSeries` parses series ID and title from a mock response, propagates API error messages correctly, `GetObservations` parses numeric values and FRED `"."` sentinel as NaN, preserves `ValueRaw`, forwards `observation_start` and `observation_end` query parameters correctly, retries on HTTP 503 (succeeds on the third attempt after two transient failures), and `SearchSeries` sends the correct `search_text` parameter and returns parsed results.
 
 **TestEmailConnectivity** — skips in Phase 5 until the `notify` package is implemented. Stub is in place for future SMTP TCP dial and banner verification.
 
@@ -202,13 +232,17 @@ Four test groups covering API connectivity, payload parsing, HTTP client behavio
 
 ### tests/cmd_test.go
 
-Three test groups covering subcommand routing, Phase 2 API endpoints, and batch concurrency.
+Five integration groups covering durable CLI contracts and offline behavior around the command layer.
 
-**TestSubcommandRouting** — verifies that all Phase 2 noun/verb command pairs are registered in the Cobra command tree. Checks uniqueness of pairs and uses compile-time evidence (the binary compiles) as confirmation of registration.
+**TestCommandSurface** — verifies the shipped command surface through real `--help` output. Confirms expected top-level commands are present, deprecated `store` is absent, `obs get` documents `--from live|cache`, `onboard` documents command-specific and topic-based usage, and `series` advertises the supported current verbs.
 
-**TestNewAPIEndpoints** — uses a mock HTTP server to verify `GetCategory`, `GetRelease`, `GetSource`, and `GetTag` client methods: correct endpoint paths, parameter forwarding, and response parsing.
+**TestNewAPIEndpoints** — uses a mock HTTP client to verify `GetCategory`, `GetRelease`, `GetSource`, and `GetTag` client methods: correct endpoint paths, parameter forwarding, and response parsing.
 
-**TestBatchConcurrency** — verifies the worker pool respects the `--concurrency` ceiling using an atomic counter to track peak simultaneous in-flight requests. Also verifies that per-item errors from failing series are collected as warnings rather than aborting the batch.
+**TestBatchConcurrency** — verifies the worker pool respects the `--concurrency` ceiling using an atomic counter to track peak simultaneous in-flight requests.
+
+**TestPartialFailureWarnings** — verifies per-item batch failures are collected as warnings rather than aborting the whole batch.
+
+**TestValueSemanticsOffline** — verifies offline rendering and storage semantics such as numeric preservation, null/NaN handling, CSV output for missing values, and exact cache key lookup behavior.
 
 ---
 
