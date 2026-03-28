@@ -76,7 +76,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.0.9
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.0
 ```
 
 Windows PowerShell:
@@ -85,7 +85,7 @@ Windows PowerShell:
 irm https://download.reservecli.dev/install.ps1 | iex
 ```
 
-These installers download from your configured `download.reservecli.dev` distribution endpoint. Publishing to that endpoint is a manual release step.
+These installers download from your configured `download.reservecli.dev` distribution endpoint. Publishing to that endpoint is a manual release step. The release payload now includes a root-level `release.json` manifest that powers `reserve update check`.
 
 From source:
 
@@ -552,10 +552,10 @@ reserve cache compact
 
 ### config
 
-Manage `config.json` in the current working directory.
+Manage `config.json` in the user config directory, with optional local `./config.json` overrides.
 
 ```bash
-reserve config init                    # create a template config.json
+reserve config init                    # create a template config.json in your user config directory
 reserve config get [--show-secrets]    # print resolved configuration (key redacted by default)
 reserve config set <key> <value>       # update a single value
 ```
@@ -582,6 +582,20 @@ go      go1.25.7
 os      linux/amd64
 built   2026-02-28T18:42:00Z
 ```
+
+---
+
+### update
+
+Check a lightweight remote release manifest for newer versions and short release notes.
+
+```bash
+reserve update check                # human-readable update status
+reserve update check --format json  # structured output for scripts
+reserve update check --format jsonl # single-line audit/event output
+```
+
+When a new release is available, `reserve` prints the current version, latest version, a short summary, release highlights, and static update instructions from the remote manifest.
 
 ---
 
@@ -725,7 +739,15 @@ These flags are available on every command:
 
 ## Configuration
 
-`config.json` in the working directory (created by `reserve config init`):
+`reserve config init` creates `config.json` in your user config directory:
+
+- Linux: `~/.config/reserve/config.json`
+- macOS: `~/Library/Application Support/reserve/config.json`
+- Windows: `%AppData%\reserve\config.json`
+
+If a local `./config.json` exists in the current working directory, it overrides the user config file for that shell location.
+
+Example file contents:
 
 ```json
 {
@@ -742,13 +764,15 @@ These flags are available on every command:
 
 1. `--api-key` CLI flag
 2. `FRED_API_KEY` environment variable
-3. `api_key` in `config.json`
+3. `api_key` in local `./config.json`
+4. `api_key` in user `config.json`
 
 **Database path resolution order:**
 
 1. `RESERVE_DB_PATH` environment variable
-2. `db_path` in `config.json`
-3. Default: `~/.reserve/reserve.db`
+2. `db_path` in local `./config.json`
+3. `db_path` in user `config.json`
+4. Default: `~/.reserve/reserve.db`
 
 ---
 

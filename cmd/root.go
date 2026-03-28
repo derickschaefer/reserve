@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/derickschaefer/reserve/internal/app"
 	"github.com/derickschaefer/reserve/internal/config"
+	"github.com/spf13/cobra"
 )
 
 // globalFlags holds the parsed values of all persistent (global) flags.
@@ -45,7 +45,7 @@ https://fred.stlouisfed.org/
 Get a free API key at: https://fred.stlouisfed.org/docs/api/api_key.html
 
 Quick start:
-  reserve config init          # create a config.json with your API key
+  reserve config init          # create a user config.json with your API key
   reserve series get GDP       # fetch GDP series metadata
   reserve obs get GDP          # fetch GDP observations (default: live)
   reserve obs get GDP --from cache --format jsonl
@@ -72,11 +72,11 @@ func buildDeps() (*app.Deps, error) {
 	}
 
 	// Apply CLI flag overrides
-	cfg.NoCache  = globalFlags.NoCache
-	cfg.Refresh  = globalFlags.Refresh
-	cfg.Quiet    = globalFlags.Quiet
-	cfg.Verbose  = globalFlags.Verbose
-	cfg.Debug    = globalFlags.Debug
+	cfg.NoCache = globalFlags.NoCache
+	cfg.Refresh = globalFlags.Refresh
+	cfg.Quiet = globalFlags.Quiet
+	cfg.Verbose = globalFlags.Verbose
+	cfg.Debug = globalFlags.Debug
 
 	if globalFlags.Format != "" {
 		cfg.Format = globalFlags.Format

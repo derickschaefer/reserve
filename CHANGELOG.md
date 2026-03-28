@@ -8,6 +8,23 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 
 ---
 
+### Unreleased
+
+**Changed**
+
+- Config discovery now supports per-user config locations on Linux, macOS, and Windows
+- Local `./config.json` now overrides the per-user config file when both are present
+- `reserve config init` now creates the user config file and parent directories automatically
+- `reserve config set` now updates a local override when present, otherwise the user config file
+
+**Added**
+
+- Unit coverage for user-config discovery, local-over-user precedence, and config directory creation
+- New `reserve update check` command for remote version checks, release highlights, and static update instructions via a lightweight manifest
+- Checked-in `release-manifest.json` plus Cloudflare distribution publishing for `release.json`
+
+---
+
 ### v1.0.6 — 2026-02-28 — Maintenance, Value Semantics, and Keyless Signing
 
 **Changed**

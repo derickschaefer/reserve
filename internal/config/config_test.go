@@ -44,6 +44,11 @@ func clearEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv(config.EnvAPIKey, "")
 	t.Setenv(config.EnvDBPath, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -124,6 +129,73 @@ func TestLoadFromFile(t *testing.T) {
 	}
 }
 
+func TestLoadFromUserConfigFile(t *testing.T) {
+	clearEnv(t)
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	path, err := config.UserConfigPath()
+	if err != nil {
+		t.Fatalf("UserConfigPath: %v", err)
+	}
+	if err := config.WriteFile(path, config.File{APIKey: "userkey", DefaultFormat: "json"}); err != nil {
+		t.Fatalf("WriteFile(user): %v", err)
+	}
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.APIKey != "userkey" {
+		t.Errorf("APIKey: expected userkey, got %q", cfg.APIKey)
+	}
+	if cfg.Format != "json" {
+		t.Errorf("Format: expected json, got %q", cfg.Format)
+	}
+	if cfg.ConfigPath != path {
+		t.Errorf("ConfigPath: expected %q, got %q", path, cfg.ConfigPath)
+	}
+}
+
+func TestLoadLocalConfigOverridesUserConfig(t *testing.T) {
+	clearEnv(t)
+	dir := t.TempDir()
+
+	path, err := config.UserConfigPath()
+	if err != nil {
+		t.Fatalf("UserConfigPath: %v", err)
+	}
+	if err := config.WriteFile(path, config.File{APIKey: "userkey", DefaultFormat: "table"}); err != nil {
+		t.Fatalf("WriteFile(user): %v", err)
+	}
+
+	writeConfig(t, dir, config.File{APIKey: "localkey", DefaultFormat: "json"})
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.APIKey != "localkey" {
+		t.Errorf("APIKey: expected localkey, got %q", cfg.APIKey)
+	}
+	if cfg.Format != "json" {
+		t.Errorf("Format: expected json, got %q", cfg.Format)
+	}
+	gotPath, err := filepath.EvalSymlinks(cfg.ConfigPath)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(got): %v", err)
+	}
+	wantPath, err := filepath.EvalSymlinks(filepath.Join(dir, "config.json"))
+	if err != nil {
+		t.Fatalf("EvalSymlinks(want): %v", err)
+	}
+	if gotPath != wantPath {
+		t.Errorf("ConfigPath: expected %q, got %q", wantPath, gotPath)
+	}
+}
+
 func TestLoadConfigPathRecorded(t *testing.T) {
 	dir := t.TempDir()
 	clearEnv(t)
@@ -180,9 +252,9 @@ func TestLoadInvalidTimeoutIgnored(t *testing.T) {
 
 func TestLoadEnvAPIKeyOverridesFile(t *testing.T) {
 	dir := t.TempDir()
+	clearEnv(t)
 	writeConfig(t, dir, config.File{APIKey: "filekey"})
 	t.Setenv(config.EnvAPIKey, "envkey")
-	t.Setenv(config.EnvDBPath, "")
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -214,9 +286,9 @@ func TestLoadEnvDBPath(t *testing.T) {
 
 func TestLoadFlagAPIKeyOverridesEnvAndFile(t *testing.T) {
 	dir := t.TempDir()
+	clearEnv(t)
 	writeConfig(t, dir, config.File{APIKey: "filekey"})
 	t.Setenv(config.EnvAPIKey, "envkey")
-	t.Setenv(config.EnvDBPath, "")
 
 	cfg, err := config.Load("flagkey")
 	if err != nil {
@@ -351,6 +423,18 @@ func TestWriteFileRoundTrip(t *testing.T) {
 	}
 	if got.DBPath != f.DBPath {
 		t.Errorf("DBPath: expected %q, got %q", f.DBPath, got.DBPath)
+	}
+}
+
+func TestWriteFileCreatesParentDirectories(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "reserve", "config.json")
+
+	if err := config.WriteFile(path, config.File{APIKey: "k"}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("Stat: %v", err)
 	}
 }
 

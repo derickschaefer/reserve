@@ -10,11 +10,22 @@ VERSION="${1:-${VERSION:-}}"
 DIST_DIR="${DIST_DIR:-${ROOT_DIR}/dist}"
 BINARY="${BINARY:-reserve}"
 BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+MANIFEST_SOURCE="${MANIFEST_SOURCE:-${ROOT_DIR}/release-manifest.json}"
 export GOCACHE="${GOCACHE:-${ROOT_DIR}/.gocache}"
 export GOMODCACHE="${GOMODCACHE:-${ROOT_DIR}/.gomodcache}"
 
 if [[ -z "${VERSION}" ]]; then
   echo "usage: scripts/build-dist.sh <version>" >&2
+  exit 1
+fi
+
+if [[ ! -f "${MANIFEST_SOURCE}" ]]; then
+  echo "missing release manifest source: ${MANIFEST_SOURCE}" >&2
+  exit 1
+fi
+
+if ! grep -q "\"latest_version\": \"${VERSION}\"" "${MANIFEST_SOURCE}"; then
+  echo "release manifest latest_version does not match build version ${VERSION}" >&2
   exit 1
 fi
 
@@ -68,6 +79,9 @@ done
 
 cp "${ROOT_DIR}/install/install.sh" "${DIST_DIR}/install.sh"
 cp "${ROOT_DIR}/install/install.ps1" "${DIST_DIR}/install.ps1"
+cp "${MANIFEST_SOURCE}" "${DIST_DIR}/release.json"
+cp "${MANIFEST_SOURCE}" "${VERSION_DIR}/release.json"
+cp "${MANIFEST_SOURCE}" "${LATEST_DIR}/release.json"
 
 (
   cd "${VERSION_DIR}"

@@ -1,0 +1,14 @@
+{
+  "latest_version": "v1.1.0",
+  "published_at": "2026-03-27T00:00:00Z",
+  "download_url": "https://download.reservecli.dev/install.sh",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.0",
+  "summary": "Adds update checks, per-user config placement, and local config overrides for development workflows.",
+  "highlights": [
+    "New `reserve update check` command for lightweight version checks",
+    "Per-user config file locations on macOS, Linux, and Windows",
+    "Local `./config.json` overrides the user config file for testing and development"
+  ],
+  "severity": "info",
+  "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."
+}

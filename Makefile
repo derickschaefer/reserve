@@ -1,5 +1,5 @@
 BINARY   := reserve
-VERSION  := v1.0.9
+VERSION  := v1.1.0
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \

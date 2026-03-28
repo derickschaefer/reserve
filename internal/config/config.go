@@ -6,6 +6,7 @@
 //  1. CLI flag --api-key
 //  2. Environment variable FRED_API_KEY
 //  3. config.json in the current working directory
+//  4. config.json in the per-user config directory
 package config
 
 import (
@@ -26,6 +27,11 @@ const (
 	EnvAPIKey          = "FRED_API_KEY"
 	EnvDBPath          = "RESERVE_DB_PATH"
 )
+
+type configCandidate struct {
+	path   string
+	exists bool
+}
 
 // File is the on-disk representation of config.json.
 type File struct {
@@ -69,12 +75,17 @@ func Load(flagAPIKey string) (*Config, error) {
 		BaseURL:     "https://api.stlouisfed.org/fred/",
 	}
 
-	// Layer 1: config.json (lowest priority)
-	if f, path, err := loadFile(); err == nil {
+	// Layer 1: per-user config.json (lowest file priority)
+	if f, path, err := loadUserFile(); err == nil {
 		applyFile(cfg, f, path)
 	}
 
-	// Layer 2: environment variable
+	// Layer 2: local config.json overrides per-user config
+	if f, path, err := loadLocalFile(); err == nil {
+		applyFile(cfg, f, path)
+	}
+
+	// Layer 3: environment variable
 	if v := os.Getenv(EnvAPIKey); v != "" {
 		cfg.APIKey = v
 	}
@@ -82,7 +93,7 @@ func Load(flagAPIKey string) (*Config, error) {
 		cfg.DBPath = v
 	}
 
-	// Layer 3: CLI flag (highest priority)
+	// Layer 4: CLI flag (highest priority)
 	if flagAPIKey != "" {
 		cfg.APIKey = flagAPIKey
 	}
@@ -122,17 +133,85 @@ func (c *Config) RedactedAPIKey() string {
 	return c.APIKey[:2] + "****" + c.APIKey[len(c.APIKey)-2:]
 }
 
-// loadFile attempts to read config.json from the current working directory.
-func loadFile() (*File, string, error) {
-	path, err := filepath.Abs(DefaultConfigFile)
+// UserConfigPath returns the per-user config.json path for reserve.
+func UserConfigPath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return "", fmt.Errorf("resolve user config dir: %w", err)
+		}
+		dir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(dir, "reserve", DefaultConfigFile), nil
+}
+
+// PreferredConfigPath returns the path config init/set should target by default.
+// A local config.json wins when present; otherwise the per-user config path is used.
+func PreferredConfigPath() (string, error) {
+	local, err := localConfigCandidate()
+	if err != nil {
+		return "", err
+	}
+	if local.exists {
+		return local.path, nil
+	}
+	return UserConfigPath()
+}
+
+func loadLocalFile() (*File, string, error) {
+	candidate, err := localConfigCandidate()
 	if err != nil {
 		return nil, "", err
 	}
+	return loadFile(candidate)
+}
+
+func loadUserFile() (*File, string, error) {
+	candidate, err := userConfigCandidate()
+	if err != nil {
+		return nil, "", err
+	}
+	return loadFile(candidate)
+}
+
+func localConfigCandidate() (configCandidate, error) {
+	path, err := filepath.Abs(DefaultConfigFile)
+	if err != nil {
+		return configCandidate{}, err
+	}
+	_, statErr := os.Stat(path)
+	if statErr == nil {
+		return configCandidate{path: path, exists: true}, nil
+	}
+	if os.IsNotExist(statErr) {
+		return configCandidate{path: path, exists: false}, nil
+	}
+	return configCandidate{}, statErr
+}
+
+func userConfigCandidate() (configCandidate, error) {
+	path, err := UserConfigPath()
+	if err != nil {
+		return configCandidate{}, err
+	}
+	_, statErr := os.Stat(path)
+	if statErr == nil {
+		return configCandidate{path: path, exists: true}, nil
+	}
+	if os.IsNotExist(statErr) {
+		return configCandidate{path: path, exists: false}, nil
+	}
+	return configCandidate{}, statErr
+}
+
+func loadFile(candidate configCandidate) (*File, string, error) {
+	if !candidate.exists {
+		return nil, "", fmt.Errorf("config.json not found at %s", candidate.path)
+	}
+	path := candidate.path
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, "", fmt.Errorf("config.json not found at %s", path)
-		}
 		return nil, "", fmt.Errorf("reading config.json: %w", err)
 	}
 	var f File
@@ -189,6 +268,9 @@ func WriteFile(path string, f File) error {
 	data, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encoding config: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating config directory: %w", err)
 	}
 	return os.WriteFile(path, append(data, '\n'), 0600)
 }

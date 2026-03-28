@@ -20,14 +20,17 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage reserve configuration",
-	Long:  `Read and write reserve configuration stored in config.json.`,
+	Long:  `Read and write reserve configuration stored in the user config directory or a local config.json override.`,
 }
 
 var configInitCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create a template config.json in the current directory",
+	Short: "Create a template config.json in the user config directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		path := config.DefaultConfigFile
+		path, err := config.UserConfigPath()
+		if err != nil {
+			return err
+		}
 		if _, err := os.Stat(path); err == nil {
 			return fmt.Errorf("config.json already exists at %s (delete it first to re-initialise)", path)
 		}
@@ -146,7 +149,10 @@ var configSetCmd = &cobra.Command{
 		var f config.File
 		existing, path, err := loadConfigFile()
 		if err != nil {
-			path = config.DefaultConfigFile
+			path, err = config.PreferredConfigPath()
+			if err != nil {
+				return err
+			}
 			f = config.Template()
 		} else {
 			f = *existing
@@ -196,9 +202,13 @@ func init() {
 	configGetCmd.Flags().BoolVar(&configGetShowSecrets, "show-secrets", false, "show API key in plain text")
 }
 
-// loadConfigFile reads config.json from cwd; used by configSetCmd.
+// loadConfigFile reads the preferred config.json for editing:
+// local override in cwd when present, otherwise the per-user config file.
 func loadConfigFile() (*config.File, string, error) {
-	path := config.DefaultConfigFile
+	path, err := config.PreferredConfigPath()
+	if err != nil {
+		return nil, "", err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err
