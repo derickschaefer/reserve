@@ -3,11 +3,13 @@
   "published_at": "2026-03-27T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
   "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.0",
-  "summary": "Adds update checks, per-user config placement, and local config overrides for development workflows.",
+  "summary": "Introduces update checks, improved configuration handling, and upgrades the CLI to Go 1.26.1 with modernized dependencies.",
   "highlights": [
     "New `reserve update check` command for lightweight version checks",
     "Per-user config file locations on macOS, Linux, and Windows",
-    "Local `./config.json` overrides the user config file for testing and development"
+    "Local `./config.json` overrides user config for development workflows",
+    "Upgraded to Go 1.26.1 for improved performance and tooling",
+    "Dependency updates including Cobra and terminal formatting libraries"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

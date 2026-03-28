@@ -747,6 +747,19 @@ These flags are available on every command:
 
 If a local `./config.json` exists in the current working directory, it overrides the user config file for that shell location.
 
+This makes ad hoc project overrides easy in a very Unix-style way: keep your personal API key and defaults in the user config file, then drop a local `./config.json` into a test or project directory when you want to override only selected settings such as `default_format` or `db_path`.
+
+Example local override:
+
+```json
+{
+  "default_format": "json",
+  "db_path": "/tmp/reserve-local.db"
+}
+```
+
+In that directory, `reserve` will still inherit any missing values such as `api_key` from your user config, while honoring the local overrides for the fields you set.
+
 Example file contents:
 
 ```json
