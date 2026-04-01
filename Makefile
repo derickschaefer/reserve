@@ -1,9 +1,14 @@
 BINARY   := reserve
-VERSION  := v1.1.0
+VERSION  := v1.1.1
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
-LDFLAGS  := -ldflags "-X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
-             -X github.com/derickschaefer/reserve/cmd.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)"
+GOMODCACHE_DIR := $(CURDIR)/.gomodcache
+BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION_FLAGS := -X github.com/derickschaefer/reserve/cmd.Version=$(VERSION) \
+                 -X github.com/derickschaefer/reserve/cmd.BuildTime=$(BUILD_TIME)
+DEV_LDFLAGS := -ldflags "$(VERSION_FLAGS)"
+RELEASE_LDFLAGS := -ldflags "-s -w $(VERSION_FLAGS)"
+GOENV := GOCACHE=$(GOCACHE_DIR) GOMODCACHE=$(GOMODCACHE_DIR)
 #GOFLAGS := -mod=vendor
 
 # Pretty console styling
@@ -18,24 +23,28 @@ BENCH_FLAGS    := -benchmem -count=$(BENCH_COUNT)
 BENCH_OUT_V1   := bench_v1.txt
 BENCH_OUT_V2   := bench_v2exp.txt
 
-.PHONY: build dist test test-all test-unit test-integration \
+.PHONY: build build-release dist test test-all test-unit test-integration \
         test-analyze test-chart test-config test-pipeline test-store test-transform \
         test-cover bench bench-v2 bench-compare bench-parity bench-identity \
         bench-setup lint clean run install verify-signature release-checksums help
 
 ## ── Build ────────────────────────────────────────────────────────────────────
 
-## build: compile the reserve binary
+## build: compile the development reserve binary with symbols
 build:
-	GOCACHE=$(GOCACHE_DIR) go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) .
+	$(GOENV) go build $(GOFLAGS) $(DEV_LDFLAGS) -o $(BINARY) .
 
-## dist: build Cloudflare distribution layout under ./dist
+## build-release: compile the stripped production reserve binary
+build-release:
+	$(GOENV) go build $(GOFLAGS) $(RELEASE_LDFLAGS) -o $(BINARY) .
+
+## dist: build stripped Cloudflare distribution layout under ./dist
 dist:
-	GOCACHE=$(GOCACHE_DIR) VERSION=$(VERSION) scripts/build-dist.sh $(VERSION)
+	$(GOENV) VERSION=$(VERSION) scripts/build-dist.sh $(VERSION)
 
-## install: install to $$GOPATH/bin
+## install: install development binary to $$GOPATH/bin
 install:
-	GOCACHE=$(GOCACHE_DIR) go install $(GOFLAGS) $(LDFLAGS) .
+	$(GOENV) go install $(GOFLAGS) $(DEV_LDFLAGS) .
 
 ## run: build and run with args  (usage: make run ARGS="series get GDP")
 run: build
@@ -45,34 +54,34 @@ run: build
 
 ## test-analyze: unit tests for internal/analyze (statistical summaries and trend fitting)
 test-analyze:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/analyze/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/analyze/...
 
 ## test-chart: unit tests for internal/chart (ASCII bar and sparkline rendering)
 test-chart:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/chart/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/chart/...
 
 ## test-config: unit tests for internal/config (load, priority, validate, redact)
 test-config:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/config/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/config/...
 
 ## test-pipeline: unit tests for internal/pipeline (JSONL read/write and round-trip)
 test-pipeline:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/pipeline/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/pipeline/...
 
 ## test-store: unit tests for internal/store (bbolt CRUD, keys, maintenance, isolation)
 test-store:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/store/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/store/...
 
 ## test-transform: unit tests for internal/transform (all transformation operators)
 test-transform:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./internal/transform/...
+	$(GOENV) go test $(GOFLAGS) -v ./internal/transform/...
 
 ## test-unit: run cmd + internal package unit tests
 test-unit:
 	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)  🧪  UNIT TESTS (cmd + internal)$(RESET)\n"
 	@printf "$(CYAN)──────────────────────────────────────────────────────────────────────────$(RESET)\n"
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) ./cmd ./internal/...
+	$(GOENV) go test $(GOFLAGS) ./cmd ./internal/...
 	@printf "$(GREEN)✅ Unit tests passed$(RESET)\n"
 
 ## ── Integration Tests ────────────────────────────────────────────────────────
@@ -82,7 +91,7 @@ test-integration:
 	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)  🔬  INTEGRATION TESTS (tests/)$(RESET)\n"
 	@printf "$(CYAN)──────────────────────────────────────────────────────────────────────────$(RESET)\n"
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./tests/
+	$(GOENV) go test $(GOFLAGS) -v ./tests/
 	@printf "$(GREEN)✅ Integration tests passed$(RESET)\n"
 
 ## test: default full test target (unit + integration)
@@ -95,11 +104,11 @@ test:
 
 ## test-all: run every test across all packages (unit + integration)
 test-all:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -v ./...
+	$(GOENV) go test $(GOFLAGS) -v ./...
 
 ## test-cover: run full suite with HTML coverage report
 test-cover:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) -coverprofile=coverage.out ./internal/... ./tests/
+	$(GOENV) go test $(GOFLAGS) -coverprofile=coverage.out ./internal/... ./tests/
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
@@ -118,13 +127,13 @@ bench-setup:
 
 ## bench: run v1 baseline benchmarks ($(BENCH_COUNT) iterations each)
 bench:
-	GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) ./tests/benchmarks/... \
+	$(GOENV) go test $(GOFLAGS) ./tests/benchmarks/... \
 		-bench=. $(BENCH_FLAGS) | tee $(BENCH_OUT_V1)
 	@echo "Results written to $(BENCH_OUT_V1)"
 
 ## bench-v2: run benchmarks with GOEXPERIMENT=jsonv2 engine ($(BENCH_COUNT) iterations each)
 bench-v2:
-	GOEXPERIMENT=jsonv2 GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) ./tests/benchmarks/... \
+	GOEXPERIMENT=jsonv2 $(GOENV) go test $(GOFLAGS) ./tests/benchmarks/... \
 		-bench=. $(BENCH_FLAGS) | tee $(BENCH_OUT_V2)
 	@echo "Results written to $(BENCH_OUT_V2)"
 
@@ -139,19 +148,19 @@ bench-compare: bench bench-v2
 
 ## bench-parity: run v1/v2 round-trip parity test (requires GOEXPERIMENT=jsonv2)
 bench-parity:
-	GOEXPERIMENT=jsonv2 GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) ./tests/benchmarks/... \
+	GOEXPERIMENT=jsonv2 $(GOENV) go test $(GOFLAGS) ./tests/benchmarks/... \
 		-run TestV1V2Parity -v
 
 ## bench-identity: run byte-identity comparison test (requires GOEXPERIMENT=jsonv2)
 bench-identity:
-	GOEXPERIMENT=jsonv2 GOCACHE=$(GOCACHE_DIR) go test $(GOFLAGS) ./tests/benchmarks/... \
+	GOEXPERIMENT=jsonv2 $(GOENV) go test $(GOFLAGS) ./tests/benchmarks/... \
 		-run TestMarshalByteIdentity -v
 
 ## ── Quality ──────────────────────────────────────────────────────────────────
 
 ## lint: vet all packages
 lint:
-	GOCACHE=$(GOCACHE_DIR) go vet $(GOFLAGS) ./...
+	$(GOENV) go vet $(GOFLAGS) ./...
 
 ## release-checksums: generate SHA256SUMS for archives in ./dist/releases/$(VERSION)
 release-checksums:

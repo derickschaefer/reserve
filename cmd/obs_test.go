@@ -138,7 +138,7 @@ func TestCacheObsSourceGetsStoredData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveObsSource(cache): %v", err)
 	}
-	got, cacheHit, err := src.get(t.Context(), deps, "GDP", fred.ObsOptions{
+	got, cacheHit, warnings, err := src.get(t.Context(), deps, "GDP", fred.ObsOptions{
 		Start: "2024-01-01",
 		End:   "2024-12-31",
 	})
@@ -148,6 +148,9 @@ func TestCacheObsSourceGetsStoredData(t *testing.T) {
 	if !cacheHit {
 		t.Fatalf("expected cacheHit=true")
 	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
 	if got == nil || got.SeriesID != "GDP" {
 		t.Fatalf("unexpected series data: %+v", got)
 	}
@@ -156,5 +159,59 @@ func TestCacheObsSourceGetsStoredData(t *testing.T) {
 	}
 	if len(got.Obs) != 1 || got.Obs[0].Value != 100 {
 		t.Fatalf("unexpected observations: %+v", got.Obs)
+	}
+}
+
+func TestCacheObsSourceWarnsAndSelectsCanonicalSet(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "reserve.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer s.Close()
+
+	shortKey := store.ObsKey("GDP", "2024-01-01", "", "", "", "")
+	longKey := store.ObsKey("GDP", "2020-01-01", "", "", "", "")
+	if err := s.PutObs(shortKey, model.SeriesData{
+		SeriesID: "GDP",
+		Obs: []model.Observation{
+			{Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Value: 1, ValueRaw: "1"},
+			{Date: time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC), Value: 2, ValueRaw: "2"},
+		},
+	}); err != nil {
+		t.Fatalf("PutObs short: %v", err)
+	}
+	if err := s.PutObs(longKey, model.SeriesData{
+		SeriesID: "GDP",
+		Obs: []model.Observation{
+			{Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Value: 1, ValueRaw: "1"},
+			{Date: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC), Value: 2, ValueRaw: "2"},
+			{Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Value: 3, ValueRaw: "3"},
+		},
+	}); err != nil {
+		t.Fatalf("PutObs long: %v", err)
+	}
+
+	deps := &app.Deps{
+		Config: &config.Config{DBPath: dbPath},
+		Store:  s,
+	}
+
+	src, err := resolveObsSource("cache")
+	if err != nil {
+		t.Fatalf("resolveObsSource(cache): %v", err)
+	}
+	got, cacheHit, warnings, err := src.get(t.Context(), deps, "GDP", fred.ObsOptions{})
+	if err != nil {
+		t.Fatalf("cache source get: %v", err)
+	}
+	if !cacheHit {
+		t.Fatalf("expected cacheHit=true")
+	}
+	if got == nil || len(got.Obs) != 3 {
+		t.Fatalf("expected canonical widest set, got %+v", got)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected one warning, got %v", warnings)
 	}
 }

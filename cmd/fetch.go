@@ -107,6 +107,11 @@ var fetchSeriesCmd = &cobra.Command{
 				key := store.ObsKey(data.SeriesID, fetchStart, fetchEnd, "", "", "")
 				obsEntries[key] = *data
 			}
+			multiSetWarnings, err := collectStoreWarnings(deps.Store, obsEntries)
+			if err != nil {
+				return fmt.Errorf("checking existing cache entries: %w", err)
+			}
+			warnings = append(warnings, multiSetWarnings...)
 
 			// ── Step 2: fetch metadata via the existing concurrent helper ─────
 			// batchGetSeries fires concurrent API calls — same pattern as the
@@ -168,6 +173,35 @@ var fetchSeriesCmd = &cobra.Command{
 		render.PrintFooter(cmd.OutOrStdout(), &model.Result{Warnings: warnings}, deps.Config.Verbose)
 		return nil
 	},
+}
+
+func collectStoreWarnings(s interface {
+	ListObsKeys(string) ([]string, error)
+}, entries map[string]model.SeriesData) ([]string, error) {
+	var warnings []string
+	for key, data := range entries {
+		keys, err := s.ListObsKeys(data.SeriesID)
+		if err != nil {
+			return nil, err
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		exactExists := false
+		for _, existing := range keys {
+			if existing == key {
+				exactExists = true
+				break
+			}
+		}
+		if exactExists {
+			continue
+		}
+		warnings = append(warnings, fmt.Sprintf(
+			"adding another cached observation set for %s (existing sets: %d). Use a canonical full-range refresh if you want one local copy.",
+			data.SeriesID, len(keys)))
+	}
+	return warnings, nil
 }
 
 // ─── fetch category ───────────────────────────────────────────────────────────

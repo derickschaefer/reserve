@@ -399,7 +399,7 @@ func buildDataModel() map[string]any {
 				"data":         "any — typed payload; kind identifies what is inside",
 				"warnings":     "[]string — non-fatal issues e.g. one series in a batch failed",
 				"stats": map[string]any{
-					"cache_hit":   "bool — true if data came from local bbolt cache",
+					"cache_hit":   "bool — true if data came from the local embedded key-value cache (bbolt)",
 					"duration_ms": "int64 — wall time in milliseconds",
 					"items":       "int — number of observations or series returned",
 				},
@@ -443,7 +443,13 @@ func buildPipeline() map[string]any {
 		"correct_pipeline_pattern": "reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl | reserve transform pct-change --period 12 | reserve window roll --stat mean --window 3 | reserve analyze trend",
 		"wrong_pipeline_pattern":   "reserve obs get CPIAUCSL --start 2020-01-01 | reserve transform pct-change  ← missing --format jsonl, will fail",
 		"format_autodetection":     "transform and window commands auto-detect: if stdout is a terminal they emit table, if piped they emit jsonl. The SOURCE command (`obs get`) does NOT auto-detect — it must be told explicitly.",
-		"preferred_source":         "For cached pipeline reads, use `reserve obs get <ID> --from cache --format jsonl`. It reads from the local bbolt cache — no network, no rate limiting.",
+		"preferred_source":         "For cached pipeline reads, use `reserve obs get <ID> --from cache --format jsonl`. It reads from the local embedded key-value cache (bbolt) — no network, no rate limiting.",
+		"cache_discipline": []string{
+			"Prefer live reads for one-off questions unless the user clearly wants durable local storage.",
+			"Before storing more observations for a series, inspect `reserve cache inventory` when local coverage may already exist.",
+			"If multiple cached observation sets exist, explain that reserve will choose a canonical local set on bare `--from cache` reads and ask before deleting or rebuilding local series data.",
+			"Before running destructive local cleanup such as `reserve cache clear --series <ID>` or wider clear operations, ask the user for confirmation.",
+		},
 		"operator_chain_anatomy": map[string]any{
 			"source":    "obs get  — emits JSONL when `--format jsonl` is used",
 			"transform": "transform pct-change / diff / log / index / normalize / resample / filter  — JSONL → JSONL",

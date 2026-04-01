@@ -12,6 +12,8 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 
 **Changed**
 
+- Release builds now strip symbol and DWARF debug information (`-s -w`) starting in `v1.1.1`, reducing distributed binary size without changing runtime behavior
+- `Makefile` now separates development builds (`make build`) from stripped production builds (`make build-release`)
 - Config discovery now supports per-user config locations on Linux, macOS, and Windows
 - Local `./config.json` now overrides the per-user config file when both are present
 - `reserve config init` now creates the user config file and parent directories automatically

@@ -468,6 +468,47 @@ func (s *Store) ClearAll() error {
 	return nil
 }
 
+// ClearObsSeries deletes all cached observation sets for a single series ID
+// from the obs bucket while leaving series metadata intact.
+func (s *Store) ClearObsSeries(seriesID string) (int, error) {
+	prefix := []byte("series:" + seriesID)
+	base := "series:" + seriesID
+	removed := 0
+
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketObs)
+		if b == nil {
+			return nil
+		}
+
+		var keys [][]byte
+		c := b.Cursor()
+		for k, _ := c.Seek(prefix); k != nil; k, _ = c.Next() {
+			if !bytes.HasPrefix(k, prefix) {
+				break
+			}
+			ks := string(k)
+			if ks == base || strings.HasPrefix(ks, base+"|") {
+				keyCopy := make([]byte, len(k))
+				copy(keyCopy, k)
+				keys = append(keys, keyCopy)
+			}
+		}
+
+		for _, key := range keys {
+			if err := b.Delete(key); err != nil {
+				return err
+			}
+			removed++
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return removed, nil
+}
+
 // Compact rewrites the entire database to a new file, reclaiming disk space
 // freed by prior deletions. bbolt does not shrink the file automatically after
 // ClearBucket / ClearAll — free pages are reused internally but the file

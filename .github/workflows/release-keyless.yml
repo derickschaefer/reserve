@@ -43,9 +43,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build distribution layout
+      - name: Build stripped distribution layout
         shell: bash
-        run: scripts/build-dist.sh "${GITHUB_REF_NAME}"
+        run: make dist VERSION="${GITHUB_REF_NAME}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.7.0

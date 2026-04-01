@@ -99,12 +99,13 @@ type obsResult struct {
 	err   error
 	idx   int
 	cache bool
+	warn  []string
 }
 
 type obsSource interface {
 	name() string
 	requiresAPIKey() bool
-	get(context.Context, *app.Deps, string, fred.ObsOptions) (*model.SeriesData, bool, error)
+	get(context.Context, *app.Deps, string, fred.ObsOptions) (*model.SeriesData, bool, []string, error)
 }
 
 type liveObsSource struct{}
@@ -112,9 +113,9 @@ type liveObsSource struct{}
 func (liveObsSource) name() string         { return "live" }
 func (liveObsSource) requiresAPIKey() bool { return true }
 
-func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
+func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, []string, error) {
 	data, err := deps.Client.GetObservations(ctx, id, opts)
-	return data, false, err
+	return data, false, nil, err
 }
 
 type cacheObsSource struct{}
@@ -122,41 +123,42 @@ type cacheObsSource struct{}
 func (cacheObsSource) name() string         { return "cache" }
 func (cacheObsSource) requiresAPIKey() bool { return false }
 
-func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, error) {
+func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, []string, error) {
 	if err := deps.RequireStore(); err != nil {
-		return nil, false, fmt.Errorf("source 'cache' unavailable: %w", err)
+		return nil, false, nil, fmt.Errorf("source 'cache' unavailable: %w", err)
 	}
 
 	key := obsCacheKey(id, opts)
 	if key != "" {
 		data, ok, err := deps.Store.GetObs(key)
 		if err != nil {
-			return nil, false, fmt.Errorf("reading cache: %w", err)
+			return nil, false, nil, fmt.Errorf("reading cache: %w", err)
 		}
 		if ok {
 			attachCachedMeta(deps, id, &data)
-			return &data, true, nil
+			return &data, true, nil, nil
 		}
-		return nil, false, fmt.Errorf("no cached observations for %s matching the requested parameters", id)
+		return nil, false, nil, fmt.Errorf("no cached observations for %s matching the requested parameters", id)
 	}
 
 	keys, err := deps.Store.ListObsKeys(id)
 	if err != nil {
-		return nil, false, fmt.Errorf("reading cache: %w", err)
+		return nil, false, nil, fmt.Errorf("reading cache: %w", err)
 	}
 	if len(keys) == 0 {
-		return nil, false, fmt.Errorf("no cached observations for %s", id)
+		return nil, false, nil, fmt.Errorf("no cached observations for %s", id)
 	}
 
-	data, ok, err := deps.Store.GetObs(keys[0])
+	selected, warning, err := selectCanonicalObsSet(deps.Store, keys)
 	if err != nil {
-		return nil, false, fmt.Errorf("reading cache: %w", err)
+		return nil, false, nil, fmt.Errorf("reading cache: %w", err)
 	}
-	if !ok {
-		return nil, false, fmt.Errorf("cached observation data missing for %s", id)
+	attachCachedMeta(deps, id, &selected.data)
+	var warnings []string
+	if warning != "" {
+		warnings = append(warnings, warning)
 	}
-	attachCachedMeta(deps, id, &data)
-	return &data, true, nil
+	return &selected.data, true, warnings, nil
 }
 
 func resolveObsSource(name string) (obsSource, error) {
@@ -213,6 +215,7 @@ func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.Ob
 		err   error
 		idx   int
 		cache bool
+		warn  []string
 	}
 
 	concurrency := deps.Config.Concurrency
@@ -232,8 +235,8 @@ func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.Ob
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			data, cache, err := src.get(ctx, deps, id, opts)
-			results[i] = result{idx: i, data: data, cache: cache, err: err}
+			data, cache, warn, err := src.get(ctx, deps, id, opts)
+			results[i] = result{idx: i, data: data, cache: cache, warn: warn, err: err}
 		}()
 	}
 	wg.Wait()
@@ -248,9 +251,97 @@ func batchGetObs(ctx context.Context, deps *app.Deps, ids []string, opts fred.Ob
 		} else if r.data != nil {
 			datas = append(datas, r.data)
 			anyCache = anyCache || r.cache
+			warnings = append(warnings, r.warn...)
 		}
 	}
 	return datas, warnings, anyCache
+}
+
+type canonicalObsSet struct {
+	key   string
+	data  model.SeriesData
+	start time.Time
+	end   time.Time
+}
+
+func selectCanonicalObsSet(store interface {
+	GetObs(string) (model.SeriesData, bool, error)
+}, keys []string) (canonicalObsSet, string, error) {
+	var best canonicalObsSet
+	found := false
+	for _, key := range keys {
+		data, ok, err := store.GetObs(key)
+		if err != nil {
+			return canonicalObsSet{}, "", err
+		}
+		if !ok || len(data.Obs) == 0 {
+			continue
+		}
+		start, end := obsBounds(data.Obs)
+		candidate := canonicalObsSet{key: key, data: data, start: start, end: end}
+		if !found || compareCanonicalObsSet(candidate, best) > 0 {
+			best = candidate
+			found = true
+		}
+	}
+	if !found {
+		return canonicalObsSet{}, "", fmt.Errorf("cached observation data missing")
+	}
+	if len(keys) <= 1 {
+		return best, "", nil
+	}
+	warning := fmt.Sprintf(
+		"Multiple cached observation sets exist for %s. Using the widest local range: %s to %s. For deterministic selection, specify --start/--end or refresh a canonical local copy.",
+		best.data.SeriesID,
+		best.start.Format("2006-01-02"),
+		best.end.Format("2006-01-02"),
+	)
+	return best, warning, nil
+}
+
+func compareCanonicalObsSet(a, b canonicalObsSet) int {
+	aSpan := a.end.Sub(a.start)
+	bSpan := b.end.Sub(b.start)
+	switch {
+	case aSpan > bSpan:
+		return 1
+	case aSpan < bSpan:
+		return -1
+	}
+	switch {
+	case len(a.data.Obs) > len(b.data.Obs):
+		return 1
+	case len(a.data.Obs) < len(b.data.Obs):
+		return -1
+	}
+	switch {
+	case a.end.After(b.end):
+		return 1
+	case a.end.Before(b.end):
+		return -1
+	}
+	switch {
+	case a.key > b.key:
+		return 1
+	case a.key < b.key:
+		return -1
+	default:
+		return 0
+	}
+}
+
+func obsBounds(obs []model.Observation) (time.Time, time.Time) {
+	start := obs[0].Date
+	end := obs[0].Date
+	for _, o := range obs[1:] {
+		if o.Date.Before(start) {
+			start = o.Date
+		}
+		if o.Date.After(end) {
+			end = o.Date
+		}
+	}
+	return start, end
 }
 
 // printSimpleTable renders a simple table with headers using tablewriter.

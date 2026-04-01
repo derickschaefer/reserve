@@ -506,6 +506,40 @@ func TestClearAll(t *testing.T) {
 	}
 }
 
+func TestClearObsSeries(t *testing.T) {
+	s := testDB(t)
+	_ = s.PutSeriesMeta(makeMeta("GDP", "GDP"))
+	_ = s.PutObs(store.ObsKey("GDP", "", "", "", "", ""), makeSeriesData("GDP", 2020, 1, 1.0))
+	_ = s.PutObs(store.ObsKey("GDP", "2021-01-01", "", "", "", ""), makeSeriesData("GDP", 2021, 1, 2.0))
+	_ = s.PutObs(store.ObsKey("UNRATE", "", "", "", "", ""), makeSeriesData("UNRATE", 2020, 1, 3.0))
+
+	removed, err := s.ClearObsSeries("GDP")
+	if err != nil {
+		t.Fatalf("ClearObsSeries: %v", err)
+	}
+	if removed != 2 {
+		t.Fatalf("expected 2 removed obs sets, got %d", removed)
+	}
+
+	keys, _ := s.ListObsKeys("GDP")
+	if len(keys) != 0 {
+		t.Fatalf("expected 0 GDP keys after clear, got %d", len(keys))
+	}
+
+	_, found, err := s.GetSeriesMeta("GDP")
+	if err != nil {
+		t.Fatalf("GetSeriesMeta: %v", err)
+	}
+	if !found {
+		t.Fatal("series metadata should remain after ClearObsSeries")
+	}
+
+	otherKeys, _ := s.ListObsKeys("UNRATE")
+	if len(otherKeys) != 1 {
+		t.Fatalf("expected UNRATE keys to remain intact, got %d", len(otherKeys))
+	}
+}
+
 // ─── Isolation ────────────────────────────────────────────────────────────────
 
 func TestEachTestGetsIsolatedDB(t *testing.T) {

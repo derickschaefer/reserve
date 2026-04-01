@@ -121,7 +121,7 @@ var obsGetCmd = &cobra.Command{
 		}
 
 		if len(ids) == 1 {
-			data, cacheHit, err := src.get(cmd.Context(), deps, ids[0], opts)
+			data, cacheHit, warnings, err := src.get(cmd.Context(), deps, ids[0], opts)
 			if err != nil {
 				return err
 			}
@@ -130,6 +130,7 @@ var obsGetCmd = &cobra.Command{
 				GeneratedAt: time.Now(),
 				Command:     fmt.Sprintf("obs get %s%s", ids[0], commandFrom),
 				Data:        data,
+				Warnings:    warnings,
 				Stats: model.ResultStats{
 					CacheHit:   cacheHit,
 					DurationMs: time.Since(start).Milliseconds(),

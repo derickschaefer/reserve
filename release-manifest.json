@@ -1,15 +1,15 @@
 {
-  "latest_version": "v1.1.0",
-  "published_at": "2026-03-27T00:00:00Z",
+  "latest_version": "v1.1.1",
+  "published_at": "2026-04-11T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.0",
-  "summary": "Introduces update checks, improved configuration handling, and upgrades the CLI to Go 1.26.1 with modernized dependencies.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.1",
+  "summary": "Sharpens AI onboarding, adds cache inventory and per-series cleanup, and ships smaller stripped release binaries.",
   "highlights": [
-    "New `reserve update check` command for lightweight version checks",
-    "Per-user config file locations on macOS, Linux, and Windows",
-    "Local `./config.json` overrides user config for development workflows",
-    "Upgraded to Go 1.26.1 for improved performance and tooling",
-    "Dependency updates including Cobra and terminal formatting libraries"
+    "Expanded onboarding guidance for LLMs around batching, cache discipline, and destructive local-state changes",
+    "New `reserve cache inventory` view for local series coverage, gaps, and metadata readiness",
+    "New `reserve cache clear --series <ID>` command for targeted observation-set cleanup",
+    "Canonical cache selection and warnings when multiple cached observation sets exist",
+    "Release artifacts now use stripped production builds for smaller downloads"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

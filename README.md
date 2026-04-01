@@ -76,7 +76,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.0
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.1
 ```
 
 Windows PowerShell:
@@ -92,10 +92,18 @@ From source:
 ```bash
 git clone https://github.com/derickschaefer/reserve
 cd reserve
-go build -o reserve .
+make build
 ```
 
 Requires Go 1.25.7+ for source builds.
+
+For distributed release binaries, use the stripped release target introduced in `v1.1.1`:
+
+```bash
+make build-release
+```
+
+`make build` keeps symbols for local debugging. `make build-release` applies Go linker flags `-s -w` to remove the symbol table and DWARF debug information for smaller shipped binaries.
 
 ---
 
@@ -386,6 +394,8 @@ reserve meta source <SOURCE_ID...>
 
 Fetch metadata or observations from the FRED API in batch. Use `series get` or `obs get` when you want data immediately on stdout; use `fetch`, especially `fetch series --store`, when you want to acquire and persist a reusable local working set.
 
+If you need several series, prefer one multi-series `fetch series` call over many one-off fetches. reserve already performs bounded concurrent retrieval with a shared rate limiter for the batch.
+
 ```bash
 reserve fetch series <SERIES_ID...> [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--store]
 reserve fetch category <CATEGORY_ID|root>
@@ -528,15 +538,25 @@ reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend --met
 
 ### cache
 
-Manage the local bbolt database.
+Manage the local embedded key-value cache database (bbolt).
 
 ```bash
 reserve cache stats                         # bucket row counts and DB size
+reserve cache inventory                     # per-series local coverage, date ranges, and gaps
 reserve cache clear --all                   # wipe all data
 reserve cache clear --bucket obs            # wipe observations only
 reserve cache clear --bucket series_meta    # wipe metadata only
+reserve cache clear --series GDP            # wipe cached observation sets for one series
 reserve cache compact                       # reclaim disk space after clearing
 ```
+
+`cache inventory` gives a higher-level view of what you have locally: one row per cached series with merged date coverage, point counts, gap counts, frequency, and whether metadata is present. It ends with a small rule-based action summary so you can quickly see whether the next step is metadata enrichment, range refill, or no action at all. Daily series display `GAPS` as `n/a` because weekends and market holidays make gap counting misleading for that cadence.
+
+When `obs get --from cache` encounters multiple cached observation sets for the same series and no exact date/parameter filter is provided, reserve now chooses a canonical local set by widest coverage and warns which range was selected. Likewise, storing a second observation set for the same series emits a warning so the cache does not silently drift into multiple competing local variants.
+
+`cache clear --series <ID>` removes all cached observation sets for one series while leaving its stored metadata intact. This is the preferred cleanup level when you want to rebuild one local series without wiping the entire observations bucket.
+
+For disciplined local-cache workflows, prefer live reads for ad hoc questions, use `cache inventory` before storing additional variants of a series, and treat `cache clear --series` as a deliberate rebuild step rather than an automatic cleanup action.
 
 `cache clear` removes entries from one bucket or all buckets. bbolt does not shrink the database file automatically — freed pages are returned to an internal freelist and reused on future writes. The file footprint does not decrease until you run `compact`.
 
