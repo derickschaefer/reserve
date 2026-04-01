@@ -36,3 +36,4 @@ dist/
 # Local workflow / planning files
 DEVPLAN.md
 gitpush.sh
+reserve-rpi
