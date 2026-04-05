@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
+	"github.com/derickschaefer/reserve/internal/compliance"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
@@ -72,12 +73,12 @@ func batchGetSeries(ctx context.Context, deps *app.Deps, ids []string) ([]model.
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			meta, err := deps.Client.GetSeries(ctx, id)
+			meta, err := ensureSeriesCompliance(ctx, deps, id, "display")
 			if err != nil {
 				results[i] = result{idx: i, err: err}
 				return
 			}
-			results[i] = result{idx: i, meta: *meta}
+			results[i] = result{idx: i, meta: meta}
 		}()
 	}
 	wg.Wait()
@@ -114,8 +115,16 @@ func (liveObsSource) name() string         { return "live" }
 func (liveObsSource) requiresAPIKey() bool { return true }
 
 func (liveObsSource) get(ctx context.Context, deps *app.Deps, id string, opts fred.ObsOptions) (*model.SeriesData, bool, []string, error) {
+	meta, err := ensureSeriesCompliance(ctx, deps, id, "display")
+	if err != nil {
+		return nil, false, nil, err
+	}
 	data, err := deps.Client.GetObservations(ctx, id, opts)
-	return data, false, nil, err
+	if err != nil {
+		return nil, false, nil, err
+	}
+	data.Meta = &meta
+	return data, false, nil, nil
 }
 
 type cacheObsSource struct{}
@@ -135,7 +144,11 @@ func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fre
 			return nil, false, nil, fmt.Errorf("reading cache: %w", err)
 		}
 		if ok {
-			attachCachedMeta(deps, id, &data)
+			meta, err := ensureSeriesCompliance(context.Background(), deps, id, "display")
+			if err != nil {
+				return nil, false, nil, err
+			}
+			data.Meta = &meta
 			return &data, true, nil, nil
 		}
 		return nil, false, nil, fmt.Errorf("no cached observations for %s matching the requested parameters", id)
@@ -153,12 +166,31 @@ func (cacheObsSource) get(_ context.Context, deps *app.Deps, id string, opts fre
 	if err != nil {
 		return nil, false, nil, fmt.Errorf("reading cache: %w", err)
 	}
-	attachCachedMeta(deps, id, &selected.data)
+	meta, err := ensureSeriesCompliance(context.Background(), deps, id, "display")
+	if err != nil {
+		return nil, false, nil, err
+	}
+	selected.data.Meta = &meta
 	var warnings []string
 	if warning != "" {
 		warnings = append(warnings, warning)
 	}
 	return &selected.data, true, warnings, nil
+}
+
+func ensureSeriesCompliance(ctx context.Context, deps *app.Deps, id, action string) (model.SeriesMeta, error) {
+	meta, _, err := compliance.EnsureSeriesMeta(ctx, deps.Config, deps.Client, deps.Store, id, action)
+	if err != nil {
+		return model.SeriesMeta{}, err
+	}
+	decision := compliance.Evaluate(deps.Config, meta, action)
+	if !decision.Allowed {
+		return model.SeriesMeta{}, &NoticeError{Message: compliance.FormatBlockedMessage(deps.Config, meta, decision)}
+	}
+	if decision.CitationText != "" && meta.CitationText == "" {
+		meta.CitationText = decision.CitationText
+	}
+	return meta, nil
 }
 
 func resolveObsSource(name string) (obsSource, error) {

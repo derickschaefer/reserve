@@ -497,3 +497,77 @@ func TestTemplateBaseURL(t *testing.T) {
 		t.Errorf("Template.BaseURL should be an https URL, got %q", tmpl.BaseURL)
 	}
 }
+
+func TestLoadMigratesLegacyConfigToCanonicalLayout(t *testing.T) {
+	dir := t.TempDir()
+	clearEnv(t)
+
+	path := filepath.Join(dir, "config.json")
+	legacy := `{
+  "api_key": "legacy-key",
+  "default_format": "json",
+  "timeout": "45s",
+  "concurrency": 4,
+  "rate": 2.5,
+  "base_url": "https://api.stlouisfed.org/fred/",
+  "db_path": "/tmp/legacy.db"
+}
+`
+	if err := os.WriteFile(path, []byte(legacy), 0600); err != nil {
+		t.Fatalf("write legacy config: %v", err)
+	}
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.PersonOrgType != config.DefaultPersonOrg {
+		t.Fatalf("person_org_type = %q", cfg.PersonOrgType)
+	}
+
+	upgraded, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var got config.File
+	if err := json.Unmarshal(upgraded, &got); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if got.PersonOrgType != config.DefaultPersonOrg {
+		t.Fatalf("upgraded person_org_type = %q", got.PersonOrgType)
+	}
+	if !got.BlockUnknownRights || !got.RequireCitationOnDisplay || !got.LogComplianceDecisions {
+		t.Fatalf("expected upgraded compliance defaults to be enabled: %+v", got)
+	}
+	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {
+		t.Fatalf("expected backup to be removed after successful migration")
+	}
+}
+
+func TestWriteFileNormalizesGrantedSeriesPermissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	f := config.File{
+		GrantedSeriesPermissions: []string{"bamlc0a0cm", " GDP ", "BAMLC0A0CM"},
+	}
+	if err := config.WriteFile(path, f); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var got config.File
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(got.GrantedSeriesPermissions) != 2 {
+		t.Fatalf("expected 2 normalized grants, got %+v", got.GrantedSeriesPermissions)
+	}
+	if got.GrantedSeriesPermissions[0] != "BAMLC0A0CM" || got.GrantedSeriesPermissions[1] != "GDP" {
+		t.Fatalf("unexpected normalized grants: %+v", got.GrantedSeriesPermissions)
+	}
+}

@@ -35,6 +35,23 @@ type SeriesMeta struct {
 	LastUpdated             string    `json:"last_updated"`
 	Popularity              int       `json:"popularity"`
 	Notes                   string    `json:"notes"`
+	SourceName              string    `json:"source_name,omitempty"`
+	SourceLink              string    `json:"source_link,omitempty"`
+	CopyrightStatus         string    `json:"copyright_status,omitempty"`
+	CitationText            string    `json:"citation_text,omitempty"`
+	UsageAllowedCommercial  bool      `json:"usage_allowed_commercial,omitempty"`
+	UsageAllowedEducational bool      `json:"usage_allowed_educational,omitempty"`
+	UsageAllowedPersonal    bool      `json:"usage_allowed_personal,omitempty"`
+	PermissionRequired      bool      `json:"permission_required,omitempty"`
+	PermissionOnFile        bool      `json:"permission_on_file,omitempty"`
+	PermissionSource        string    `json:"permission_source,omitempty"`
+	PermissionDate          string    `json:"permission_date,omitempty"`
+	PermissionScope         string    `json:"permission_scope,omitempty"`
+	PermissionDocumentPath  string    `json:"permission_document_path,omitempty"`
+	ApprovedBy              string    `json:"approved_by,omitempty"`
+	RawRightsTags           []string  `json:"raw_rights_tags,omitempty"`
+	RightsAmbiguous         bool      `json:"rights_ambiguous,omitempty"`
+	LastRightsCheckAt       time.Time `json:"last_rights_check_at,omitempty"`
 	FetchedAt               time.Time `json:"fetched_at,omitempty"`
 }
 

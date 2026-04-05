@@ -203,12 +203,18 @@ var obsLatestCmd = &cobra.Command{
 		var warnings []string
 
 		for _, id := range ids {
+			meta, err := ensureSeriesCompliance(cmd.Context(), deps, id, "display")
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", id, err))
+				continue
+			}
 			obs, err := deps.Client.GetLatestObservation(cmd.Context(), id)
 			if err != nil {
 				warnings = append(warnings, fmt.Sprintf("%s: %v", id, err))
 				continue
 			}
 			rows = append(rows, latestRowFromObservation(id, obs))
+			_ = meta
 		}
 
 		if format == render.FormatTable || format == "" {

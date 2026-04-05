@@ -73,10 +73,11 @@ func renderJSON(w io.Writer, result *model.Result) error {
 
 // jsonlRow is a canonical JSONL record for time series observations.
 type jsonlRow struct {
-	SeriesID string      `json:"series_id"`
-	Date     string      `json:"date"`
-	Value    interface{} `json:"value"` // float64 or null
-	ValueRaw string      `json:"value_raw"`
+	SeriesID     string      `json:"series_id"`
+	Date         string      `json:"date"`
+	Value        interface{} `json:"value"` // float64 or null
+	ValueRaw     string      `json:"value_raw"`
+	CitationText string      `json:"citation_text,omitempty"`
 }
 
 func renderJSONL(w io.Writer, result *model.Result) error {
@@ -92,6 +93,9 @@ func renderJSONL(w io.Writer, result *model.Result) error {
 				SeriesID: sd.SeriesID,
 				Date:     obs.Date.Format("2006-01-02"),
 				ValueRaw: obs.ValueRaw,
+			}
+			if sd.Meta != nil {
+				row.CitationText = sd.Meta.CitationText
 			}
 			if math.IsNaN(obs.Value) {
 				row.Value = nil
@@ -165,6 +169,7 @@ func renderObsTable(w io.Writer, sd *model.SeriesData) error {
 		})
 	}
 	tw.Render()
+	printCitationFooter(w, sd.Meta)
 	return nil
 }
 
@@ -181,6 +186,7 @@ func renderSeriesMetaTable(w io.Writer, m *model.SeriesMeta) error {
 	rows := [][]string{
 		{"ID", m.ID},
 		{"Title", m.Title},
+		{"Copyright Status", m.CopyrightStatus},
 		{"Frequency", m.Frequency},
 		{"Units", m.Units},
 		{"Seasonal Adj.", m.SeasonalAdjustment},
@@ -200,6 +206,7 @@ func renderSeriesMetaTable(w io.Writer, m *model.SeriesMeta) error {
 		tw.Append(r)
 	}
 	tw.Render()
+	printCitationFooter(w, m)
 	return nil
 }
 
@@ -254,14 +261,23 @@ func renderDelimited(w io.Writer, result *model.Result, sep rune) error {
 		if !ok {
 			return fmt.Errorf("unexpected data type for series_data")
 		}
-		_ = cw.Write([]string{"series_id", "date", "value", "value_raw"})
+		header := []string{"series_id", "date", "value", "value_raw"}
+		includeCitation := sd.Meta != nil && sd.Meta.CitationText != ""
+		if includeCitation {
+			header = append(header, "citation_text")
+		}
+		_ = cw.Write(header)
 		for _, obs := range sd.Obs {
-			_ = cw.Write([]string{
+			row := []string{
 				sd.SeriesID,
 				obs.Date.Format("2006-01-02"),
 				formatValue(obs.Value),
 				obs.ValueRaw,
-			})
+			}
+			if includeCitation {
+				row = append(row, sd.Meta.CitationText)
+			}
+			_ = cw.Write(row)
 		}
 	case model.KindSeriesMeta:
 		if metas, ok := result.Data.([]model.SeriesMeta); ok {
@@ -277,8 +293,12 @@ func renderDelimited(w io.Writer, result *model.Result, sep rune) error {
 			_ = cw.Write([]string{"field", "value"})
 			_ = cw.Write([]string{"id", meta.ID})
 			_ = cw.Write([]string{"title", meta.Title})
+			_ = cw.Write([]string{"copyright_status", meta.CopyrightStatus})
 			_ = cw.Write([]string{"frequency", meta.Frequency})
 			_ = cw.Write([]string{"units", meta.Units})
+			if meta.CitationText != "" {
+				_ = cw.Write([]string{"citation_text", meta.CitationText})
+			}
 		}
 	default:
 		// Fallback: serialize as JSON on a single line
@@ -307,6 +327,7 @@ func renderMarkdown(w io.Writer, result *model.Result) error {
 				formatValue(obs.Value),
 			)
 		}
+		printCitationFooter(w, sd.Meta)
 		return nil
 	case model.KindSeriesMeta:
 		if metas, ok := result.Data.([]model.SeriesMeta); ok {
@@ -324,6 +345,13 @@ func renderMarkdown(w io.Writer, result *model.Result) error {
 	default:
 		return renderJSON(w, result)
 	}
+}
+
+func printCitationFooter(w io.Writer, meta *model.SeriesMeta) {
+	if meta == nil || meta.CitationText == "" {
+		return
+	}
+	fmt.Fprintf(w, "\n%s\n", meta.CitationText)
 }
 
 // ─── Warnings / Stats Footer ─────────────────────────────────────────────────

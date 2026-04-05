@@ -4,10 +4,13 @@
 package cmd
 
 import (
+	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/store"
 )
@@ -203,4 +206,48 @@ func seriesWithDates(id string, dates []string) model.SeriesData {
 		})
 	}
 	return model.SeriesData{SeriesID: id, Obs: obs}
+}
+
+func TestCacheResetBackfillCommandClearsMarker(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "reserve.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.PutInternalBool("rights_backfill_completed", true); err != nil {
+		t.Fatalf("PutInternalBool: %v", err)
+	}
+	_ = s.Close()
+
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := config.WriteFile(cfgPath, config.File{DBPath: dbPath}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	var buf bytes.Buffer
+	cacheResetBackfillCmd.SetOut(&buf)
+	cacheResetBackfillCmd.SetErr(&buf)
+	cacheResetBackfillCmd.SetArgs(nil)
+	if err := cacheResetBackfillCmd.RunE(cacheResetBackfillCmd, nil); err != nil {
+		t.Fatalf("reset-backfill: %v", err)
+	}
+
+	reopened, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	defer reopened.Close()
+
+	_, found, err := reopened.GetInternalBool("rights_backfill_completed")
+	if err != nil {
+		t.Fatalf("GetInternalBool: %v", err)
+	}
+	if found {
+		t.Fatalf("expected marker to be cleared")
+	}
 }

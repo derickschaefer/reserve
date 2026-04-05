@@ -47,7 +47,7 @@ var seriesGetCmd = &cobra.Command{
 		ids := normaliseIDs(args)
 
 		if len(ids) == 1 {
-			meta, err := deps.Client.GetSeries(cmd.Context(), ids[0])
+			meta, err := ensureSeriesCompliance(cmd.Context(), deps, ids[0], "display")
 			if err != nil {
 				return err
 			}
@@ -55,7 +55,7 @@ var seriesGetCmd = &cobra.Command{
 				Kind:        model.KindSeriesMeta,
 				GeneratedAt: time.Now(),
 				Command:     fmt.Sprintf("series get %s", ids[0]),
-				Data:        meta,
+				Data:        &meta,
 				Stats: model.ResultStats{
 					DurationMs: time.Since(start).Milliseconds(),
 					Items:      1,

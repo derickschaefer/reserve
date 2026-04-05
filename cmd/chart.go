@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/derickschaefer/reserve/internal/chart"
@@ -62,10 +63,24 @@ NaN observations are silently skipped.`,
 		if seriesID == "" {
 			seriesID = "series"
 		}
-		return chart.Bar(os.Stdout, seriesID, obs, chart.BarOptions{
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		meta, err := ensureSeriesCompliance(cmd.Context(), deps, seriesID, "display")
+		if err != nil {
+			return err
+		}
+		if err := chart.Bar(os.Stdout, seriesID, obs, chart.BarOptions{
 			Width:   chartBarWidth,
 			MaxBars: chartBarMaxBars,
-		})
+		}); err != nil {
+			return err
+		}
+		if meta.CitationText != "" {
+			fmt.Fprintf(os.Stdout, "\n%s\n", meta.CitationText)
+		}
+		return nil
 	},
 }
 
@@ -97,6 +112,14 @@ $COLUMNS (falls back to 80). Override with --width and --height.`,
 		if seriesID == "" {
 			seriesID = "series"
 		}
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		meta, err := ensureSeriesCompliance(cmd.Context(), deps, seriesID, "display")
+		if err != nil {
+			return err
+		}
 
 		title := chartPlotTitle
 		if title == "" {
@@ -105,11 +128,17 @@ $COLUMNS (falls back to 80). Override with --width and --height.`,
 
 		// If --width not set and we're in a terminal, auto-detect.
 		// chart.Plot handles width=0 by calling termWidth() internally.
-		return chart.Plot(os.Stdout, seriesID, obs, chart.PlotOptions{
+		if err := chart.Plot(os.Stdout, seriesID, obs, chart.PlotOptions{
 			Width:  chartPlotWidth,
 			Height: chartPlotHeight,
 			Title:  title,
-		})
+		}); err != nil {
+			return err
+		}
+		if meta.CitationText != "" {
+			fmt.Fprintf(os.Stdout, "\n%s\n", meta.CitationText)
+		}
+		return nil
 	},
 }
 

@@ -85,6 +85,39 @@ func (s *Store) Path() string {
 	return s.db.Path()
 }
 
+// GetInternalBool returns the bool value stored under the given internal key.
+func (s *Store) GetInternalBool(key string) (bool, bool, error) {
+	var value bool
+	found := false
+	err := s.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(bucketInternal).Get([]byte(key))
+		if v == nil {
+			return nil
+		}
+		found = true
+		return json.Unmarshal(v, &value)
+	})
+	return value, found, err
+}
+
+// PutInternalBool stores a bool value under the given internal key.
+func (s *Store) PutInternalBool(key string, value bool) error {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("encoding internal bool %s: %w", key, err)
+	}
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(bucketInternal).Put([]byte(key), b)
+	})
+}
+
+// DeleteInternalKey removes an internal metadata key if present.
+func (s *Store) DeleteInternalKey(key string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(bucketInternal).Delete([]byte(key))
+	})
+}
+
 // ─── Migrations ───────────────────────────────────────────────────────────────
 
 // migrate ensures all buckets exist and the schema version is current.

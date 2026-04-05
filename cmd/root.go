@@ -6,11 +6,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
+	"github.com/derickschaefer/reserve/internal/compliance"
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +60,11 @@ Quick start:
 // Execute is the entry point called by main.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		label := "Error:"
+		if IsNoticeError(err) {
+			label = "NOTICE:"
+		}
+		fmt.Fprintln(os.Stderr, label, err)
 		os.Exit(1)
 	}
 }
@@ -93,7 +99,18 @@ func buildDeps() (*app.Deps, error) {
 		cfg.Rate = globalFlags.Rate
 	}
 
-	return app.New(cfg), nil
+	deps := app.New(cfg)
+	if deps.Store != nil && cfg.APIKey != "" {
+		ctx := rootCmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if err := compliance.MaybeBackfillStore(ctx, cfg, deps.Client, deps.Store); err != nil {
+			deps.Close()
+			return nil, err
+		}
+	}
+	return deps, nil
 }
 
 func init() {

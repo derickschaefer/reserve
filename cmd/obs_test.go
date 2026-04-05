@@ -125,7 +125,13 @@ func TestCacheObsSourceGetsStoredData(t *testing.T) {
 	if err := s.PutObs(key, data); err != nil {
 		t.Fatalf("PutObs: %v", err)
 	}
-	if err := s.PutSeriesMeta(model.SeriesMeta{ID: "GDP", Title: "Gross Domestic Product"}); err != nil {
+	if err := s.PutSeriesMeta(model.SeriesMeta{
+		ID:                "GDP",
+		Title:             "Gross Domestic Product",
+		CopyrightStatus:   "public_domain_citation_requested",
+		CitationText:      "Source: Bureau of Economic Analysis via FRED",
+		LastRightsCheckAt: time.Now().UTC(),
+	}); err != nil {
 		t.Fatalf("PutSeriesMeta: %v", err)
 	}
 
@@ -191,6 +197,15 @@ func TestCacheObsSourceWarnsAndSelectsCanonicalSet(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("PutObs long: %v", err)
 	}
+	if err := s.PutSeriesMeta(model.SeriesMeta{
+		ID:                "GDP",
+		Title:             "Gross Domestic Product",
+		CopyrightStatus:   "public_domain_citation_requested",
+		CitationText:      "Source: Bureau of Economic Analysis via FRED",
+		LastRightsCheckAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("PutSeriesMeta: %v", err)
+	}
 
 	deps := &app.Deps{
 		Config: &config.Config{DBPath: dbPath},
@@ -213,5 +228,44 @@ func TestCacheObsSourceWarnsAndSelectsCanonicalSet(t *testing.T) {
 	}
 	if len(warnings) != 1 {
 		t.Fatalf("expected one warning, got %v", warnings)
+	}
+}
+
+func TestCacheObsSourceFailsClosedWithoutRightsIndex(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "reserve.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer s.Close()
+
+	key := store.ObsKey("GDP", "2024-01-01", "2024-12-31", "", "", "")
+	if err := s.PutObs(key, model.SeriesData{
+		SeriesID: "GDP",
+		Obs: []model.Observation{
+			{Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), Value: 100, ValueRaw: "100"},
+		},
+	}); err != nil {
+		t.Fatalf("PutObs: %v", err)
+	}
+	if err := s.PutSeriesMeta(model.SeriesMeta{ID: "GDP", Title: "Gross Domestic Product"}); err != nil {
+		t.Fatalf("PutSeriesMeta: %v", err)
+	}
+
+	deps := &app.Deps{
+		Config: &config.Config{DBPath: dbPath},
+		Store:  s,
+	}
+
+	src, err := resolveObsSource("cache")
+	if err != nil {
+		t.Fatalf("resolveObsSource(cache): %v", err)
+	}
+	_, _, _, err = src.get(t.Context(), deps, "GDP", fred.ObsOptions{
+		Start: "2024-01-01",
+		End:   "2024-12-31",
+	})
+	if err == nil {
+		t.Fatalf("expected compliance failure when rights index is missing")
 	}
 }

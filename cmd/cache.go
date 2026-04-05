@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/derickschaefer/reserve/internal/compliance"
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -273,6 +274,32 @@ compaction completes.`,
 	},
 }
 
+// ─── cache reset-backfill ────────────────────────────────────────────────────
+
+var cacheResetBackfillCmd = &cobra.Command{
+	Use:     "reset-backfill",
+	Short:   "Reset the local rights backfill marker",
+	Long:    `Clears the internal marker that records whether the one-time local rights index backfill has completed. The next command run will rebuild the rights index.`,
+	Example: `  reserve cache reset-backfill`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		if err := deps.RequireStore(); err != nil {
+			return err
+		}
+		defer deps.Close()
+
+		if err := compliance.ResetBackfillState(deps.Store); err != nil {
+			return fmt.Errorf("resetting backfill marker: %w", err)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "✓ Reset the local rights backfill marker")
+		fmt.Fprintln(cmd.OutOrStdout(), "  The next reserve command will rebuild the rights index.")
+		return nil
+	},
+}
+
 // ─── Registration ─────────────────────────────────────────────────────────────
 
 func init() {
@@ -281,6 +308,7 @@ func init() {
 	cacheCmd.AddCommand(cacheInventoryCmd)
 	cacheCmd.AddCommand(cacheClearCmd)
 	cacheCmd.AddCommand(cacheCompactCmd)
+	cacheCmd.AddCommand(cacheResetBackfillCmd)
 
 	cacheClearCmd.Flags().BoolVar(&cacheClearAll, "all", false, "clear all buckets")
 	cacheClearCmd.Flags().StringVar(&cacheClearBucket, "bucket", "", "clear a specific bucket: obs|series_meta")
