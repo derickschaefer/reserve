@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,11 +209,12 @@ func init() {
 
 // parseCategoryID converts "root" or a numeric string to an int category ID.
 func parseCategoryID(s string) (int, error) {
-	if strings.EqualFold(strings.TrimSpace(s), "root") {
+	trimmed := strings.TrimSpace(s)
+	if strings.EqualFold(trimmed, "root") {
 		return 0, nil
 	}
-	var id int
-	if _, err := fmt.Sscanf(s, "%d", &id); err != nil {
+	id, err := strconv.Atoi(trimmed)
+	if err != nil {
 		return 0, fmt.Errorf("invalid category ID %q: expected a number or \"root\"", s)
 	}
 	return id, nil

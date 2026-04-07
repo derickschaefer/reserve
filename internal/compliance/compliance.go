@@ -57,9 +57,7 @@ func EnsureSeriesMeta(ctx context.Context, cfg *config.Config, client SeriesClie
 
 	if s != nil && !cfg.Refresh {
 		if meta, ok, err := s.GetSeriesMeta(seriesID); err == nil && ok {
-			if cfg.HasGrantedSeriesPermission(seriesID) {
-				meta.PermissionOnFile = true
-			}
+			meta.PermissionOnFile = cfg.HasGrantedSeriesPermission(seriesID)
 			if hasUsableRightsRecord(meta) && !NeedsRefresh(cfg, meta, action, time.Now()) {
 				return meta, false, nil
 			}
@@ -82,9 +80,7 @@ func EnsureSeriesMeta(ctx context.Context, cfg *config.Config, client SeriesClie
 		return model.SeriesMeta{}, false, err
 	}
 	enriched := EnrichSeriesMeta(*meta, tags)
-	if cfg.HasGrantedSeriesPermission(seriesID) {
-		enriched.PermissionOnFile = true
-	}
+	enriched.PermissionOnFile = cfg.HasGrantedSeriesPermission(seriesID)
 	if s != nil {
 		if err := s.PutSeriesMeta(enriched); err != nil {
 			return model.SeriesMeta{}, true, fmt.Errorf("storing local rights index for %s: %w", seriesID, err)
@@ -168,10 +164,7 @@ func Evaluate(cfg *config.Config, meta model.SeriesMeta, action string) Decision
 		}
 	}
 
-	if cfg.LogComplianceDecisions {
-		if !cfg.Debug {
-			return decision
-		}
+	if cfg.LogComplianceDecisions && cfg.Debug {
 		slog.Info("compliance decision",
 			"series_id", meta.ID,
 			"rights_status", meta.CopyrightStatus,

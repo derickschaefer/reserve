@@ -40,6 +40,7 @@ type latestRow struct {
 	Date     string
 	ValueNum float64
 	Value    string
+	Meta     *model.SeriesMeta
 }
 
 func latestRowFromObservation(seriesID string, obs *model.Observation) latestRow {
@@ -55,6 +56,7 @@ func latestRowToSeriesData(r latestRow) *model.SeriesData {
 	t, _ := time.Parse("2006-01-02", r.Date)
 	return &model.SeriesData{
 		SeriesID: r.SeriesID,
+		Meta:     r.Meta,
 		Obs: []model.Observation{{
 			Date:     t,
 			Value:    r.ValueNum,
@@ -213,8 +215,10 @@ var obsLatestCmd = &cobra.Command{
 				warnings = append(warnings, fmt.Sprintf("%s: %v", id, err))
 				continue
 			}
-			rows = append(rows, latestRowFromObservation(id, obs))
-			_ = meta
+			row := latestRowFromObservation(id, obs)
+			metaCopy := meta
+			row.Meta = &metaCopy
+			rows = append(rows, row)
 		}
 
 		if format == render.FormatTable || format == "" {
@@ -225,6 +229,18 @@ var obsLatestCmd = &cobra.Command{
 			})
 			for _, w := range warnings {
 				fmt.Fprintf(cmd.OutOrStdout(), "⚠  %s\n", w)
+			}
+			seenCitation := make(map[string]struct{})
+			for _, r := range rows {
+				if r.Meta == nil || r.Meta.CitationText == "" {
+					continue
+				}
+				if _, ok := seenCitation[r.Meta.CitationText]; ok {
+					continue
+				}
+				seenCitation[r.Meta.CitationText] = struct{}{}
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintln(cmd.OutOrStdout(), r.Meta.CitationText)
 			}
 			return nil
 		}

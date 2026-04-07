@@ -218,15 +218,13 @@ Integration tests live in the `tests/` package and import internal packages dire
 
 ### tests/core_test.go
 
-Four test groups covering API connectivity, payload parsing, HTTP client behavior, and email connectivity.
+Three test groups covering API connectivity, payload parsing, and HTTP client behavior.
 
 **TestFredAPIConnectivity** — requires `config.json` with a valid API key; skips otherwise. Verifies DNS resolution of `api.stlouisfed.org`, `GetSeries` returning metadata without error, series ID and title being non-empty in the response, `GetObservations` returning a non-empty array, the first observation carrying a numeric (non-NaN) value, and observation dates matching `YYYY-MM-DD` format.
 
 **TestPayloadIntegrity** — fully offline, never skips. Verifies `ParseObsValue` for numeric strings (`"305.109"`, `"0"`, `"-1.5"`), FRED missing-value sentinel (`"."`), empty string, and whitespace-padded sentinel — all six producing the correct `float64` or `NaN`. Verifies `FormatValue(NaN)` renders as `"."`. Verifies decimal display rules (whole numbers show one decimal place). Verifies config layering (`config.json` values load, env overrides file, flag overrides env) inline using sub-tests. Verifies the rate limiter allows requests at a high limit and blocks under context cancellation at a very low limit.
 
 **TestAPIClientBehaviour** — fully offline, uses an injected mock HTTP client. Verifies `GetSeries` parses series ID and title from a mock response, propagates API error messages correctly, `GetObservations` parses numeric values and FRED `"."` sentinel as NaN, preserves `ValueRaw`, forwards `observation_start` and `observation_end` query parameters correctly, retries on HTTP 503 (succeeds on the third attempt after two transient failures), and `SearchSeries` sends the correct `search_text` parameter and returns parsed results.
-
-**TestEmailConnectivity** — skips in Phase 5 until the `notify` package is implemented. Stub is in place for future SMTP TCP dial and banner verification.
 
 ---
 
@@ -243,6 +241,8 @@ Five integration groups covering durable CLI contracts and offline behavior arou
 **TestPartialFailureWarnings** — verifies per-item batch failures are collected as warnings rather than aborting the whole batch.
 
 **TestValueSemanticsOffline** — verifies offline rendering and storage semantics such as numeric preservation, null/NaN handling, CSV output for missing values, and exact cache key lookup behavior.
+
+Command-level unit coverage in `cmd/` also includes `cmd/category_test.go`, which verifies `parseCategoryID` input handling and `walkCategoryTree` depth limiting against a mock FRED hierarchy.
 
 ---
 

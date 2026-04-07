@@ -58,6 +58,26 @@ func TestLatestRowRoundTripPreservesNaN(t *testing.T) {
 	}
 }
 
+func TestLatestRowToSeriesDataPreservesCitationMeta(t *testing.T) {
+	row := latestRow{
+		SeriesID: "MORTGAGE30US",
+		Date:     "2026-01-08",
+		ValueNum: 6.16,
+		Value:    "6.16",
+		Meta: &model.SeriesMeta{
+			ID:           "MORTGAGE30US",
+			CitationText: "Source: Freddie Mac via FRED",
+		},
+	}
+	got := latestRowToSeriesData(row)
+	if got.Meta == nil {
+		t.Fatalf("expected metadata to be preserved")
+	}
+	if got.Meta.CitationText != "Source: Freddie Mac via FRED" {
+		t.Fatalf("citation text mismatch: got %q", got.Meta.CitationText)
+	}
+}
+
 func TestResolveObsSourceDefaultIsLive(t *testing.T) {
 	src, err := resolveObsSource("")
 	if err != nil {

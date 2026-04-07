@@ -4,26 +4,24 @@
 // ============================================================================
 // FILE:        tests/reserve_test.go
 // PROJECT:     reserve
-// DESCRIPTION: Test suite covering the four core verification pillars:
+// DESCRIPTION: Test suite covering the three core verification pillars:
 //
 //   1. FRED API Connectivity  — live HTTP reachability and JSON payload shape
 //   2. Payload Integrity      — observation parsing, NaN handling, value
 //                               formatting, config precedence (all offline)
 //   3. API Client Behaviour   — mock HTTP server: retries, params, search
-//   4. Email Connectivity     — SMTP TCP dial and banner (skips if unconfigured)
 //
 // TEST RUNNER:
 //   go test -v -run TestFredAPIConnectivity  ./tests/
 //   go test -v -run TestPayloadIntegrity     ./tests/
 //   go test -v -run TestAPIClientBehaviour   ./tests/
-//   go test -v -run TestEmailConnectivity    ./tests/
-//   go test -v ./tests/                      (all four groups)
+//   go test -v ./tests/                      (all three groups)
 //
 // CREDENTIALS:
-//   Groups 1 and 4 read from config.json via config.Load().
+//   Group 1 reads from config.json via config.Load().
 //   Groups 2 and 3 are fully offline and never skip.
-//   If config.json is missing or the API key is a placeholder, groups 1
-//   and 4 skip automatically with a descriptive message.
+//   If config.json is missing or the API key is a placeholder, group 1
+//   skips automatically with a descriptive message.
 // ============================================================================
 
 package tests
@@ -37,7 +35,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -57,6 +57,8 @@ const (
 	divider   = "──────────────────────────────────────────────────────────────────────────"
 	separator = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 )
+
+var cwdMu sync.Mutex
 
 // result tracks pass/fail tallies for a single test group.
 type result struct {
@@ -115,11 +117,12 @@ func printBanner(t *testing.T, title string) {
 func configOrSkip(t *testing.T) *config.Config {
 	t.Helper()
 
-	// Change to repo root so config.Load() finds config.json
-	orig, _ := os.Getwd()
-	root := filepath.Join(orig, "..")
-	os.Chdir(root)
-	defer os.Chdir(orig)
+	// Change to repo root so config.Load() finds config.json.
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("resolve test file path")
+	}
+	withWorkingDir(t, filepath.Join(filepath.Dir(file), ".."))
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -129,6 +132,29 @@ func configOrSkip(t *testing.T) *config.Config {
 		t.Skipf("⏭️  Skipping: API key not configured (%v)", err)
 	}
 	return cfg
+}
+
+func withWorkingDir(t *testing.T, dir string) {
+	t.Helper()
+
+	cwdMu.Lock()
+
+	orig, err := os.Getwd()
+	if err != nil {
+		cwdMu.Unlock()
+		t.Fatalf("get working directory: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		cwdMu.Unlock()
+		t.Fatalf("chdir %q: %v", dir, err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Fatalf("restore working directory %q: %v", orig, err)
+		}
+		cwdMu.Unlock()
+	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -327,10 +353,8 @@ func TestPayloadIntegrity(t *testing.T) {
 	// Use temp dirs to isolate each precedence test from the real config.json.
 	t.Run("config_file_loads", func(t *testing.T) {
 		dir := t.TempDir()
-		orig, _ := os.Getwd()
-		defer os.Chdir(orig)
-		os.Chdir(dir)
-		os.Unsetenv("FRED_API_KEY")
+		withWorkingDir(t, dir)
+		t.Setenv("FRED_API_KEY", "")
 
 		f := config.File{APIKey: "file_key", DefaultFormat: "csv", Concurrency: 4}
 		config.WriteFile(filepath.Join(dir, "config.json"), f)
@@ -345,13 +369,10 @@ func TestPayloadIntegrity(t *testing.T) {
 
 	t.Run("env_overrides_file", func(t *testing.T) {
 		dir := t.TempDir()
-		orig, _ := os.Getwd()
-		defer os.Chdir(orig)
-		os.Chdir(dir)
+		withWorkingDir(t, dir)
 
 		config.WriteFile(filepath.Join(dir, "config.json"), config.File{APIKey: "file_key"})
-		os.Setenv("FRED_API_KEY", "env_key")
-		defer os.Unsetenv("FRED_API_KEY")
+		t.Setenv("FRED_API_KEY", "env_key")
 
 		cfg, _ := config.Load("")
 		r.check(t,
@@ -362,8 +383,7 @@ func TestPayloadIntegrity(t *testing.T) {
 	})
 
 	t.Run("flag_overrides_env", func(t *testing.T) {
-		os.Setenv("FRED_API_KEY", "env_key")
-		defer os.Unsetenv("FRED_API_KEY")
+		t.Setenv("FRED_API_KEY", "env_key")
 
 		cfg, _ := config.Load("flag_key")
 		r.check(t,
@@ -583,28 +603,6 @@ func TestAPIClientBehaviour(t *testing.T) {
 	)
 
 	r.summary(t, "API CLIENT BEHAVIOUR")
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Group 4 — Email Connectivity (skips if SMTP not configured)
-// ─────────────────────────────────────────────────────────────────────────────
-
-func TestEmailConnectivity(t *testing.T) {
-	cfg := configOrSkip(t)
-
-	// Email is optional — skip gracefully if not configured
-	smtpHost := cfg.BaseURL // placeholder; real impl uses cfg.Email.SMTPHost
-	if smtpHost == "" {
-		t.Skip("⏭️  Skipping: SMTP host not configured in config.json")
-	}
-	t.Skip("⏭️  Skipping: Email not yet configured (Phase 5)")
-
-	printBanner(t, "EMAIL CONNECTIVITY")
-	r := &result{}
-
-	// Checks will be populated in Phase 5 when notify package is implemented.
-	// Structure mirrors fred_test.go: DNS → TCP dial → 220 banner → from addr.
-	_ = r
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

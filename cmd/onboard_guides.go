@@ -128,6 +128,7 @@ func buildProgramWorkflow() []string {
 	return []string{
 		"Set up config once with `reserve config init` or provide `FRED_API_KEY` in the environment.",
 		"Discover series with `reserve search`, `reserve series search`, `reserve category`, `reserve release`, `reserve source`, or `reserve tag`.",
+		"Rights checks are enforced when retrieving, displaying, exporting, or publishing series data. Discovery/search commands remain open so you can identify candidate series IDs first.",
 		"Choose a source command for data: `reserve obs get` for live API reads or `reserve obs get --from cache` for local cached reads.",
 		"Build JSONL pipelines with `transform`, `window`, `analyze`, and `chart`.",
 		"Persist durable local data with one batched `reserve fetch series <ID...> --store` call when possible, rather than many one-off fetches. reserve applies bounded concurrency and a shared rate limiter for batch operations.",

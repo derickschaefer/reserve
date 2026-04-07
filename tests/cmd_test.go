@@ -10,7 +10,6 @@
 //   2. New API Endpoints    — mock HTTP server for category/release/source/tag
 //   3. Batch Concurrency    — worker pool respects --concurrency ceiling
 //   4. Partial Failures     — per-item errors collected as warnings
-//   5. Category Helpers     — parseCategoryID, walkCategoryTree depth limit
 // ============================================================================
 
 package tests

@@ -18,6 +18,7 @@ Federal Reserve Bank of St. Louis FRED® API.
 - [Design Philosophy](#design-philosophy)
 - [The Command Model](#the-command-model)
 - [Command Reference](#command-reference)
+  - [completion](#completion) — shell completion scripts
   - [series](#series) — discover and inspect data series
   - [obs](#obs) — retrieve observations
   - [category](#category) — browse the data hierarchy
@@ -33,6 +34,7 @@ Federal Reserve Bank of St. Louis FRED® API.
   - [cache](#cache) — manage local database
   - [config](#config) — configuration management
   - [version](#version) — binary version and build info
+  - [update](#update) — release update checks
   - [onboard](#onboard) — machine-readable onboarding context
 - [Pipeline Usage](#pipeline-usage)
 - [Output Formats](#output-formats)
@@ -76,7 +78,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.1
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.2
 ```
 
 Windows PowerShell:
@@ -97,7 +99,7 @@ make build
 
 Requires Go 1.25.7+ for source builds.
 
-For distributed release binaries, use the stripped release target introduced in `v1.1.1`:
+For distributed release binaries, use the stripped release target:
 
 ```bash
 make build-release
@@ -155,6 +157,7 @@ reserve series search "unemployment rate" --limit 5
 reserve series get UNRATE
 reserve obs get UNRATE --start 2020-01-01
 reserve obs latest GDP UNRATE CPIAUCSL
+reserve update check
 ```
 
 **4. Accumulate data locally for analysis**
@@ -185,7 +188,7 @@ reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resampl
 
 **Live mode** — Discovery and retrieval commands (`series`, `obs`, `category`, `search`, etc.) hit the FRED API directly by default. `obs get` uses `--from live` implicitly when no source is specified.
 
-**Analysis mode** — You explicitly accumulate data into a local [bbolt](https://github.com/etcd-io/bbolt) database using `fetch --store`, then read it back with `obs get --from cache`. That makes analysis fast, reproducible, and offline-capable.
+**Analysis mode** — You explicitly accumulate data into a local [bbolt](https://github.com/etcd-io/bbolt) database using `fetch series --store`, then read it back with `obs get --from cache`. That makes analysis fast, reproducible, and offline-capable.
 
 The pipeline is Unix-native. Commands that produce observations write JSONL to stdout; transform and analyze commands read JSONL from stdin. Chain them with `|`. When stdout is a terminal, output defaults to a formatted table. When piped, it defaults to JSONL.
 
@@ -236,11 +239,29 @@ In summary:
 | Pipeline operators | verb only | `transform`, `window`, `analyze`, `chart` |
 | Batch acquisition | verb noun | `fetch` |
 | Standalone query | verb only | `search` |
-| Utility | standalone | `version`, `completion`, `help` |
+| Utility | standalone | `version`, `update`, `completion`, `help` |
 
 The noun-verb commands follow consistent flag conventions and produce the same `Result` envelope. The pipeline operators follow consistent stdin/stdout JSONL semantics. Within each class, behavior is uniform and predictable.
 
 ## Command Reference
+
+### completion
+
+Generate shell completion scripts for bash, zsh, fish, or PowerShell.
+
+```bash
+reserve completion [bash|zsh|fish|powershell]
+```
+
+Examples:
+
+```bash
+source <(reserve completion bash)
+source <(reserve completion zsh)
+reserve completion fish | source
+```
+
+---
 
 ### series
 
@@ -406,6 +427,8 @@ For `fetch series`:
 
 ```
 --store              fetch observations and persist them to the local database; also stores series metadata
+--with-meta          include series metadata in the output result
+--with-obs           include observations in the output result
 --start YYYY-MM-DD   start date for fetched observations
 --end   YYYY-MM-DD   end date for fetched observations
 ```
@@ -418,6 +441,9 @@ reserve fetch series GDP CPIAUCSL UNRATE FEDFUNDS --start 2010-01-01 --store
 
 # Refresh one cached series from a known start date
 reserve fetch series GDP --start 2010-01-01 --store
+
+# Return observations to stdout without storing them locally
+reserve fetch series GDP CPIAUCSL --with-obs --start 2020-01-01 --format json
 ```
 
 Stored data is written to `~/.reserve/reserve.db` by default (override with `db_path` in `config.json` or the `RESERVE_DB_PATH` environment variable). There is no automatic expiry on stored observations.
@@ -548,6 +574,7 @@ reserve cache clear --bucket obs            # wipe observations only
 reserve cache clear --bucket series_meta    # wipe metadata only
 reserve cache clear --series GDP            # wipe cached observation sets for one series
 reserve cache compact                       # reclaim disk space after clearing
+reserve cache reset-backfill                # force a rebuild of the local rights index marker
 ```
 
 `cache inventory` gives a higher-level view of what you have locally: one row per cached series with merged date coverage, point counts, gap counts, frequency, and whether metadata is present. It ends with a small rule-based action summary so you can quickly see whether the next step is metadata enrichment, range refill, or no action at all. Daily series display `GAPS` as `n/a` because weekends and market holidays make gap counting misleading for that cadence.
@@ -561,6 +588,8 @@ For disciplined local-cache workflows, prefer live reads for ad hoc questions, u
 `cache clear` removes entries from one bucket or all buckets. bbolt does not shrink the database file automatically — freed pages are returned to an internal freelist and reused on future writes. The file footprint does not decrease until you run `compact`.
 
 `cache compact` rewrites the database to a new file, recovering all space freed by prior clears. The operation is safe: live data is copied to a temporary file first, then the original is atomically replaced.
+
+`cache reset-backfill` clears the internal marker that records whether the one-time local rights-index backfill has completed. The next command that needs the rights index will rebuild it.
 
 ```bash
 # Typical maintenance workflow after a large clear:
@@ -578,9 +607,14 @@ Manage `config.json` in the user config directory, with optional local `./config
 reserve config init                    # create a template config.json in your user config directory
 reserve config get [--show-secrets]    # print resolved configuration (key redacted by default)
 reserve config set <key> <value>       # update a single value
+reserve config grant <SERIES_ID>       # record a local permission override for one series
+reserve config revoke <SERIES_ID>      # remove a local permission override
+reserve config list-grants             # list locally granted series permissions
 ```
 
-Valid keys: `api_key`, `default_format`, `timeout`, `concurrency`, `rate`, `base_url`, `db_path`.
+Common `config set` keys: `api_key`, `default_format`, `timeout`, `concurrency`, `rate`, `base_url`, `db_path`, `person_org_type`, `block_unknown_rights`, `block_ambiguous_rights`, `block_preapproval_required_in_commercial`, `require_citation_on_display`, `require_citation_on_export`, `allow_override_with_permission_record`, `log_compliance_decisions`, `rights_refresh_days.default`, `rights_refresh_days.export`, `rights_refresh_days.publish`.
+
+The permission-grant commands are for series where you independently obtained permission to use restricted data. They do not replace the need for actual authorization; they only record your local override decision for reserve's compliance checks.
 
 ---
 
@@ -596,11 +630,10 @@ reserve version --format jsonl   # single line for audit streams
 
 Plain text output:
 
-```bash 
-reserve v1.0.9
-go      go1.25.7
-os      linux/amd64
-built   2026-02-28T18:42:00Z
+```bash
+reserve v1.1.2
+go      go1.26.1
+os      darwin/arm64
 ```
 
 ---
@@ -789,7 +822,20 @@ Example file contents:
   "timeout":        "30s",
   "concurrency":    8,
   "rate":           5.0,
-  "db_path":        ""
+  "db_path":        "",
+  "person_org_type": "student",
+  "block_unknown_rights": true,
+  "block_ambiguous_rights": true,
+  "block_preapproval_required_in_commercial": true,
+  "require_citation_on_display": true,
+  "require_citation_on_export": true,
+  "allow_override_with_permission_record": true,
+  "rights_refresh_days": {
+    "default": 30,
+    "export": 7,
+    "publish": 7
+  },
+  "log_compliance_decisions": true
 }
 ```
 

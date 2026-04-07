@@ -81,7 +81,7 @@ test-unit:
 	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)  🧪  UNIT TESTS (cmd + internal)$(RESET)\n"
 	@printf "$(CYAN)──────────────────────────────────────────────────────────────────────────$(RESET)\n"
-	$(GOENV) go test $(GOFLAGS) ./cmd ./internal/...
+	@$(GOENV) go test $(GOFLAGS) ./cmd ./internal/...
 	@printf "$(GREEN)✅ Unit tests passed$(RESET)\n"
 
 ## ── Integration Tests ────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ test-integration:
 	@printf "\n$(BOLD)$(CYAN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)  🔬  INTEGRATION TESTS (tests/)$(RESET)\n"
 	@printf "$(CYAN)──────────────────────────────────────────────────────────────────────────$(RESET)\n"
-	$(GOENV) go test $(GOFLAGS) -v ./tests/
+	@$(GOENV) go test $(GOFLAGS) -v ./tests/
 	@printf "$(GREEN)✅ Integration tests passed$(RESET)\n"
 
 ## test: default full test target (unit + integration)
@@ -106,9 +106,9 @@ test:
 test-all:
 	$(GOENV) go test $(GOFLAGS) -v ./...
 
-## test-cover: run full suite with HTML coverage report
+## test-cover: run cmd + internal + integration suite with HTML coverage report
 test-cover:
-	$(GOENV) go test $(GOFLAGS) -coverprofile=coverage.out ./internal/... ./tests/
+	$(GOENV) go test $(GOFLAGS) -coverprofile=coverage.out ./cmd ./internal/... ./tests/
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 

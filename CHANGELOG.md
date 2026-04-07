@@ -2,13 +2,13 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.0.6` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.2` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
 
 ---
 
-### Unreleased
+### v1.1.2 — 2026-04-06 — Config Discovery, Update Checks, and Release Build Hygiene
 
 **Changed**
 

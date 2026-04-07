@@ -4,7 +4,11 @@
 package compliance_test
 
 import (
+	"bytes"
+	"context"
+	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +17,20 @@ import (
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/store"
 )
+
+type staticSeriesClient struct {
+	meta model.SeriesMeta
+	tags []model.Tag
+}
+
+func (c *staticSeriesClient) GetSeries(_ context.Context, _ string) (*model.SeriesMeta, error) {
+	metaCopy := c.meta
+	return &metaCopy, nil
+}
+
+func (c *staticSeriesClient) GetSeriesTags(_ context.Context, _ string) ([]model.Tag, error) {
+	return append([]model.Tag(nil), c.tags...), nil
+}
 
 func TestEnrichSeriesMetaClassifiesPreapprovalSeries(t *testing.T) {
 	meta := compliance.EnrichSeriesMeta(model.SeriesMeta{ID: "ICEIDX"}, []model.Tag{
@@ -170,5 +188,94 @@ func TestEvaluateBlocksAmbiguousRightsWhenConfigured(t *testing.T) {
 	}, "display")
 	if decision.Allowed {
 		t.Fatalf("expected ambiguous rights to be blocked")
+	}
+}
+
+func TestEnsureSeriesMetaRevocationAppliesImmediatelyFromConfig(t *testing.T) {
+	s, err := store.Open(filepath.Join(t.TempDir(), "reserve.db"))
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	defer s.Close()
+
+	client := &staticSeriesClient{
+		meta: model.SeriesMeta{ID: "BAMLC0A0CM", Title: "High Yield Index"},
+		tags: []model.Tag{
+			{Name: "copyrighted: pre-approval required", GroupID: "cc"},
+			{Name: "ICE Data Indices, LLC", GroupID: "src"},
+		},
+	}
+
+	cfgGranted := &config.Config{
+		PersonOrgType:                     "student",
+		AllowOverrideWithPermissionRecord: true,
+		RightsRefreshDays:                 map[string]int{"default": 30, "export": 7, "publish": 7},
+		GrantedSeriesPermissions:          []string{"BAMLC0A0CM"},
+	}
+	metaGranted, _, err := compliance.EnsureSeriesMeta(context.Background(), cfgGranted, client, s, "BAMLC0A0CM", "display")
+	if err != nil {
+		t.Fatalf("EnsureSeriesMeta(granted): %v", err)
+	}
+	if !metaGranted.PermissionOnFile {
+		t.Fatalf("expected granted metadata to set permission_on_file=true")
+	}
+
+	cfgRevoked := &config.Config{
+		PersonOrgType:                     "student",
+		AllowOverrideWithPermissionRecord: true,
+		RightsRefreshDays:                 map[string]int{"default": 30, "export": 7, "publish": 7},
+		GrantedSeriesPermissions:          nil,
+	}
+	metaRevoked, refreshed, err := compliance.EnsureSeriesMeta(context.Background(), cfgRevoked, client, s, "BAMLC0A0CM", "display")
+	if err != nil {
+		t.Fatalf("EnsureSeriesMeta(revoked): %v", err)
+	}
+	if refreshed {
+		t.Fatalf("expected cached metadata reuse without refresh")
+	}
+	if metaRevoked.PermissionOnFile {
+		t.Fatalf("expected permission_on_file=false after revoke")
+	}
+	decision := compliance.Evaluate(cfgRevoked, metaRevoked, "display")
+	if decision.Allowed {
+		t.Fatalf("expected revoked series to be blocked immediately")
+	}
+}
+
+func TestEvaluateLogsOnlyWhenDebugEnabled(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{})))
+	defer slog.SetDefault(prev)
+
+	cfg := &config.Config{
+		PersonOrgType:          "student",
+		BlockAmbiguousRights:   true,
+		LogComplianceDecisions: true,
+		Debug:                  false,
+	}
+	_ = compliance.Evaluate(cfg, model.SeriesMeta{
+		ID:              "00XALCEZ17M086NEST",
+		CopyrightStatus: compliance.StatusAmbiguousConflict,
+		RightsAmbiguous: true,
+	}, "display")
+
+	if out := buf.String(); out != "" {
+		t.Fatalf("expected no compliance log without debug, got %q", out)
+	}
+
+	cfg.Debug = true
+	_ = compliance.Evaluate(cfg, model.SeriesMeta{
+		ID:              "00XALCEZ17M086NEST",
+		CopyrightStatus: compliance.StatusAmbiguousConflict,
+		RightsAmbiguous: true,
+	}, "display")
+
+	out := buf.String()
+	if !strings.Contains(out, "compliance decision") {
+		t.Fatalf("expected compliance decision log with debug, got %q", out)
+	}
+	if !strings.Contains(out, "series_id=00XALCEZ17M086NEST") {
+		t.Fatalf("expected series_id in compliance log, got %q", out)
 	}
 }
