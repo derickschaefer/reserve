@@ -47,6 +47,13 @@ Command tests, unit tests, and benchmarks run fully offline. Integration tests t
 ## Running the Tests
 
 ```bash
+# Preferred Makefile entry points
+make test              # unit + integration
+make test-unit         # cmd + internal packages
+make test-integration  # tests/
+make test-all          # go test -v ./...
+make test-cover        # coverage report (cmd + internal + tests)
+
 # Command tests
 go test ./cmd/...
 
@@ -70,6 +77,8 @@ go test ./...
 # Benchmarks (see Benchmarks section for full instructions)
 go test ./tests/benchmarks/... -bench=. -benchmem -count=10
 ```
+
+The `Makefile` targets are the easiest way to run the suite consistently in this repo because they also set local `GOCACHE` and `GOMODCACHE` paths under the workspace. For day-to-day work, `make test` is the default entry point; use the raw `go test` commands when you want a narrower package selection or custom flags.
 
 ---
 
