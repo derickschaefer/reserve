@@ -3,13 +3,15 @@
   "published_at": "2026-04-11T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
   "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.2",
-  "summary": "Adds user/local config discovery, ships remote release checks, and formalizes stripped production builds for smaller downloads.",
+  "summary": "Adds FRED permissions and citation enforcement, stronger restricted-series handling, and better cache and output stability.",
   "highlights": [
-    "New `reserve update check` command for release status, highlights, and static upgrade instructions",
-    "Per-user config discovery on Linux, macOS, and Windows, with local ./config.json override precedence",
-    "`reserve config init` now creates the user config file and parent directories automatically",
-    "`reserve config set` now updates a local override when present, otherwise the user config file",
-    "Release artifacts use stripped production builds for smaller downloads"
+    "FRED permissions and citation enforcement",
+    "Permission-aware blocking for restricted or ambiguous series",
+    "Local grant/revoke workflow for authorized restricted series",
+    "Citation text now flows through table, JSON, and CSV output",
+    "Rights metadata cached locally with rebuild/reset support",
+    "Better cache inventory, per-series cleanup, and canonical cache selection",
+    "Stability fixes for structured observation output and release/test workflows"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."
