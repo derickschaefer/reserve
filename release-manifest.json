@@ -1,15 +1,15 @@
 {
-  "latest_version": "v1.1.1",
+  "latest_version": "v1.1.2",
   "published_at": "2026-04-11T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.1",
-  "summary": "Sharpens AI onboarding, adds cache inventory and per-series cleanup, and ships smaller stripped release binaries.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.2",
+  "summary": "Adds user/local config discovery, ships remote release checks, and formalizes stripped production builds for smaller downloads.",
   "highlights": [
-    "Expanded onboarding guidance for LLMs around batching, cache discipline, and destructive local-state changes",
-    "New `reserve cache inventory` view for local series coverage, gaps, and metadata readiness",
-    "New `reserve cache clear --series <ID>` command for targeted observation-set cleanup",
-    "Canonical cache selection and warnings when multiple cached observation sets exist",
-    "Release artifacts now use stripped production builds for smaller downloads"
+    "New `reserve update check` command for release status, highlights, and static upgrade instructions",
+    "Per-user config discovery on Linux, macOS, and Windows, with local ./config.json override precedence",
+    "`reserve config init` now creates the user config file and parent directories automatically",
+    "`reserve config set` now updates a local override when present, otherwise the user config file",
+    "Release artifacts use stripped production builds for smaller downloads"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

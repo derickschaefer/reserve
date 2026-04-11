@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 
 func TestPermissionsCompliance(t *testing.T) {
 	cfg := configOrSkip(t)
+	requirePermissionsEndpoint(t, cfg.BaseURL)
 	client := newPermissionsClient(cfg)
 
 	printBanner(t, "PERMISSIONS & RIGHTS COMPLIANCE")
@@ -196,4 +198,30 @@ func permCheck(r *result, t *testing.T, condition bool, passLabel, failLabel str
 
 func permFail(r *result, t *testing.T, label string, detail ...string) {
 	r.fail(t, label, detail...)
+}
+
+func requirePermissionsEndpoint(t *testing.T, baseURL string) {
+	t.Helper()
+
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		t.Fatalf("parse base_url %q: %v", baseURL, err)
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		t.Fatalf("base_url %q did not include a host", baseURL)
+	}
+
+	port := u.Port()
+	if port == "" {
+		switch u.Scheme {
+		case "http":
+			port = "80"
+		default:
+			port = "443"
+		}
+	}
+
+	requireReachableHost(t, fmt.Sprintf("%s:%s", host, port))
 }

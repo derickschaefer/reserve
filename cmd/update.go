@@ -19,6 +19,7 @@ import (
 const defaultUpdateManifestURL = "https://download.reservecli.dev/release.json"
 
 var updateManifestURL = defaultUpdateManifestURL
+var updateHTTPClient = http.DefaultClient
 
 type updateManifest struct {
 	LatestVersion      string   `json:"latest_version"`
@@ -126,7 +127,7 @@ func fetchUpdateManifest(ctx context.Context, url string) (*updateManifest, erro
 		return nil, fmt.Errorf("creating update check request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := updateHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("checking update manifest: %w", err)
 	}

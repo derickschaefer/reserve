@@ -175,7 +175,7 @@ verify-signature:
 		exit 1; \
 	fi
 	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "Usage: make verify-signature RELEASE_TAG=v1.0.8"; \
+		echo "Usage: make verify-signature RELEASE_TAG=v1.1.2"; \
 		exit 1; \
 	fi
 	cosign verify-blob \

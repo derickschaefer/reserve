@@ -8,7 +8,7 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 
 ---
 
-### v1.1.2 — 2026-04-06 — Config Discovery, Update Checks, and Release Build Hygiene
+### v1.1.2 — 2026-04-11 — Config Discovery, Update Checks, and Release Build Hygiene
 
 **Changed**
 

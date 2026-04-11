@@ -8,10 +8,25 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+type updateRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f updateRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newUpdateTestClient(handler http.HandlerFunc) *http.Client {
+	return &http.Client{
+		Transport: updateRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			rec := newResponseRecorder()
+			handler.ServeHTTP(rec, req)
+			return rec.Result(), nil
+		}),
+	}
+}
 
 func TestCompareVersions(t *testing.T) {
 	tests := []struct {
@@ -48,7 +63,8 @@ func TestCompareVersions(t *testing.T) {
 }
 
 func TestRunUpdateCheckUpdateAvailable(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	origClient := updateHTTPClient
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(updateManifest{
 			LatestVersion:      "v1.1.0",
 			ReleaseURL:         "https://example.com/releases/v1.1.0",
@@ -57,10 +73,10 @@ func TestRunUpdateCheckUpdateAvailable(t *testing.T) {
 			UpdateInstructions: "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev.",
 		})
 	}))
-	defer server.Close()
+	t.Cleanup(func() { updateHTTPClient = origClient })
 
 	origURL := updateManifestURL
-	updateManifestURL = server.URL
+	updateManifestURL = "https://mock.reserve.local/release.json"
 	t.Cleanup(func() { updateManifestURL = origURL })
 
 	origVersion := Version
@@ -83,15 +99,16 @@ func TestRunUpdateCheckUpdateAvailable(t *testing.T) {
 }
 
 func TestRunUpdateCheckCurrent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	origClient := updateHTTPClient
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(updateManifest{
 			LatestVersion: "v1.1.0",
 		})
 	}))
-	defer server.Close()
+	t.Cleanup(func() { updateHTTPClient = origClient })
 
 	origURL := updateManifestURL
-	updateManifestURL = server.URL
+	updateManifestURL = "https://mock.reserve.local/release.json"
 	t.Cleanup(func() { updateManifestURL = origURL })
 
 	origVersion := Version
@@ -108,13 +125,14 @@ func TestRunUpdateCheckCurrent(t *testing.T) {
 }
 
 func TestRunUpdateCheckManifestError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	origClient := updateHTTPClient
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusBadGateway)
 	}))
-	defer server.Close()
+	t.Cleanup(func() { updateHTTPClient = origClient })
 
 	origURL := updateManifestURL
-	updateManifestURL = server.URL
+	updateManifestURL = "https://mock.reserve.local/release.json"
 	t.Cleanup(func() { updateManifestURL = origURL })
 
 	result := runUpdateCheck(context.Background())

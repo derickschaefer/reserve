@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +17,12 @@ import (
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/spf13/cobra"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestParseCategoryID(t *testing.T) {
 	tests := []struct {
@@ -54,7 +59,7 @@ func TestParseCategoryID(t *testing.T) {
 }
 
 func TestWalkCategoryTreeHonorsDepthLimit(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/category/children" {
 			http.NotFound(w, r)
 			return
@@ -83,10 +88,19 @@ func TestWalkCategoryTreeHonorsDepthLimit(t *testing.T) {
 		default:
 			_ = json.NewEncoder(w).Encode(map[string]any{"categories": []map[string]any{}})
 		}
-	}))
-	defer server.Close()
+	})
 
-	client := fred.NewClient("test_key", server.URL+"/", 5*time.Second, 1000, false)
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			rec := newResponseRecorder()
+			handler.ServeHTTP(rec, req)
+			return rec.Result(), nil
+		}),
+		Timeout: 5 * time.Second,
+	}
+
+	client := fred.NewClient("test_key", "https://mock.fred.local/", 5*time.Second, 1000, false)
+	client.SetHTTPClient(httpClient)
 	deps := &app.Deps{
 		Config: &config.Config{},
 		Client: client,
@@ -114,3 +128,43 @@ func TestWalkCategoryTreeHonorsDepthLimit(t *testing.T) {
 		}
 	}
 }
+
+func newResponseRecorder() *responseRecorder {
+	return &responseRecorder{
+		header: make(http.Header),
+		body:   &bytes.Buffer{},
+		code:   http.StatusOK,
+	}
+}
+
+type responseRecorder struct {
+	header http.Header
+	body   *bytes.Buffer
+	code   int
+}
+
+func (r *responseRecorder) Header() http.Header {
+	return r.header
+}
+
+func (r *responseRecorder) Write(b []byte) (int, error) {
+	return r.body.Write(b)
+}
+
+func (r *responseRecorder) WriteHeader(statusCode int) {
+	r.code = statusCode
+}
+
+func (r *responseRecorder) Result() *http.Response {
+	return &http.Response{
+		StatusCode: r.code,
+		Header:     r.header.Clone(),
+		Body:       ioNopCloser{Reader: bytes.NewReader(r.body.Bytes())},
+	}
+}
+
+type ioNopCloser struct {
+	*bytes.Reader
+}
+
+func (ioNopCloser) Close() error { return nil }
