@@ -13,6 +13,8 @@ BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 MANIFEST_SOURCE="${MANIFEST_SOURCE:-${ROOT_DIR}/release-manifest.json}"
 export GOCACHE="${GOCACHE:-${ROOT_DIR}/.gocache}"
 export GOMODCACHE="${GOMODCACHE:-${ROOT_DIR}/.gomodcache}"
+# Avoid macOS-specific metadata in release archives so Linux tar/unzip runs cleanly.
+export COPYFILE_DISABLE=1
 
 if [[ -z "${VERSION}" ]]; then
   echo "usage: scripts/build-dist.sh <version>" >&2
