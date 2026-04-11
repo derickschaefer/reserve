@@ -71,7 +71,8 @@ for target in "${targets[@]}"; do
     archive_name="${archive_base}.tar.gz"
     (
       cd "${BUILD_DIR}"
-      tar -czf "${VERSION_DIR}/${archive_name}" "$(basename "${binary_path}")"
+      tar --no-xattrs --no-mac-metadata --no-acls --no-fflags \
+        -czf "${VERSION_DIR}/${archive_name}" "$(basename "${binary_path}")"
     )
   fi
 
