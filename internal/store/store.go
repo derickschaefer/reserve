@@ -54,6 +54,13 @@ type Store struct {
 	db *bolt.DB
 }
 
+// Metadata describes high-level properties of the on-disk database.
+type Metadata struct {
+	Path          string
+	SchemaVersion int
+	FileSizeBytes int64
+}
+
 // Open opens (or creates) the bbolt database at path.
 // Parent directories are created automatically.
 // Runs schema migrations on every open.
@@ -83,6 +90,33 @@ func (s *Store) Close() error {
 // Path returns the filesystem path of the open database.
 func (s *Store) Path() string {
 	return s.db.Path()
+}
+
+// Metadata returns high-level information about the open database file.
+func (s *Store) Metadata() (Metadata, error) {
+	meta := Metadata{Path: s.db.Path()}
+
+	if fi, err := os.Stat(meta.Path); err == nil {
+		meta.FileSizeBytes = fi.Size()
+	} else {
+		return meta, fmt.Errorf("stat db %s: %w", meta.Path, err)
+	}
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		raw := tx.Bucket(bucketInternal).Get([]byte("schema_version"))
+		if raw == nil {
+			return nil
+		}
+		if _, err := fmt.Sscanf(string(raw), "%d", &meta.SchemaVersion); err != nil {
+			return fmt.Errorf("parse schema version: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	return meta, nil
 }
 
 // GetInternalBool returns the bool value stored under the given internal key.

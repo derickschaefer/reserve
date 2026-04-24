@@ -4,10 +4,16 @@
 package cmd
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -98,49 +104,230 @@ func TestRunUpdateCheckUpdateAvailable(t *testing.T) {
 	}
 }
 
-func TestRunUpdateCheckCurrent(t *testing.T) {
+func TestRunUpdateApplyDryRun(t *testing.T) {
 	origClient := updateHTTPClient
-	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(updateManifest{
-			LatestVersion: "v1.1.0",
-		})
-	}))
-	t.Cleanup(func() { updateHTTPClient = origClient })
-
 	origURL := updateManifestURL
-	updateManifestURL = "https://mock.reserve.local/release.json"
-	t.Cleanup(func() { updateManifestURL = origURL })
-
 	origVersion := Version
-	Version = "v1.1.0"
-	t.Cleanup(func() { Version = origVersion })
+	origOS := updateTargetOS
+	origArch := updateTargetArch
+	origExec := updateExecutable
 
-	result := runUpdateCheck(context.Background())
-	if result.UpdateAvailable {
-		t.Fatalf("did not expect update to be available")
+	tmpDir := t.TempDir()
+	execPath := filepath.Join(tmpDir, "reserve")
+	if err := os.WriteFile(execPath, []byte("old-binary"), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
 	}
-	if result.Status != "current" {
-		t.Fatalf("status = %q, want current", result.Status)
+
+	newBinary := []byte("new-binary")
+	archive := mustBuildTarGz(t, "reserve", newBinary)
+	checksum := sha256.Sum256(archive)
+
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/release.json":
+			_ = json.NewEncoder(w).Encode(updateManifest{
+				LatestVersion: "v1.1.3",
+				ReleaseURL:    "https://example.com/releases/v1.1.3",
+				Summary:       "Dry-run candidate.",
+			})
+		case "/releases/v1.1.3/reserve_linux_amd64.tar.gz":
+			_, _ = w.Write(archive)
+		case "/releases/v1.1.3/SHA256SUMS":
+			_, _ = w.Write([]byte(hex.EncodeToString(checksum[:]) + "  reserve_linux_amd64.tar.gz\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	updateManifestURL = "https://mock.reserve.local/release.json"
+	Version = "v1.1.2"
+	updateTargetOS = "linux"
+	updateTargetArch = "amd64"
+	updateExecutable = func() (string, error) { return execPath, nil }
+
+	t.Cleanup(func() {
+		updateHTTPClient = origClient
+		updateManifestURL = origURL
+		Version = origVersion
+		updateTargetOS = origOS
+		updateTargetArch = origArch
+		updateExecutable = origExec
+	})
+
+	result := runUpdateApply(context.Background(), true, false)
+	if result.Status != "dry_run" {
+		t.Fatalf("status = %q, want dry_run", result.Status)
+	}
+	if !result.Verified || !result.Downloaded {
+		t.Fatalf("expected download and verification to succeed: %#v", result)
+	}
+
+	got, err := os.ReadFile(execPath)
+	if err != nil {
+		t.Fatalf("read executable: %v", err)
+	}
+	if string(got) != "old-binary" {
+		t.Fatalf("dry-run replaced executable: %q", string(got))
 	}
 }
 
-func TestRunUpdateCheckManifestError(t *testing.T) {
+func TestRunUpdateApplyReplacesExecutable(t *testing.T) {
 	origClient := updateHTTPClient
-	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "boom", http.StatusBadGateway)
-	}))
-	t.Cleanup(func() { updateHTTPClient = origClient })
-
 	origURL := updateManifestURL
-	updateManifestURL = "https://mock.reserve.local/release.json"
-	t.Cleanup(func() { updateManifestURL = origURL })
+	origVersion := Version
+	origOS := updateTargetOS
+	origArch := updateTargetArch
+	origExec := updateExecutable
 
-	result := runUpdateCheck(context.Background())
-	if result.Status != "error" {
-		t.Fatalf("status = %q, want error", result.Status)
+	tmpDir := t.TempDir()
+	execPath := filepath.Join(tmpDir, "reserve")
+	if err := os.WriteFile(execPath, []byte("old-binary"), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
 	}
-	if result.Error == "" {
-		t.Fatalf("expected error message")
+
+	newBinary := []byte("new-binary")
+	archive := mustBuildTarGz(t, "reserve", newBinary)
+	checksum := sha256.Sum256(archive)
+
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/release.json":
+			_ = json.NewEncoder(w).Encode(updateManifest{
+				LatestVersion: "v1.1.3",
+				ReleaseURL:    "https://example.com/releases/v1.1.3",
+			})
+		case "/releases/v1.1.3/reserve_linux_amd64.tar.gz":
+			_, _ = w.Write(archive)
+		case "/releases/v1.1.3/SHA256SUMS":
+			_, _ = w.Write([]byte(hex.EncodeToString(checksum[:]) + "  reserve_linux_amd64.tar.gz\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	updateManifestURL = "https://mock.reserve.local/release.json"
+	Version = "v1.1.2"
+	updateTargetOS = "linux"
+	updateTargetArch = "amd64"
+	updateExecutable = func() (string, error) { return execPath, nil }
+
+	t.Cleanup(func() {
+		updateHTTPClient = origClient
+		updateManifestURL = origURL
+		Version = origVersion
+		updateTargetOS = origOS
+		updateTargetArch = origArch
+		updateExecutable = origExec
+	})
+
+	result := runUpdateApply(context.Background(), false, false)
+	if result.Status != "applied" {
+		t.Fatalf("status = %q, want applied", result.Status)
+	}
+	if !result.Applied || !result.Verified {
+		t.Fatalf("expected applied result: %#v", result)
+	}
+
+	got, err := os.ReadFile(execPath)
+	if err != nil {
+		t.Fatalf("read executable: %v", err)
+	}
+	if string(got) != "new-binary" {
+		t.Fatalf("got executable %q, want new-binary", string(got))
+	}
+}
+
+func TestRunUpdateApplyForceSameVersion(t *testing.T) {
+	origClient := updateHTTPClient
+	origURL := updateManifestURL
+	origVersion := Version
+	origOS := updateTargetOS
+	origArch := updateTargetArch
+	origExec := updateExecutable
+
+	tmpDir := t.TempDir()
+	execPath := filepath.Join(tmpDir, "reserve")
+	if err := os.WriteFile(execPath, []byte("old-binary"), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
+	}
+
+	newBinary := []byte("forced-binary")
+	archive := mustBuildTarGz(t, "reserve", newBinary)
+	checksum := sha256.Sum256(archive)
+
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/release.json":
+			_ = json.NewEncoder(w).Encode(updateManifest{
+				LatestVersion: "v1.1.2",
+				ReleaseURL:    "https://example.com/releases/v1.1.2",
+			})
+		case "/releases/v1.1.2/reserve_linux_amd64.tar.gz":
+			_, _ = w.Write(archive)
+		case "/releases/v1.1.2/SHA256SUMS":
+			_, _ = w.Write([]byte(hex.EncodeToString(checksum[:]) + "  reserve_linux_amd64.tar.gz\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	updateManifestURL = "https://mock.reserve.local/release.json"
+	Version = "v1.1.2"
+	updateTargetOS = "linux"
+	updateTargetArch = "amd64"
+	updateExecutable = func() (string, error) { return execPath, nil }
+
+	t.Cleanup(func() {
+		updateHTTPClient = origClient
+		updateManifestURL = origURL
+		Version = origVersion
+		updateTargetOS = origOS
+		updateTargetArch = origArch
+		updateExecutable = origExec
+	})
+
+	result := runUpdateApply(context.Background(), false, true)
+	if result.Status != "applied" {
+		t.Fatalf("status = %q, want applied", result.Status)
+	}
+	if !result.Forced {
+		t.Fatalf("expected forced apply")
+	}
+}
+
+func TestRunUpdateApplyWindowsManual(t *testing.T) {
+	origClient := updateHTTPClient
+	origURL := updateManifestURL
+	origVersion := Version
+	origOS := updateTargetOS
+	origArch := updateTargetArch
+
+	updateHTTPClient = newUpdateTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/release.json" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(updateManifest{
+			LatestVersion: "v1.1.3",
+			ReleaseURL:    "https://example.com/releases/v1.1.3",
+		})
+	}))
+	updateManifestURL = "https://mock.reserve.local/release.json"
+	Version = "v1.1.2"
+	updateTargetOS = "windows"
+	updateTargetArch = "amd64"
+
+	t.Cleanup(func() {
+		updateHTTPClient = origClient
+		updateManifestURL = origURL
+		Version = origVersion
+		updateTargetOS = origOS
+		updateTargetArch = origArch
+	})
+
+	result := runUpdateApply(context.Background(), false, false)
+	if result.Status != "manual" {
+		t.Fatalf("status = %q, want manual", result.Status)
+	}
+	if !strings.Contains(result.ArchiveURL, "reserve_windows_amd64.zip") {
+		t.Fatalf("archive_url = %q", result.ArchiveURL)
 	}
 }
 
@@ -172,4 +359,63 @@ func TestRenderUpdateCheckText(t *testing.T) {
 			t.Fatalf("expected output to contain %q, got:\n%s", needle, out)
 		}
 	}
+}
+
+func TestRenderUpdateApplyText(t *testing.T) {
+	var buf bytes.Buffer
+	err := renderUpdateApplyText(&buf, updateApplyResult{
+		Status:         "dry_run",
+		CurrentVersion: "v1.1.2",
+		TargetVersion:  "v1.1.3",
+		Forced:         true,
+		DryRun:         true,
+		Verified:       true,
+		ArchiveURL:     "https://example.com/releases/v1.1.3/reserve_linux_amd64.tar.gz",
+		InstallPath:    "/usr/local/bin/reserve",
+	})
+	if err != nil {
+		t.Fatalf("renderUpdateApplyText: %v", err)
+	}
+
+	out := buf.String()
+	for _, needle := range []string{
+		"Dry run complete",
+		"current  v1.1.2",
+		"target   v1.1.3",
+		"Mode: force",
+		"Mode: dry-run",
+		"Verified: SHA256SUMS",
+	} {
+		if !strings.Contains(out, needle) {
+			t.Fatalf("expected output to contain %q, got:\n%s", needle, out)
+		}
+	}
+}
+
+func mustBuildTarGz(t *testing.T, name string, data []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	hdr := &tar.Header{
+		Name: name,
+		Mode: 0o755,
+		Size: int64(len(data)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+	if _, err := tw.Write(data); err != nil {
+		t.Fatalf("write archive payload: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzw.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+
+	return buf.Bytes()
 }

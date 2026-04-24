@@ -78,7 +78,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.2
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.3
 ```
 
 Windows PowerShell:
@@ -631,7 +631,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.2
+reserve v1.1.3
 go      go1.26.1
 os      darwin/arm64
 ```
@@ -646,9 +646,14 @@ Check a lightweight remote release manifest for newer versions and short release
 reserve update check                # human-readable update status
 reserve update check --format json  # structured output for scripts
 reserve update check --format jsonl # single-line audit/event output
+reserve update apply                # macOS/Linux: download, verify, and replace the current binary
+reserve update apply --dry-run      # test the live update path without installing
+reserve update apply --dry-run --force # exercise the full path even when already current
 ```
 
-When a new release is available, `reserve` prints the current version, latest version, a short summary, release highlights, and static update instructions from the remote manifest.
+When a new release is available, `reserve update check` prints the current version, latest version, a short summary, release highlights, and static update instructions from the remote manifest.
+
+`reserve update apply` is Phase 1 self-update support. On macOS and Linux it downloads the platform archive for the latest release, verifies the archive against the published `SHA256SUMS`, and replaces the current executable in place. On Windows it reports the exact release asset URL and release page so updates stay manual.
 
 ---
 

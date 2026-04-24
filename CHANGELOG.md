@@ -2,9 +2,25 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.2` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.3` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.3 — 2026-04-24 — Self-Update, Cache Visibility, and Release Plumbing
+
+**Added**
+
+- New `reserve update apply` command for Phase 1 self-updates on macOS and Linux
+- `reserve update apply --dry-run` for end-to-end validation of the live release path without replacing the installed binary
+- `reserve update apply --force` to exercise the update path even when the current version already matches the latest manifest version
+- New `reserve cache path` command to print the active local database path
+
+**Changed**
+
+- Windows update flow now resolves and prints the exact release asset URL for manual download instead of attempting in-place self-update
+- `reserve cache stats` now reports schema version and on-disk database size alongside per-bucket row and byte counts
 
 ---
 

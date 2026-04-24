@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -249,5 +250,82 @@ func TestCacheResetBackfillCommandClearsMarker(t *testing.T) {
 	}
 	if found {
 		t.Fatalf("expected marker to be cleared")
+	}
+}
+
+func TestCachePathCommandPrintsActiveDBPath(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "reserve.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	_ = s.Close()
+
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := config.WriteFile(cfgPath, config.File{DBPath: dbPath}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	var buf bytes.Buffer
+	cachePathCmd.SetOut(&buf)
+	cachePathCmd.SetErr(&buf)
+	cachePathCmd.SetArgs(nil)
+	if err := cachePathCmd.RunE(cachePathCmd, nil); err != nil {
+		t.Fatalf("cache path: %v", err)
+	}
+
+	if got := strings.TrimSpace(buf.String()); got != dbPath {
+		t.Fatalf("cache path output = %q, want %q", got, dbPath)
+	}
+}
+
+func TestCacheStatsCommandIncludesMetadata(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "reserve.db")
+	s, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.PutSeriesMeta(model.SeriesMeta{ID: "GDP", Title: "Gross Domestic Product", Frequency: "Quarterly"}); err != nil {
+		t.Fatalf("PutSeriesMeta: %v", err)
+	}
+	if err := s.PutObs(store.ObsKey("GDP", "", "", "", "", ""), monthlySeries("GDP", "2024-01-01", 2)); err != nil {
+		t.Fatalf("PutObs: %v", err)
+	}
+	_ = s.Close()
+
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := config.WriteFile(cfgPath, config.File{DBPath: dbPath}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	var buf bytes.Buffer
+	cacheStatsCmd.SetOut(&buf)
+	cacheStatsCmd.SetErr(&buf)
+	cacheStatsCmd.SetArgs(nil)
+	if err := cacheStatsCmd.RunE(cacheStatsCmd, nil); err != nil {
+		t.Fatalf("cache stats: %v", err)
+	}
+
+	out := buf.String()
+	for _, needle := range []string{
+		"Database: " + dbPath,
+		"Schema:   v2",
+		"File:     ",
+		"obs",
+		"series_meta",
+	} {
+		if !strings.Contains(out, needle) {
+			t.Fatalf("expected output to contain %q, got:\n%s", needle, out)
+		}
 	}
 }

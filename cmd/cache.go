@@ -46,17 +46,42 @@ var cacheStatsCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("reading store stats: %w", err)
 		}
+		meta, err := deps.Store.Metadata()
+		if err != nil {
+			return fmt.Errorf("reading store metadata: %w", err)
+		}
 
 		// Sort by bucket name for deterministic output
 		sort.Slice(stats, func(i, j int) bool { return stats[i].Name < stats[j].Name })
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Database: %s\n\n", deps.Store.Path())
+		fmt.Fprintf(cmd.OutOrStdout(), "Database: %s\n", meta.Path)
+		fmt.Fprintf(cmd.OutOrStdout(), "Schema:   v%d\n", meta.SchemaVersion)
+		fmt.Fprintf(cmd.OutOrStdout(), "File:     %s\n\n", humanBytes(meta.FileSizeBytes))
 		printSimpleTable(cmd.OutOrStdout(), []string{"BUCKET", "ROWS", "SIZE"}, func(add func(...string)) {
 			for _, s := range stats {
 				add(s.Name, fmt.Sprintf("%d", s.Count), humanBytes(s.Bytes))
 			}
 		})
 		return nil
+	},
+}
+
+var cachePathCmd = &cobra.Command{
+	Use:     "path",
+	Short:   "Print the active local database path",
+	Example: `  reserve cache path`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		if err := deps.RequireStore(); err != nil {
+			return err
+		}
+		defer deps.Close()
+
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), deps.Store.Path())
+		return err
 	},
 }
 
@@ -305,6 +330,7 @@ var cacheResetBackfillCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cacheCmd)
 	cacheCmd.AddCommand(cacheStatsCmd)
+	cacheCmd.AddCommand(cachePathCmd)
 	cacheCmd.AddCommand(cacheInventoryCmd)
 	cacheCmd.AddCommand(cacheClearCmd)
 	cacheCmd.AddCommand(cacheCompactCmd)

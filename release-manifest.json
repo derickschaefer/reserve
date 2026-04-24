@@ -1,17 +1,16 @@
 {
-  "latest_version": "v1.1.2",
-  "published_at": "2026-04-11T00:00:00Z",
+  "latest_version": "v1.1.3",
+  "published_at": "2026-04-24T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.2",
-  "summary": "Adds FRED permissions and citation enforcement, stronger restricted-series handling, and better cache and output stability.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.3",
+  "summary": "Adds Phase 1 self-update support, better cache management visibility, and release plumbing refinements.",
   "highlights": [
-    "FRED permissions and citation enforcement",
-    "Permission-aware blocking for restricted or ambiguous series",
-    "Local grant/revoke workflow for authorized restricted series",
-    "Citation text now flows through table, JSON, and CSV output",
-    "Rights metadata cached locally with rebuild/reset support",
-    "Better cache inventory, per-series cleanup, and canonical cache selection",
-    "Stability fixes for structured observation output and release/test workflows"
+    "New reserve update apply command for macOS and Linux",
+    "Dry-run and force modes for safe live-path updater testing",
+    "Windows update flow now prints exact manual download targets",
+    "New reserve cache path command for active database discovery",
+    "Cache stats now includes schema version and on-disk database size",
+    "Updater and cache-management coverage expanded in command tests"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."
