@@ -78,7 +78,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.3
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.4
 ```
 
 Windows PowerShell:
@@ -631,7 +631,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.3
+reserve v1.1.4
 go      go1.26.1
 os      darwin/arm64
 ```

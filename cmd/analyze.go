@@ -6,8 +6,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
+	"sort"
 
 	"github.com/derickschaefer/reserve/internal/analyze"
 	"github.com/derickschaefer/reserve/internal/pipeline"
@@ -26,51 +28,41 @@ Examples:
 
 // ─── analyze summary ─────────────────────────────────────────────────────────
 
+var analyzeSummaryBySeries bool
+
 var analyzeSummaryCmd = &cobra.Command{
 	Use:   "summary",
 	Short: "Descriptive statistics: count, mean, std, min, max, median, skew",
 	Example: `  reserve obs get GDP --from cache --format jsonl | reserve analyze summary
-  reserve obs get UNRATE --from cache --format jsonl | reserve transform pct-change | reserve analyze summary`,
+  reserve obs get UNRATE --from cache --format jsonl | reserve transform pct-change | reserve analyze summary
+  reserve obs get FEDFUNDS T10Y2Y UNRATE --format jsonl | reserve analyze summary --by-series`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
-		if err != nil {
-			return err
-		}
-
-		s := analyze.Summarize(seriesID, obs)
-
 		format := resolveFormat("")
 		w, closeFn, err := outputWriter(cmd.OutOrStdout())
 		if err != nil {
 			return err
 		}
 		defer closeFn()
-		if format == "json" {
-			enc := json.NewEncoder(w)
-			enc.SetIndent("", "  ")
-			return enc.Encode(s)
+
+		if analyzeSummaryBySeries {
+			groups, err := pipeline.ReadObservationGroups(os.Stdin)
+			if err != nil {
+				return err
+			}
+			summaries := make([]analyze.Summary, 0, len(groups))
+			for _, group := range groups {
+				summaries = append(summaries, analyze.Summarize(group.SeriesID, group.Obs))
+			}
+			return renderSummaryBatch(w, format, summaries)
 		}
 
-		// Table output
-		rows := [][]string{
-			{"series_id", s.SeriesID},
-			{"count", fmt.Sprintf("%d", s.Count)},
-			{"missing", fmt.Sprintf("%d (%.1f%%)", s.Missing, s.MissingPct)},
-			{"mean", fmtStat(s.Mean)},
-			{"std", fmtStat(s.Std)},
-			{"min", fmtStat(s.Min)},
-			{"p25", fmtStat(s.P25)},
-			{"median", fmtStat(s.Median)},
-			{"p75", fmtStat(s.P75)},
-			{"max", fmtStat(s.Max)},
-			{"skew", fmtStat(s.Skew)},
-			{"first", fmtStat(s.First)},
-			{"last", fmtStat(s.Last)},
-			{"change", fmtStat(s.Change)},
-			{"change_pct", fmtStatPct(s.ChangePct)},
+		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		if err != nil {
+			return err
 		}
-		printKVTableTo(w, rows)
-		return nil
+
+		s := analyze.Summarize(seriesID, obs)
+		return renderSummarySingle(w, format, s)
 	},
 }
 
@@ -127,11 +119,80 @@ func init() {
 	analyzeCmd.AddCommand(analyzeSummaryCmd)
 	analyzeCmd.AddCommand(analyzeTrendCmd)
 
+	analyzeSummaryCmd.Flags().BoolVar(&analyzeSummaryBySeries, "by-series", false,
+		"group multi-series JSONL input by series_id and emit one summary per series")
 	analyzeTrendCmd.Flags().StringVar(&analyzeTrendMethod, "method", "linear",
 		"regression method: linear|theil-sen")
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+func renderSummarySingle(w io.Writer, format string, s analyze.Summary) error {
+	if format == "json" {
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(s)
+	}
+	if format == "jsonl" {
+		return json.NewEncoder(w).Encode(s)
+	}
+
+	rows := [][]string{
+		{"series_id", s.SeriesID},
+		{"count", fmt.Sprintf("%d", s.Count)},
+		{"missing", fmt.Sprintf("%d (%.1f%%)", s.Missing, s.MissingPct)},
+		{"mean", fmtStat(s.Mean)},
+		{"std", fmtStat(s.Std)},
+		{"min", fmtStat(s.Min)},
+		{"p25", fmtStat(s.P25)},
+		{"median", fmtStat(s.Median)},
+		{"p75", fmtStat(s.P75)},
+		{"max", fmtStat(s.Max)},
+		{"skew", fmtStat(s.Skew)},
+		{"first", fmtStat(s.First)},
+		{"last", fmtStat(s.Last)},
+		{"change", fmtStat(s.Change)},
+		{"change_pct", fmtStatPct(s.ChangePct)},
+	}
+	printKVTableTo(w, rows)
+	return nil
+}
+
+func renderSummaryBatch(w io.Writer, format string, summaries []analyze.Summary) error {
+	switch format {
+	case "json":
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(summaries)
+	case "jsonl":
+		enc := json.NewEncoder(w)
+		for _, s := range summaries {
+			if err := enc.Encode(s); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		sorted := append([]analyze.Summary(nil), summaries...)
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].SeriesID < sorted[j].SeriesID })
+		printSimpleTable(w, []string{"SERIES", "COUNT", "MISSING", "MEAN", "STD", "MIN", "MEDIAN", "MAX", "CHANGE_PCT"}, func(add func(...string)) {
+			for _, s := range sorted {
+				add(
+					s.SeriesID,
+					fmt.Sprintf("%d", s.Count),
+					fmt.Sprintf("%d (%.1f%%)", s.Missing, s.MissingPct),
+					fmtStat(s.Mean),
+					fmtStat(s.Std),
+					fmtStat(s.Min),
+					fmtStat(s.Median),
+					fmtStat(s.Max),
+					fmtStatPct(s.ChangePct),
+				)
+			}
+		})
+		return nil
+	}
+}
 
 func fmtStat(v float64) string {
 	if math.IsNaN(v) {

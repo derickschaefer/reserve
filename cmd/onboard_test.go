@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestParseOnboardTopicsAll(t *testing.T) {
 	}
 }
 
-func TestBuildProgramOnboardDocIncludesAllCommandGuides(t *testing.T) {
+func TestBuildProgramOnboardDocIncludesRoutingIndexes(t *testing.T) {
 	doc := buildProgramOnboardDoc()
 
 	if got := doc["scope"]; got != "program" {
@@ -48,12 +49,20 @@ func TestBuildProgramOnboardDocIncludesAllCommandGuides(t *testing.T) {
 		t.Fatalf("command_count = %v, want %d", got, len(onboardCommandRegistry))
 	}
 
-	guides, ok := program["command_guides"].(map[string]any)
+	commandIndex, ok := program["command_index"].([]map[string]any)
 	if !ok {
-		t.Fatalf("command_guides missing or wrong type")
+		t.Fatalf("command_index missing or wrong type")
 	}
-	if len(guides) != len(onboardCommandRegistry) {
-		t.Fatalf("command_guides size = %d, want %d", len(guides), len(onboardCommandRegistry))
+	if len(commandIndex) != len(onboardCommandRegistry) {
+		t.Fatalf("command_index size = %d, want %d", len(commandIndex), len(onboardCommandRegistry))
+	}
+
+	topicIndex, ok := program["topic_index"].(map[string]any)
+	if !ok {
+		t.Fatalf("topic_index missing or wrong type")
+	}
+	if _, ok := topicIndex["topics"]; !ok {
+		t.Fatalf("topic_index missing topics field")
 	}
 }
 
@@ -208,5 +217,45 @@ func TestExportOnboardBundleWritesValidJSON(t *testing.T) {
 	}
 	if got := doc["command_name"]; got != "obs" {
 		t.Fatalf("command_name = %v, want obs", got)
+	}
+}
+
+func TestAnalyzeGuideHighlightsBySeries(t *testing.T) {
+	doc, ok := buildCommandOnboardDoc("analyze")
+	if !ok {
+		t.Fatalf("expected analyze guide")
+	}
+	cmdDoc := doc["command"].(map[string]any)
+	gotchas := cmdDoc["gotchas"].([]string)
+
+	found := false
+	for _, item := range gotchas {
+		if strings.Contains(item, "--by-series") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("analyze guide should mention --by-series in gotchas")
+	}
+}
+
+func TestObsGuideHighlightsBatchedObsGet(t *testing.T) {
+	doc, ok := buildCommandOnboardDoc("obs")
+	if !ok {
+		t.Fatalf("expected obs guide")
+	}
+	cmdDoc := doc["command"].(map[string]any)
+	examples := cmdDoc["examples"].([]string)
+
+	found := false
+	for _, item := range examples {
+		if strings.Contains(item, "analyze summary --by-series") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("obs guide should include batched by-series example")
 	}
 }

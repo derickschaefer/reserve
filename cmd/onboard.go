@@ -6,7 +6,7 @@ package cmd
 // cmd/onboard.go — machine-readable context document for reserve onboarding.
 //
 // Usage:
-//   reserve onboard                      # full-program onboarding bundle
+//   reserve onboard                      # concise program onboarding / routing brief
 //   reserve onboard series               # command-specific onboarding
 //   reserve onboard --topic start        # curated topic slice
 //   reserve onboard --topic toc          # table of contents / two-step handshake
@@ -20,7 +20,8 @@ package cmd
 //   reserve onboard --topic all          # everything (large context)
 //
 // Onboarding workflow:
-//   1. reserve onboard                   (paste output → agent gets the whole program)
+//   1. reserve onboard                   (paste output → agent gets the operating rules + command/topic index)
+//   2. reserve onboard <command> or reserve onboard --topic <topic>
 //   3. Ask your macroeconomics question.
 //
 // Two-step handshake (token-conservative):
@@ -46,8 +47,8 @@ type onboardTopic struct {
 }
 
 var topicRegistry = []onboardTopic{
-	{"start", "Curated onboarding bundle: commands + pipeline + gotchas + examples. One command, ready to work."},
-	{"toc", "Topic index and onboarding interaction guide. Use for the two-step handshake pattern."},
+	{"start", "Curated onboarding bundle: commands + pipeline + gotchas + examples. Rich context, still smaller than full export."},
+	{"toc", "Topic index plus onboarding interaction guide. Start here for the two-step handshake pattern."},
 	{"commands", "Full command reference: all nouns, verbs, flags, output formats."},
 	{"pipeline", "stdin/stdout semantics, JSONL format, operator chaining, format requirements."},
 	{"data-model", "Core types: Observation, SeriesData, Result envelope, NaN conventions."},
@@ -87,9 +88,11 @@ var onboardCmd = &cobra.Command{
 semantics, verified examples, and known gotchas — formatted for efficient
 agent and advanced-user onboarding.
 
-Bare 'reserve onboard' emits the full-program onboarding bundle.
+Bare 'reserve onboard' emits a concise program onboarding brief: core operating
+rules, command index, topic index, and instructions for drilling into focused
+command or topic guides.
 Use 'reserve onboard <command>' for command-specific onboarding.
-Use --topic when you want a program-level slice rather than the full bundle.
+Use --topic when you want a program-level slice or the fuller curated bundle.
 
 Two-step handshake pattern (token-conservative):
   1. reserve onboard --topic toc
@@ -119,7 +122,7 @@ Command-specific onboarding:
 
 Bundle export:
   reserve onboard export ./onboard`,
-	Example: `  reserve onboard                          # full-program onboarding
+	Example: `  reserve onboard                          # concise program onboarding / routing brief
   reserve onboard series                   # command-specific onboarding
   reserve onboard --topic start            # curated onboarding bundle
   reserve onboard --topic toc              # two-step handshake (token-conservative)
@@ -316,7 +319,7 @@ func buildStart() map[string]any {
 			"Three rules to internalize before we start: " +
 			"(1) always add --format jsonl on source commands like `obs get` when piping — they default to table format and will break downstream operators without it; " +
 			"(2) rolling windows use `reserve window roll`, not `reserve transform roll` — window is a separate noun; " +
-			"(3) pipeline operators treat all stdin as a single series — run each series separately for meaningful analysis. " +
+			"(3) when several series share the same date window, prefer one batched `reserve obs get <ID...> --format jsonl` call; then use `reserve analyze summary --by-series` for per-series summaries. " +
 			"When you are ready to help me explore FRED economic data, say so.",
 		"commands": buildCommands(),
 		"pipeline": buildPipeline(),
@@ -341,12 +344,17 @@ func buildTOC() map[string]any {
 			"It fetches, caches, transforms, and analyzes time series via a Unix pipeline model. " +
 			"Every command reads/writes a uniform Result envelope. " +
 			"Pipeline operators communicate via JSONL on stdin/stdout.",
-		"command_count": len(onboardCommandRegistry),
-		"commands":      buildCommandIndex(),
-		"topics":        topics,
-		"quick_start":   "reserve onboard --topic toc  — emits topic index; then request focused topics",
-		"multi_topic":   "reserve onboard --topic pipeline,gotchas",
-		"full_context":  "reserve onboard  — full-program onboarding (or use `reserve onboard --topic all`)",
+		"operating_rules": []string{
+			"Prefer one batched `reserve obs get <ID...>` call over many single-series calls when the series share the same date range and options.",
+			"For per-series summaries from batched observation streams, use `reserve analyze summary --by-series`.",
+			"Always add `--format jsonl` on source commands before piping into transform/window/analyze/chart.",
+			"`reserve window roll` is a separate noun; there is no `reserve transform roll`.",
+			"Use `reserve onboard <command>` for authoritative command detail instead of guessing syntax.",
+		},
+		"topics":       topics,
+		"quick_start":  "reserve onboard --topic toc  — emits topic index; then request focused topics",
+		"multi_topic":  "reserve onboard --topic pipeline,gotchas",
+		"full_context": "reserve onboard --topic all  — full program context for large windows such as NotebookLM",
 		"prompt_template": "I am pasting the output of `reserve onboard --topic <topics>`. " +
 			"This is the authoritative reference for a CLI called reserve. " +
 			"Use it to answer my questions about fetching and analyzing FRED economic data. " +
@@ -433,14 +441,16 @@ func buildCommands() map[string]any {
 
 func buildPipeline() map[string]any {
 	return map[string]any{
-		"model":         "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print a summary table or JSON, not JSONL.",
-		"critical_rule": "obs get defaults to TABLE format even when piped. You MUST add --format jsonl on the source command or the downstream operator will fail with 'invalid character +' (table border characters are not JSON).",
+		"model":                 "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print a summary table or JSON, not JSONL.",
+		"critical_rule":         "obs get defaults to TABLE format even when piped. You MUST add --format jsonl on the source command or the downstream operator will fail with 'invalid character +' (table border characters are not JSON).",
+		"high_value_batch_rule": "When several series share the same date range or options, prefer one batched `reserve obs get <ID...> --format jsonl` call. For descriptive statistics by series, follow it with `reserve analyze summary --by-series`.",
 		"jsonl_format": map[string]any{
 			"one_object_per_line": true,
 			"schema":              `{"series_id":"CPIAUCSL","date":"2024-01-01","value":308.417,"value_raw":"308.417"}`,
 			"missing_value":       `{"series_id":"UNEMPLOY","date":"2025-10-01","value":null,"value_raw":"."}`,
 		},
 		"correct_pipeline_pattern": "reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl | reserve transform pct-change --period 12 | reserve window roll --stat mean --window 3 | reserve analyze trend",
+		"batched_summary_pattern":  "reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
 		"wrong_pipeline_pattern":   "reserve obs get CPIAUCSL --start 2020-01-01 | reserve transform pct-change  ← missing --format jsonl, will fail",
 		"format_autodetection":     "transform and window commands auto-detect: if stdout is a terminal they emit table, if piped they emit jsonl. The SOURCE command (`obs get`) does NOT auto-detect — it must be told explicitly.",
 		"preferred_source":         "For cached pipeline reads, use `reserve obs get <ID> --from cache --format jsonl`. It reads from the local embedded key-value cache (bbolt) — no network, no rate limiting.",
@@ -457,8 +467,8 @@ func buildPipeline() map[string]any {
 			"chart":     "chart bar / chart plot  — JSONL → terminal ASCII chart  (no `chart line` verb)",
 			"terminal":  "analyze summary / analyze trend  — JSONL → table or JSON summary",
 		},
-		"multi_series_limitation": "Pipeline operators treat all JSONL on stdin as a single series. If you pipe obs get with two series IDs, the interleaved rows are treated as one stream. Run each series separately and compare results manually.",
-		"store_get_pattern":       "reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12 | reserve analyze summary",
+		"multi_series_semantics": "Most pipeline operators still treat all JSONL on stdin as one logical series stream. The exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series.",
+		"store_get_pattern":      "reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12 | reserve analyze summary",
 	}
 }
 
@@ -506,6 +516,18 @@ func buildExamples() map[string]any {
 				},
 			},
 			{
+				"name":        "Batched multi-series regime snapshot",
+				"description": "Fetch several indicators concurrently for one date window, then summarize each series independently in one analysis step",
+				"command":     "reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
+				"output": []map[string]any{
+					{"series_id": "DRCCLACBS", "count": 4, "mean": 5.0275},
+					{"series_id": "FEDFUNDS", "count": 12, "mean": 1.9275},
+					{"series_id": "T10Y2Y", "count": 262, "mean": 1.6529},
+					{"series_id": "UNRATE", "count": 12, "mean": 5.8},
+				},
+				"interpretation": "One batched observation request is usually the best LLM workflow when comparing several indicators across the same window.",
+			},
+			{
 				"name":        "Fed funds rate — latest reading",
 				"description": "Single observation lookup for cross-checking",
 				"command":     "reserve obs latest FEDFUNDS",
@@ -543,10 +565,10 @@ func buildGotchas() map[string]any {
 			},
 			{
 				"id":      "multi-series-pipeline",
-				"title":   "Pipeline operators treat all stdin as one series",
-				"detail":  "If you run 'reserve obs get UNRATE FEDFUNDS --format jsonl', the interleaved JSONL rows from both series are consumed as a single stream by downstream operators. For meaningful analysis, pipe each series separately.",
-				"wrong":   "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze summary",
-				"correct": "reserve obs get UNRATE --format jsonl | reserve analyze summary\nreserve obs get FEDFUNDS --format jsonl | reserve analyze summary",
+				"title":   "Use the right multi-series downstream operator",
+				"detail":  "Batched `obs get` is preferred when several series share the same window, but most downstream pipeline operators still treat stdin as one logical stream. The direct exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series.",
+				"wrong":   "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze trend",
+				"correct": "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze summary --by-series",
 			},
 		},
 		"data_quality": []map[string]any{

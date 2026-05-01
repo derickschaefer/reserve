@@ -18,6 +18,19 @@ import (
 	"github.com/derickschaefer/reserve/internal/model"
 )
 
+// ObservationGroup holds a single grouped observation stream keyed by series ID.
+type ObservationGroup struct {
+	SeriesID string
+	Obs      []model.Observation
+}
+
+type observationRow struct {
+	SeriesID string      `json:"series_id"`
+	Date     string      `json:"date"`
+	Value    interface{} `json:"value"`
+	ValueRaw string      `json:"value_raw"`
+}
+
 // ReadObservations reads JSONL records from r (stdin) and returns
 // the series_id and slice of Observations.
 // Each line must be a JSON object with at least "date" and "value" fields.
@@ -28,64 +41,19 @@ func ReadObservations(r io.Reader) (string, []model.Observation, error) {
 	var obs []model.Observation
 	seriesID := ""
 
-	type row struct {
-		SeriesID string      `json:"series_id"`
-		Date     string      `json:"date"`
-		Value    interface{} `json:"value"`
-		ValueRaw string      `json:"value_raw"`
-	}
-
 	lineNum := 0
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		lineNum++
-		if line == "" || strings.HasPrefix(line, "//") {
+		rec, observation, skip, err := parseObservationLine(scanner.Text(), &lineNum)
+		if err != nil {
+			return "", nil, err
+		}
+		if skip {
 			continue
 		}
-		var rec row
-		if err := json.Unmarshal([]byte(line), &rec); err != nil {
-			return "", nil, fmt.Errorf("line %d: invalid JSON: %w", lineNum, err)
-		}
-
 		if seriesID == "" && rec.SeriesID != "" {
 			seriesID = rec.SeriesID
 		}
-
-		date, err := time.Parse("2006-01-02", rec.Date)
-		if err != nil {
-			return "", nil, fmt.Errorf("line %d: invalid date %q", lineNum, rec.Date)
-		}
-
-		// Parse value: may be null (NaN), float64, or string
-		var val float64
-		raw := rec.ValueRaw
-		switch v := rec.Value.(type) {
-		case nil:
-			val = math.NaN()
-			if raw == "" {
-				raw = "."
-			}
-		case float64:
-			val = v
-			if raw == "" {
-				raw = fmt.Sprintf("%g", v)
-			}
-		case string:
-			if v == "" || v == "." {
-				val = math.NaN()
-				raw = "."
-			} else {
-				return "", nil, fmt.Errorf("line %d: unexpected string value %q", lineNum, v)
-			}
-		default:
-			return "", nil, fmt.Errorf("line %d: unexpected value type %T", lineNum, rec.Value)
-		}
-
-		obs = append(obs, model.Observation{
-			Date:     date,
-			Value:    val,
-			ValueRaw: raw,
-		})
+		obs = append(obs, observation)
 	}
 	if err := scanner.Err(); err != nil {
 		return "", nil, fmt.Errorf("reading input: %w", err)
@@ -94,6 +62,97 @@ func ReadObservations(r io.Reader) (string, []model.Observation, error) {
 		return "", nil, fmt.Errorf("no observations read from input (is stdin empty?)")
 	}
 	return seriesID, obs, nil
+}
+
+// ReadObservationGroups reads JSONL records from r and groups them by series_id.
+// The returned slice preserves the order in which each distinct series first appeared.
+func ReadObservationGroups(r io.Reader) ([]ObservationGroup, error) {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+
+	groups := make(map[string][]model.Observation)
+	order := make([]string, 0)
+	lineNum := 0
+
+	for scanner.Scan() {
+		rec, observation, skip, err := parseObservationLine(scanner.Text(), &lineNum)
+		if err != nil {
+			return nil, err
+		}
+		if skip {
+			continue
+		}
+
+		seriesID := rec.SeriesID
+		if _, ok := groups[seriesID]; !ok {
+			order = append(order, seriesID)
+		}
+		groups[seriesID] = append(groups[seriesID], observation)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading input: %w", err)
+	}
+	if len(order) == 0 {
+		return nil, fmt.Errorf("no observations read from input (is stdin empty?)")
+	}
+
+	out := make([]ObservationGroup, 0, len(order))
+	for _, seriesID := range order {
+		out = append(out, ObservationGroup{
+			SeriesID: seriesID,
+			Obs:      groups[seriesID],
+		})
+	}
+	return out, nil
+}
+
+func parseObservationLine(line string, lineNum *int) (observationRow, model.Observation, bool, error) {
+	var zeroObs model.Observation
+	var rec observationRow
+
+	line = strings.TrimSpace(line)
+	*lineNum = *lineNum + 1
+	if line == "" || strings.HasPrefix(line, "//") {
+		return rec, zeroObs, true, nil
+	}
+	if err := json.Unmarshal([]byte(line), &rec); err != nil {
+		return rec, zeroObs, false, fmt.Errorf("line %d: invalid JSON: %w", *lineNum, err)
+	}
+
+	date, err := time.Parse("2006-01-02", rec.Date)
+	if err != nil {
+		return rec, zeroObs, false, fmt.Errorf("line %d: invalid date %q", *lineNum, rec.Date)
+	}
+
+	var val float64
+	raw := rec.ValueRaw
+	switch v := rec.Value.(type) {
+	case nil:
+		val = math.NaN()
+		if raw == "" {
+			raw = "."
+		}
+	case float64:
+		val = v
+		if raw == "" {
+			raw = fmt.Sprintf("%g", v)
+		}
+	case string:
+		if v == "" || v == "." {
+			val = math.NaN()
+			raw = "."
+		} else {
+			return rec, zeroObs, false, fmt.Errorf("line %d: unexpected string value %q", *lineNum, v)
+		}
+	default:
+		return rec, zeroObs, false, fmt.Errorf("line %d: unexpected value type %T", *lineNum, rec.Value)
+	}
+
+	return rec, model.Observation{
+		Date:     date,
+		Value:    val,
+		ValueRaw: raw,
+	}, false, nil
 }
 
 // WriteJSONL writes observations as JSONL to w.

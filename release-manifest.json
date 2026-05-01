@@ -1,16 +1,16 @@
 {
-  "latest_version": "v1.1.3",
-  "published_at": "2026-04-24T00:00:00Z",
+  "latest_version": "v1.1.4",
+  "published_at": "2026-04-29T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.3",
-  "summary": "Adds Phase 1 self-update support, better cache management visibility, and release plumbing refinements.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.4",
+  "summary": "Adds multi-series summary analysis and sharper onboarding for LLM-driven reserve workflows.",
   "highlights": [
-    "New reserve update apply command for macOS and Linux",
-    "Dry-run and force modes for safe live-path updater testing",
-    "Windows update flow now prints exact manual download targets",
-    "New reserve cache path command for active database discovery",
-    "Cache stats now includes schema version and on-disk database size",
-    "Updater and cache-management coverage expanded in command tests"
+    "New reserve analyze summary --by-series mode for grouped per-series summaries",
+    "Batched obs get workflows now pair cleanly with multi-series summary analysis",
+    "Pipeline layer now supports grouped JSONL observation reading by series_id",
+    "Bare reserve onboard is now a concise routing brief for LLMs",
+    "Onboarding content now highlights batched multi-series obs get usage much more explicitly",
+    "Topic onboarding was trimmed to avoid duplicate command catalogs in the base program payload"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

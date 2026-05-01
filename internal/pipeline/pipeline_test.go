@@ -272,6 +272,35 @@ func TestReadLargeInput(t *testing.T) {
 	}
 }
 
+func TestReadObservationGroups(t *testing.T) {
+	input := jsonl(
+		`{"series_id":"FEDFUNDS","date":"2020-01-01","value":3.5,"value_raw":"3.5"}`,
+		`{"series_id":"UNRATE","date":"2020-01-01","value":4.0,"value_raw":"4.0"}`,
+		`{"series_id":"FEDFUNDS","date":"2020-02-01","value":3.6,"value_raw":"3.6"}`,
+		`{"series_id":"UNRATE","date":"2020-02-01","value":4.1,"value_raw":"4.1"}`,
+	)
+	groups, err := pipeline.ReadObservationGroups(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(groups))
+	}
+	if groups[0].SeriesID != "FEDFUNDS" || len(groups[0].Obs) != 2 {
+		t.Fatalf("unexpected first group: %+v", groups[0])
+	}
+	if groups[1].SeriesID != "UNRATE" || len(groups[1].Obs) != 2 {
+		t.Fatalf("unexpected second group: %+v", groups[1])
+	}
+}
+
+func TestReadObservationGroupsEmptyInputError(t *testing.T) {
+	_, err := pipeline.ReadObservationGroups(strings.NewReader(""))
+	if err == nil {
+		t.Fatal("expected error for empty grouped input")
+	}
+}
+
 // ─── WriteJSONL ───────────────────────────────────────────────────────────────
 
 func TestWriteBasicFloat(t *testing.T) {

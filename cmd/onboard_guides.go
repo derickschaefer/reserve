@@ -52,23 +52,41 @@ func buildProgramOnboardDoc() map[string]any {
 	doc := buildBaseOnboardDoc()
 	doc["scope"] = "program"
 	doc["program"] = map[string]any{
-		"description": "Full-program onboarding for reserve. Use this when the model can keep substantial local context " +
-			"and needs a durable understanding of the entire CLI rather than a single command family.",
-		"command_count":  len(onboardCommandRegistry),
-		"global_flags":   buildGlobalFlags(),
-		"workflow":       buildProgramWorkflow(),
-		"command_guides": buildCommandGuides(),
+		"description":   "Concise program onboarding for reserve. Use this as the default LLM entrypoint: it teaches the operating rules, command families, batch-fetch workflow, and the drill-down paths for command-specific details.",
+		"command_count": len(onboardCommandRegistry),
+		"global_flags":  buildGlobalFlags(),
+		"workflow":      buildProgramWorkflow(),
+		"operating_rules": []string{
+			"Prefer batched `obs get` calls when several series share the same date window or options.",
+			"Use `reserve analyze summary --by-series` to summarize a multi-series JSONL stream in one command.",
+			"Add `--format jsonl` on `obs get` before any pipeline.",
+			"Use `reserve onboard <command>` for authoritative detail on one command family.",
+			"Use `reserve onboard --topic all` only when a large context window can absorb the full program contract.",
+		},
+		"command_index": buildCommandIndex(),
+		"topic_index":   buildTOC(),
 		"export": map[string]any{
 			"usage":   "reserve onboard export <DIR>",
 			"outputs": "writes program.json plus one JSON file per top-level command guide",
 		},
-		"pipeline":       buildPipeline(),
-		"data_model":     buildDataModel(),
-		"gotchas":        buildGotchas(),
-		"examples":       buildExamples(),
+		"pipeline_brief": map[string]any{
+			"source":   "`obs get` is the primary source command for live or cached observations.",
+			"batching": "When comparing several series over the same date range, prefer one batched `obs get` call.",
+			"analysis": "For per-series descriptive statistics from batched streams, use `analyze summary --by-series`.",
+		},
+		"drill_down_examples": []string{
+			"reserve onboard obs",
+			"reserve onboard analyze",
+			"reserve onboard --topic pipeline,gotchas",
+			"reserve onboard --topic all",
+		},
+		"examples": []string{
+			"reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
+			"reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl | reserve transform pct-change --period 12 | reserve window roll --stat mean --window 3 | reserve analyze trend",
+		},
 		"version_detail": buildVersionDetail(),
 		"suggested_prompt": "I am pasting the output of `reserve onboard`. This is the authoritative reference for the entire reserve CLI. " +
-			"Use it as the source of truth for commands, pipeline semantics, and known gotchas. Tell me when you are ready.",
+			"Use it as the source of truth for commands, pipeline semantics, and batch observation workflows. Ask for `reserve onboard <command>` details when needed. Tell me when you are ready.",
 	}
 	return doc
 }
@@ -130,7 +148,8 @@ func buildProgramWorkflow() []string {
 		"Discover series with `reserve search`, `reserve series search`, `reserve category`, `reserve release`, `reserve source`, or `reserve tag`.",
 		"Rights checks are enforced when retrieving, displaying, exporting, or publishing series data. Discovery/search commands remain open so you can identify candidate series IDs first.",
 		"Choose a source command for data: `reserve obs get` for live API reads or `reserve obs get --from cache` for local cached reads.",
-		"Build JSONL pipelines with `transform`, `window`, `analyze`, and `chart`.",
+		"When several series share the same date range or options, prefer one batched `reserve obs get <ID...>` call over many one-series calls.",
+		"Build JSONL pipelines with `transform`, `window`, `analyze`, and `chart`. For multi-series descriptive statistics, use `reserve analyze summary --by-series`.",
 		"Persist durable local data with one batched `reserve fetch series <ID...> --store` call when possible, rather than many one-off fetches. reserve applies bounded concurrency and a shared rate limiter for batch operations.",
 		"Read stored data back with `obs get --from cache`, and maintain it with `cache`.",
 		"Export onboarding bundles with `reserve onboard export <DIR>` when you want project-ready JSON files instead of stdout output.",
@@ -168,39 +187,42 @@ func makeGuide(summary, description, mentalModel, pipelineRole, ioContract strin
 
 func buildAnalyzeGuide() map[string]any {
 	return makeGuide(
-		"Statistical summaries and trend models for a single JSONL observation stream.",
+		"Statistical summaries and trend models for JSONL observation streams, including grouped per-series summaries.",
 		"`analyze` is a terminal pipeline command family. It consumes JSONL from stdin and prints human-oriented output or JSON summaries.",
-		"Use `analyze summary` for descriptive statistics and `analyze trend` when you need slope, direction, and fit quality.",
+		"Use `analyze summary` for descriptive statistics, add `--by-series` when one JSONL stream contains several series IDs, and use `analyze trend` when you need slope, direction, and fit quality for one series stream.",
 		"Terminal pipeline stage: JSONL in, summary out.",
 		"Reads JSONL observations from stdin. Does not emit JSONL for downstream reserve commands.",
 		map[string]any{
-			"summary": "reserve analyze summary",
+			"summary": "reserve analyze summary [--by-series]",
 			"trend":   "reserve analyze trend [--method linear|theil-sen]",
 		},
 		map[string]any{
-			"summary": "primarily global `--format`; no analyze-specific flags",
+			"summary": "global `--format` plus optional `--by-series` for grouped multi-series summaries",
 			"trend":   "--method linear|theil-sen",
 		},
-		[]string{"summary table", "JSON summary object when `--format json`"},
+		[]string{"summary table", "JSON summary object when `--format json`", "JSON array or JSONL stream when `--by-series` is used"},
 		[]string{
 			"When you already have a single observation stream and want descriptive statistics or a trend estimate.",
+			"When you have batched several series through one `obs get ... --format jsonl` call and want one descriptive summary per series.",
 			"When the next step is interpretation, reporting, or comparison rather than more pipeline transformation.",
 		},
 		[]string{
 			"When you need downstream JSONL for another reserve pipeline stage.",
-			"When your stdin contains interleaved rows from multiple series and you have not split them first.",
+			"When you want grouped multi-series trend fits; `trend` still operates on one series stream at a time.",
 		},
 		[]string{
 			"Summarize one series after filtering or resampling.",
+			"Summarize several indicators fetched together in one batched pipeline.",
 			"Estimate whether a post-2020 trend is up, down, or flat.",
 		},
 		[]string{
 			"reserve obs get CPIAUCSL --from cache --format jsonl | reserve analyze summary",
+			"reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
 			"reserve obs get UNRATE --start 2020-01-01 --format jsonl | reserve analyze trend --method theil-sen",
 		},
 		[]string{
 			"`analyze` is terminal. Do not pipe its output into another reserve command.",
-			"Multi-series JSONL input is treated as one stream; analyze each series separately for meaningful results.",
+			"`analyze summary --by-series` is the supported way to summarize batched multi-series JSONL input. Other analyze verbs still expect one logical series stream.",
 		},
 		[]string{"obs", "transform", "window", "chart"},
 	)
@@ -479,7 +501,7 @@ func buildOnboardSelfGuide() map[string]any {
 	return makeGuide(
 		"Emit machine-readable onboarding JSON for reserve itself.",
 		"`onboard` is the meta-command for teaching an external agent, LLM, or advanced user how reserve works. It supports whole-program onboarding, topic slices, and command-specific onboarding.",
-		"Use bare `reserve onboard` for full-program context, `reserve onboard --topic ...` for topic slices, `reserve onboard <command>` for focused command onboarding, and `reserve onboard export <DIR>` for multi-file project bundles.",
+		"Use bare `reserve onboard` for a concise routing brief, `reserve onboard --topic ...` for program-level topic slices, `reserve onboard <command>` for focused command onboarding, `reserve onboard --topic all` for full-context platforms like NotebookLM, and `reserve onboard export <DIR>` for multi-file project bundles.",
 		"Support command. Produces structured JSON, not observation data.",
 		"Writes JSON or JSONL describing reserve semantics. It does not call the FRED API.",
 		map[string]any{
@@ -504,12 +526,13 @@ func buildOnboardSelfGuide() map[string]any {
 			"When you want shell-generated help text; use `help` for human CLI help.",
 		},
 		[]string{
-			"Give a model the entire program contract.",
+			"Give a model the routing brief and operating rules, then drill into one command family.",
 			"Provide a model just the `series` command guide.",
 		},
 		[]string{
 			"reserve onboard",
 			"reserve onboard --topic pipeline,gotchas",
+			"reserve onboard --topic all",
 			"reserve onboard series",
 			"reserve onboard export ./onboard",
 		},
@@ -571,7 +594,7 @@ func buildObsGuide() map[string]any {
 	return makeGuide(
 		"Fetch observation data from live FRED or from the local cache through one canonical command family.",
 		"`obs` is the canonical observation retrieval command family for both live API reads and local cached reads.",
-		"Use `obs get` for observation ranges, optionally selecting origin with `--from`, and `obs latest` for the most recent live point per series.",
+		"Use `obs get` for observation ranges, optionally selecting origin with `--from`, and `obs latest` for the most recent live point per series. `obs get` accepts multiple series IDs and fetches them concurrently under one bounded, rate-limited batch request path.",
 		"Source command: emits observations that often feed downstream pipelines.",
 		"`obs get` can emit table, JSON, JSONL, CSV, TSV, or Markdown. `--from live` is the default; `--from cache` reads from the local embedded key-value cache (bbolt). If multiple cached observation sets exist and no exact parameters are provided, reserve chooses a canonical local set and warns. When piping, explicitly use `--format jsonl`.",
 		map[string]any{
@@ -586,6 +609,7 @@ func buildObsGuide() map[string]any {
 		[]string{
 			"When you need observation values and want one canonical entry point regardless of origin.",
 			"When you want live FRED observations right now or cached local reads after ingesting with `fetch --store`.",
+			"When you need several series for the same date window and want reserve to fetch them concurrently in one command.",
 		},
 		[]string{
 			"When you want repeatable offline reads after caching data locally; use `obs get --from cache`.",
@@ -593,15 +617,18 @@ func buildObsGuide() map[string]any {
 		},
 		[]string{
 			"Fetch a date-bounded observation range.",
+			"Fetch several indicators together for one comparative analysis window.",
 			"Get the latest reading for one or more known series IDs.",
 		},
 		[]string{
 			"reserve obs get CPIAUCSL --start 2020-01-01 --format jsonl",
+			"reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
 			"reserve obs latest FEDFUNDS UNRATE",
 		},
 		[]string{
 			"`obs get` defaults to table format even when piped. Always add `--format jsonl` before `| reserve transform ...`.",
-			"If you fetch multiple series at once and pipe them, downstream pipeline operators treat the interleaved rows as one stream.",
+			"If you fetch multiple series at once and pipe them, use downstream commands that understand the grouping you need. `reserve analyze summary --by-series` is the direct per-series summary path.",
+			"For agentic use, prefer one multi-series `obs get` call over many one-series calls when the date range and options are the same.",
 			"If multiple cached observation sets exist for a series, bare `--from cache` chooses one canonical local set and warns. Add explicit date parameters when you need a precise cached variant.",
 			"For agentic use, prefer live reads for one-off answers, inspect `cache inventory` before storing more local series data, and ask the user before deleting or rebuilding cached series with `cache clear --series`.",
 		},

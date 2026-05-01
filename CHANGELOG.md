@@ -2,9 +2,25 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.3` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.4` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.4 — 2026-04-29 — Multi-Series Summary Analysis and Sharper LLM Onboarding
+
+**Added**
+
+- New `reserve analyze summary --by-series` mode to summarize a multi-series JSONL stream by `series_id` in one command
+- Grouped JSONL observation reading support in the pipeline layer for multi-series summary workflows
+
+**Changed**
+
+- Bare `reserve onboard` now emits a concise routing brief instead of a full command-library dump
+- Onboarding content now promotes batched `reserve obs get <ID...>` usage much more explicitly for shared-window comparisons
+- `obs`, `analyze`, pipeline examples, and gotchas now teach the preferred multi-series workflow: batched `obs get` plus `analyze summary --by-series`
+- Topic-oriented onboarding was trimmed to avoid duplicating the command catalog in the base program payload
 
 ---
 
