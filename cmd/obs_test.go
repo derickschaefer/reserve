@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bytes"
 	"math"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,9 @@ import (
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/fred"
 	"github.com/derickschaefer/reserve/internal/model"
+	"github.com/derickschaefer/reserve/internal/render"
 	"github.com/derickschaefer/reserve/internal/store"
+	"github.com/spf13/cobra"
 )
 
 func TestLatestRowRoundTripPreservesNumericValue(t *testing.T) {
@@ -75,6 +78,27 @@ func TestLatestRowToSeriesDataPreservesCitationMeta(t *testing.T) {
 	}
 	if got.Meta.CitationText != "Source: Freddie Mac via FRED" {
 		t.Fatalf("citation text mismatch: got %q", got.Meta.CitationText)
+	}
+}
+
+func TestObsFooterWriterUsesStderrForMachineFormats(t *testing.T) {
+	cmd := &cobra.Command{}
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetErr(&errBuf)
+
+	if got := obsFooterWriter(cmd, render.FormatJSONL); got != cmd.ErrOrStderr() {
+		t.Fatalf("jsonl footer writer should be stderr")
+	}
+	if got := obsFooterWriter(cmd, render.FormatJSON); got != cmd.ErrOrStderr() {
+		t.Fatalf("json footer writer should be stderr")
+	}
+	if got := obsFooterWriter(cmd, render.FormatCSV); got != cmd.ErrOrStderr() {
+		t.Fatalf("csv footer writer should be stderr")
+	}
+	if got := obsFooterWriter(cmd, render.FormatTable); got != cmd.OutOrStdout() {
+		t.Fatalf("table footer writer should be stdout")
 	}
 }
 

@@ -84,13 +84,16 @@ func buildDeps() (*app.Deps, error) {
 	cfg.Verbose = globalFlags.Verbose
 	cfg.Debug = globalFlags.Debug
 
+	if err := validateGlobalFlagOverrides(nil, nil); err != nil {
+		return nil, err
+	}
+
 	if globalFlags.Format != "" {
 		cfg.Format = globalFlags.Format
 	}
 	if globalFlags.Timeout != "" {
-		if d, err2 := time.ParseDuration(globalFlags.Timeout); err2 == nil {
-			cfg.Timeout = d
-		}
+		d, _ := parseGlobalTimeout()
+		cfg.Timeout = d
 	}
 	if globalFlags.Concurrency > 0 {
 		cfg.Concurrency = globalFlags.Concurrency
@@ -113,7 +116,38 @@ func buildDeps() (*app.Deps, error) {
 	return deps, nil
 }
 
+func validateGlobalFlagOverrides(_ *cobra.Command, _ []string) error {
+	if globalFlags.Format != "" && !config.IsValidFormat(globalFlags.Format) {
+		return fmt.Errorf("--format must be one of table, json, jsonl, csv, tsv, md")
+	}
+	if globalFlags.Timeout != "" {
+		if _, err := parseGlobalTimeout(); err != nil {
+			return err
+		}
+	}
+	if rootCmd.PersistentFlags().Changed("concurrency") && globalFlags.Concurrency <= 0 {
+		return fmt.Errorf("--concurrency must be > 0")
+	}
+	if rootCmd.PersistentFlags().Changed("rate") && globalFlags.Rate <= 0 {
+		return fmt.Errorf("--rate must be > 0")
+	}
+	return nil
+}
+
+func parseGlobalTimeout() (time.Duration, error) {
+	d, err := time.ParseDuration(globalFlags.Timeout)
+	if err != nil {
+		return 0, fmt.Errorf("--timeout: %w", err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("--timeout must be > 0")
+	}
+	return d, nil
+}
+
 func init() {
+	rootCmd.PersistentPreRunE = validateGlobalFlagOverrides
+
 	pf := rootCmd.PersistentFlags()
 
 	pf.StringVar(&globalFlags.APIKey, "api-key", "",

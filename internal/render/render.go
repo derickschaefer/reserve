@@ -43,8 +43,10 @@ func Render(w io.Writer, result *model.Result, format string) error {
 		return renderDelimited(w, result, '\t')
 	case FormatMD:
 		return renderMarkdown(w, result)
-	default:
+	case FormatTable, "":
 		return renderTable(w, result)
+	default:
+		return fmt.Errorf("unknown format %q: choose table|json|jsonl|csv|tsv|md", format)
 	}
 }
 

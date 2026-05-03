@@ -229,8 +229,7 @@ func TestLoadNoConfigFile(t *testing.T) {
 	}
 }
 
-func TestLoadInvalidTimeoutIgnored(t *testing.T) {
-	// Invalid timeout string in file should be ignored, not error
+func TestLoadRejectsInvalidTimeout(t *testing.T) {
 	dir := t.TempDir()
 	clearEnv(t)
 	writeConfig(t, dir, config.File{
@@ -238,13 +237,57 @@ func TestLoadInvalidTimeoutIgnored(t *testing.T) {
 		Timeout: "not-a-duration",
 	})
 
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	_, err := config.Load("")
+	if err == nil {
+		t.Fatalf("expected invalid timeout to error")
 	}
-	// Should fall back to default timeout
-	if cfg.Timeout != config.DefaultTimeout {
-		t.Errorf("invalid timeout should use default %v, got %v", config.DefaultTimeout, cfg.Timeout)
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidRuntimeConfigValues(t *testing.T) {
+	cases := []struct {
+		name string
+		file config.File
+		want string
+	}{
+		{
+			name: "format",
+			file: config.File{APIKey: "k", DefaultFormat: "jsno"},
+			want: "default_format",
+		},
+		{
+			name: "zero timeout",
+			file: config.File{APIKey: "k", Timeout: "0s"},
+			want: "timeout",
+		},
+		{
+			name: "negative concurrency",
+			file: config.File{APIKey: "k", Concurrency: -1},
+			want: "concurrency",
+		},
+		{
+			name: "negative rate",
+			file: config.File{APIKey: "k", Rate: -1},
+			want: "rate",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			clearEnv(t)
+			writeConfig(t, dir, tc.file)
+
+			_, err := config.Load("")
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected error containing %q, got %v", tc.want, err)
+			}
+		})
 	}
 }
 

@@ -117,11 +117,15 @@ func Load(flagAPIKey string) (*Config, error) {
 	// Layer 1: per-user config.json (lowest file priority)
 	if f, path, err := loadUserFile(); err == nil {
 		applyFile(cfg, f, path)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
 	}
 
 	// Layer 2: local config.json overrides per-user config
 	if f, path, err := loadLocalFile(); err == nil {
 		applyFile(cfg, f, path)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
 	}
 
 	// Layer 3: environment variable
@@ -250,7 +254,7 @@ func userConfigCandidate() (configCandidate, error) {
 
 func loadFile(candidate configCandidate) (*File, string, error) {
 	if !candidate.exists {
-		return nil, "", fmt.Errorf("config.json not found at %s", candidate.path)
+		return nil, "", fmt.Errorf("config.json not found at %s: %w", candidate.path, fs.ErrNotExist)
 	}
 	path := candidate.path
 	data, err := os.ReadFile(path)
@@ -421,7 +425,7 @@ func parseFile(data []byte) (File, error) {
 		return File{}, err
 	}
 	f = withMissingDefaults(raw, f)
-	if err := validateFile(f); err != nil {
+	if err := validateRawFile(raw, f); err != nil {
 		return File{}, err
 	}
 	return canonicalizeFile(f), nil
@@ -492,6 +496,18 @@ func mergeRightsRefreshDays(in map[string]int) map[string]int {
 }
 
 func validateRuntime(cfg *Config) error {
+	if cfg.Format != "" && !IsValidFormat(cfg.Format) {
+		return fmt.Errorf("config.json: default_format must be one of table, json, jsonl, csv, tsv, md")
+	}
+	if cfg.Timeout <= 0 {
+		return fmt.Errorf("config.json: timeout must be > 0")
+	}
+	if cfg.Concurrency <= 0 {
+		return fmt.Errorf("config.json: concurrency must be > 0")
+	}
+	if cfg.Rate <= 0 {
+		return fmt.Errorf("config.json: rate must be > 0")
+	}
 	if !slices.Contains([]string{"commercial", "personal", "student"}, cfg.PersonOrgType) {
 		return fmt.Errorf("config.json: person_org_type must be one of commercial, personal, student")
 	}
@@ -503,13 +519,56 @@ func validateRuntime(cfg *Config) error {
 	return nil
 }
 
+func IsValidFormat(format string) bool {
+	return slices.Contains([]string{"table", "json", "jsonl", "csv", "tsv", "md"}, format)
+}
+
 func validateFile(f File) error {
 	f = canonicalizeFile(f)
 	cfg := &Config{
+		Format:            f.DefaultFormat,
+		Timeout:           DefaultTimeout,
+		Concurrency:       DefaultConcurrency,
+		Rate:              DefaultRate,
 		PersonOrgType:     f.PersonOrgType,
 		RightsRefreshDays: mergeRightsRefreshDays(f.RightsRefreshDays),
 	}
+	if f.Timeout != "" {
+		d, err := time.ParseDuration(f.Timeout)
+		if err != nil {
+			return fmt.Errorf("config.json: timeout: %w", err)
+		}
+		cfg.Timeout = d
+	}
+	if f.Concurrency > 0 {
+		cfg.Concurrency = f.Concurrency
+	}
+	if f.Rate > 0 {
+		cfg.Rate = f.Rate
+	}
 	return validateRuntime(cfg)
+}
+
+func validateRawFile(raw map[string]json.RawMessage, f File) error {
+	if err := validateFile(f); err != nil {
+		return err
+	}
+	if _, ok := raw["timeout"]; ok && strings.TrimSpace(f.Timeout) != "" {
+		d, err := time.ParseDuration(f.Timeout)
+		if err != nil {
+			return fmt.Errorf("config.json: timeout: %w", err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("config.json: timeout must be > 0")
+		}
+	}
+	if _, ok := raw["concurrency"]; ok && f.Concurrency < 0 {
+		return fmt.Errorf("config.json: concurrency must be > 0")
+	}
+	if _, ok := raw["rate"]; ok && f.Rate < 0 {
+		return fmt.Errorf("config.json: rate must be > 0")
+	}
+	return nil
 }
 
 func needsUpgrade(raw map[string]json.RawMessage) bool {

@@ -110,3 +110,16 @@ func TestRenderCSV_SeriesData_IncludesCitationColumn(t *testing.T) {
 		t.Fatalf("csv output missing citation text: %s", out)
 	}
 }
+
+func TestRenderRejectsUnknownFormat(t *testing.T) {
+	result := &model.Result{Kind: model.KindSeriesMeta, Data: []model.SeriesMeta{}}
+
+	var buf bytes.Buffer
+	err := Render(&buf, result, "jsno")
+	if err == nil {
+		t.Fatalf("expected unknown format error")
+	}
+	if !strings.Contains(err.Error(), "unknown format") {
+		t.Fatalf("expected unknown format error, got %v", err)
+	}
+}

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
@@ -142,7 +143,7 @@ var obsGetCmd = &cobra.Command{
 			if err := render.RenderTo(globalFlags.Out, result, format); err != nil {
 				return err
 			}
-			render.PrintFooter(cmd.OutOrStdout(), result, deps.Config.Verbose)
+			render.PrintFooter(obsFooterWriter(cmd, format), result, deps.Config.Verbose)
 			return nil
 		}
 
@@ -167,7 +168,7 @@ var obsGetCmd = &cobra.Command{
 			}
 		}
 		if len(warnings) > 0 {
-			render.PrintFooter(cmd.OutOrStdout(), &model.Result{Warnings: warnings}, deps.Config.Verbose)
+			render.PrintFooter(obsFooterWriter(cmd, format), &model.Result{Warnings: warnings}, deps.Config.Verbose)
 		}
 		return nil
 	},
@@ -178,6 +179,15 @@ func validateObsSourceConfig(deps *app.Deps, src obsSource) error {
 		return deps.Config.Validate()
 	}
 	return nil
+}
+
+func obsFooterWriter(cmd *cobra.Command, format string) io.Writer {
+	switch format {
+	case render.FormatJSON, render.FormatJSONL, render.FormatCSV, render.FormatTSV, render.FormatMD:
+		return cmd.ErrOrStderr()
+	default:
+		return cmd.OutOrStdout()
+	}
 }
 
 // ─── obs latest ───────────────────────────────────────────────────────────────
