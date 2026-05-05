@@ -1,5 +1,5 @@
 BINARY   := reserve
-VERSION  := v1.1.4
+VERSION  := v1.1.5
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 GOMODCACHE_DIR := $(CURDIR)/.gomodcache
@@ -175,7 +175,7 @@ verify-signature:
 		exit 1; \
 	fi
 	@if [ -z "$(RELEASE_TAG)" ]; then \
-		echo "Usage: make verify-signature RELEASE_TAG=v1.1.4"; \
+		echo "Usage: make verify-signature RELEASE_TAG=v1.1.5"; \
 		exit 1; \
 	fi
 	cosign verify-blob \

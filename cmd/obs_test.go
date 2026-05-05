@@ -102,6 +102,32 @@ func TestObsFooterWriterUsesStderrForMachineFormats(t *testing.T) {
 	}
 }
 
+func TestLatestCitationFooter(t *testing.T) {
+	rows := []latestRow{
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Economic Analysis via FRED"}},
+	}
+
+	got := latestCitationFooter(rows)
+	want := "Sources: Bureau of Labor Statistics via FRED; Bureau of Economic Analysis via FRED"
+	if got != want {
+		t.Fatalf("citation footer = %q, want %q", got, want)
+	}
+}
+
+func TestLatestCitationFooterKeepsSingleSourceLabel(t *testing.T) {
+	rows := []latestRow{
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+	}
+
+	got := latestCitationFooter(rows)
+	want := "Source: Bureau of Labor Statistics via FRED"
+	if got != want {
+		t.Fatalf("citation footer = %q, want %q", got, want)
+	}
+}
+
 func TestResolveObsSourceDefaultIsLive(t *testing.T) {
 	src, err := resolveObsSource("")
 	if err != nil {

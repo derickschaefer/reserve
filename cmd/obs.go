@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
@@ -240,17 +241,9 @@ var obsLatestCmd = &cobra.Command{
 			for _, w := range warnings {
 				fmt.Fprintf(cmd.OutOrStdout(), "⚠  %s\n", w)
 			}
-			seenCitation := make(map[string]struct{})
-			for _, r := range rows {
-				if r.Meta == nil || r.Meta.CitationText == "" {
-					continue
-				}
-				if _, ok := seenCitation[r.Meta.CitationText]; ok {
-					continue
-				}
-				seenCitation[r.Meta.CitationText] = struct{}{}
+			if footer := latestCitationFooter(rows); footer != "" {
 				fmt.Fprintln(cmd.OutOrStdout())
-				fmt.Fprintln(cmd.OutOrStdout(), r.Meta.CitationText)
+				fmt.Fprintln(cmd.OutOrStdout(), footer)
 			}
 			return nil
 		}
@@ -290,5 +283,36 @@ func init() {
 		c.Flags().StringVar(&obsAgg, "agg", "", "aggregation: avg|sum|eop")
 		c.Flags().IntVar(&obsLimit, "limit", 0, "max observations (0 = all)")
 		c.Flags().StringVar(&obsFrom, "from", "", "data source: live|cache (default: live)")
+	}
+}
+
+func latestCitationFooter(rows []latestRow) string {
+	seen := make(map[string]struct{})
+	citations := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if r.Meta == nil {
+			continue
+		}
+		citation := strings.TrimSpace(r.Meta.CitationText)
+		if citation == "" {
+			continue
+		}
+		if _, ok := seen[citation]; ok {
+			continue
+		}
+		seen[citation] = struct{}{}
+		citations = append(citations, citation)
+	}
+
+	switch len(citations) {
+	case 0:
+		return ""
+	case 1:
+		return citations[0]
+	default:
+		for i, citation := range citations {
+			citations[i] = strings.TrimSpace(strings.TrimPrefix(citation, "Source:"))
+		}
+		return "Sources: " + strings.Join(citations, "; ")
 	}
 }
