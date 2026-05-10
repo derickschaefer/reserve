@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -96,24 +97,25 @@ var configGetCmd = &cobra.Command{
 			defer closeFn()
 
 			type configOut struct {
-				APIKey                             string         `json:"api_key"`
-				Format                             string         `json:"default_format"`
-				Timeout                            string         `json:"timeout"`
-				Concurrency                        int            `json:"concurrency"`
-				Rate                               float64        `json:"rate"`
-				BaseURL                            string         `json:"base_url"`
-				DBPath                             string         `json:"db_path"`
-				PersonOrgType                      string         `json:"person_org_type"`
-				BlockUnknownRights                 bool           `json:"block_unknown_rights"`
-				BlockAmbiguousRights               bool           `json:"block_ambiguous_rights"`
-				BlockPreapprovalRequiredCommercial bool           `json:"block_preapproval_required_in_commercial"`
-				RequireCitationOnDisplay           bool           `json:"require_citation_on_display"`
-				RequireCitationOnExport            bool           `json:"require_citation_on_export"`
-				AllowOverrideWithPermissionRecord  bool           `json:"allow_override_with_permission_record"`
-				GrantedSeriesPermissions           []string       `json:"granted_series_permissions,omitempty"`
-				RightsRefreshDays                  map[string]int `json:"rights_refresh_days"`
-				LogComplianceDecisions             bool           `json:"log_compliance_decisions"`
-				ConfigFile                         string         `json:"config_file"`
+				APIKey                             string                  `json:"api_key"`
+				Format                             string                  `json:"default_format"`
+				Timeout                            string                  `json:"timeout"`
+				Concurrency                        int                     `json:"concurrency"`
+				Rate                               float64                 `json:"rate"`
+				BaseURL                            string                  `json:"base_url"`
+				DBPath                             string                  `json:"db_path"`
+				PersonOrgType                      string                  `json:"person_org_type"`
+				BlockUnknownRights                 bool                    `json:"block_unknown_rights"`
+				BlockAmbiguousRights               bool                    `json:"block_ambiguous_rights"`
+				BlockPreapprovalRequiredCommercial bool                    `json:"block_preapproval_required_in_commercial"`
+				RequireCitationOnDisplay           bool                    `json:"require_citation_on_display"`
+				RequireCitationOnExport            bool                    `json:"require_citation_on_export"`
+				AllowOverrideWithPermissionRecord  bool                    `json:"allow_override_with_permission_record"`
+				GrantedSeriesPermissions           []string                `json:"granted_series_permissions,omitempty"`
+				SeriesAliases                      map[string]config.Alias `json:"series_aliases,omitempty"`
+				RightsRefreshDays                  map[string]int          `json:"rights_refresh_days"`
+				LogComplianceDecisions             bool                    `json:"log_compliance_decisions"`
+				ConfigFile                         string                  `json:"config_file"`
 			}
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
@@ -133,6 +135,7 @@ var configGetCmd = &cobra.Command{
 				RequireCitationOnExport:            cfg.RequireCitationOnExport,
 				AllowOverrideWithPermissionRecord:  cfg.AllowOverrideWithPermissionRecord,
 				GrantedSeriesPermissions:           cfg.GrantedSeriesPermissions,
+				SeriesAliases:                      cfg.SeriesAliases,
 				RightsRefreshDays:                  cfg.RightsRefreshDays,
 				LogComplianceDecisions:             cfg.LogComplianceDecisions,
 				ConfigFile:                         src,
@@ -161,6 +164,7 @@ var configGetCmd = &cobra.Command{
 				{"require_citation_on_export", fmt.Sprintf("%t", cfg.RequireCitationOnExport)},
 				{"allow_override_with_permission_record", fmt.Sprintf("%t", cfg.AllowOverrideWithPermissionRecord)},
 				{"granted_series_permissions", strings.Join(cfg.GrantedSeriesPermissions, ", ")},
+				{"series_aliases", formatSeriesAliases(cfg.SeriesAliases)},
 				{"rights_refresh_days.default", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("default"))},
 				{"rights_refresh_days.export", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("export"))},
 				{"rights_refresh_days.publish", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("publish"))},
@@ -403,6 +407,27 @@ func printKVTableTo(w io.Writer, rows [][]string) {
 		padding := strings.Repeat(" ", maxKey-len(r[0]))
 		fmt.Fprintf(w, "  %s%s  %s\n", r[0], padding, r[1])
 	}
+}
+
+func formatSeriesAliases(aliases map[string]config.Alias) string {
+	if len(aliases) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(aliases))
+	for alias := range aliases {
+		keys = append(keys, alias)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, alias := range keys {
+		entry := aliases[alias]
+		if entry.Note == "" {
+			parts = append(parts, fmt.Sprintf("%s=%s", alias, entry.SeriesID))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s (%s)", alias, entry.SeriesID, entry.Note))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func setConfigBool(dst *bool, key, val string) error {

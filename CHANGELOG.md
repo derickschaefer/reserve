@@ -8,6 +8,38 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 
 ---
 
+### v1.1.5 — 2026-05-10 — Alias Notes, Obs Latest Citation Consolidation, and Alias Reliability
+
+**Added**
+
+- `reserve alias set <ALIAS> <SERIES_ID> --note "..."` for optional user-authored alias notes
+- Alias table/list output now includes a `NOTE` column
+- `reserve alias get` now prints the stored note when present
+- Integration coverage group `TestAliasContracts` with styled output banners/check summaries
+
+**Changed**
+
+- Go toolchain baseline updated to `go 1.26.3` in `go.mod` (from `1.26.1`)
+- `series_aliases` config shape now stores structured alias entries:
+  - `series_id` (required)
+  - `note` (optional)
+- `reserve obs latest` table-output citation footer now consolidates multi-series sources into one compact line:
+  - Single source: `Source: <provider> via FRED`
+  - Multi-source: `Sources: <provider A> via FRED; <provider B> via FRED`
+- `reserve alias delete` now removes aliases from whichever config file actually owns the alias (local or user), avoiding merged-config visibility/delete mismatches
+- Reserved alias name detection now derives from the live root command tree (instead of a stale hardcoded list)
+
+**Fixed**
+
+- Alias collision checks now fail closed on transient upstream errors (timeout/502/503/504/DNS), preventing accidental alias-to-real-series collisions during outages
+- Alias parsing now tolerates legacy string-form `series_aliases` entries in existing configs while writing canonical structured entries
+- Added coverage for `obs latest` citation footer consolidation:
+  - multi-source output uses one deduplicated `Sources:` line
+  - single-source output keeps the `Source:` label
+- `reserve obs get --format json` now encodes missing observation values (`NaN`) as JSON `null` instead of failing with `json: unsupported value: NaN`
+
+---
+
 ### v1.1.4 — 2026-04-29 — Multi-Series Summary Analysis and Sharper LLM Onboarding
 
 **Added**

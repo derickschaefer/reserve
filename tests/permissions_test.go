@@ -23,6 +23,7 @@ func TestPermissionsCompliance(t *testing.T) {
 	cfg := configOrSkip(t)
 	requirePermissionsEndpoint(t, cfg.BaseURL)
 	client := newPermissionsClient(cfg)
+	skipIfFREDUnavailable(t, client, "FEDFUNDS")
 
 	printBanner(t, "PERMISSIONS & RIGHTS COMPLIANCE")
 	r := &result{}

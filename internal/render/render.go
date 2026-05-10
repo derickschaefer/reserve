@@ -68,6 +68,43 @@ func RenderTo(path string, result *model.Result, format string) error {
 func renderJSON(w io.Writer, result *model.Result) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
+	if result != nil && result.Kind == model.KindSeriesData {
+		if sd, ok := result.Data.(*model.SeriesData); ok {
+			type jsonObservation struct {
+				Date          time.Time `json:"date"`
+				Value         any       `json:"value"`
+				ValueRaw      string    `json:"value_raw"`
+				RealtimeStart string    `json:"realtime_start,omitempty"`
+				RealtimeEnd   string    `json:"realtime_end,omitempty"`
+			}
+			type jsonSeriesData struct {
+				SeriesID string            `json:"series_id"`
+				Meta     *model.SeriesMeta `json:"meta,omitempty"`
+				Obs      []jsonObservation `json:"observations"`
+			}
+			obs := make([]jsonObservation, 0, len(sd.Obs))
+			for _, o := range sd.Obs {
+				var v any = o.Value
+				if math.IsNaN(o.Value) {
+					v = nil
+				}
+				obs = append(obs, jsonObservation{
+					Date:          o.Date,
+					Value:         v,
+					ValueRaw:      o.ValueRaw,
+					RealtimeStart: o.RealtimeStart,
+					RealtimeEnd:   o.RealtimeEnd,
+				})
+			}
+			sanitized := *result
+			sanitized.Data = jsonSeriesData{
+				SeriesID: sd.SeriesID,
+				Meta:     sd.Meta,
+				Obs:      obs,
+			}
+			return enc.Encode(sanitized)
+		}
+	}
 	return enc.Encode(result)
 }
 

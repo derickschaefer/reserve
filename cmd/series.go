@@ -44,7 +44,7 @@ var seriesGetCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		ids := normaliseIDs(args)
+		ids := resolveSeriesIDs(deps, args)
 
 		if len(ids) == 1 {
 			meta, err := ensureSeriesCompliance(cmd.Context(), deps, ids[0], "display")
@@ -168,7 +168,8 @@ var seriesTagsCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		tags, err := deps.Client.GetSeriesTags(cmd.Context(), args[0])
+		seriesID := resolveSeriesID(deps, args[0])
+		tags, err := deps.Client.GetSeriesTags(cmd.Context(), seriesID)
 		if err != nil {
 			return err
 		}
@@ -182,7 +183,7 @@ var seriesTagsCmd = &cobra.Command{
 		result := &model.Result{
 			Kind:        model.KindTag,
 			GeneratedAt: time.Now(),
-			Command:     fmt.Sprintf("series tags %s", args[0]),
+			Command:     fmt.Sprintf("series tags %s", seriesID),
 			Data:        tags,
 			Stats: model.ResultStats{
 				DurationMs: time.Since(start).Milliseconds(),
@@ -211,7 +212,8 @@ var seriesCategoriesCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		cats, err := deps.Client.GetSeriesCategories(cmd.Context(), args[0])
+		seriesID := resolveSeriesID(deps, args[0])
+		cats, err := deps.Client.GetSeriesCategories(cmd.Context(), seriesID)
 		if err != nil {
 			return err
 		}
@@ -225,7 +227,7 @@ var seriesCategoriesCmd = &cobra.Command{
 		result := &model.Result{
 			Kind:        model.KindCategory,
 			GeneratedAt: time.Now(),
-			Command:     fmt.Sprintf("series categories %s", args[0]),
+			Command:     fmt.Sprintf("series categories %s", seriesID),
 			Data:        cats,
 			Stats: model.ResultStats{
 				DurationMs: time.Since(start).Milliseconds(),

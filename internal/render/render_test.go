@@ -5,6 +5,7 @@ package render
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +76,31 @@ func TestRenderJSON_SeriesData_IncludesRightsFields(t *testing.T) {
 	}
 	if !strings.Contains(out, `"citation_text": "Source: Board of Governors via FRED"`) {
 		t.Fatalf("json output missing citation text: %s", out)
+	}
+}
+
+func TestRenderJSON_SeriesData_NaNEncodesAsNull(t *testing.T) {
+	result := &model.Result{
+		Kind: model.KindSeriesData,
+		Data: &model.SeriesData{
+			SeriesID: "APU0000703113",
+			Obs: []model.Observation{
+				{
+					Date:     time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+					Value:    math.NaN(),
+					ValueRaw: ".",
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := Render(&buf, result, FormatJSON); err != nil {
+		t.Fatalf("Render(json): %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `"value": null`) {
+		t.Fatalf("json output should encode NaN as null: %s", out)
 	}
 }
 

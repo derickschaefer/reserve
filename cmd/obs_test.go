@@ -128,6 +128,30 @@ func TestLatestCitationFooterKeepsSingleSourceLabel(t *testing.T) {
 	}
 }
 
+func TestObsCitationFooterMultiSource(t *testing.T) {
+	series := []*model.SeriesData{
+		{Meta: &model.SeriesMeta{CitationText: "Source: Board of Governors via FRED"}},
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+	}
+	got := obsCitationFooter(series)
+	want := "Sources: Board of Governors via FRED; Bureau of Labor Statistics via FRED"
+	if got != want {
+		t.Fatalf("obs citation footer = %q, want %q", got, want)
+	}
+}
+
+func TestObsCitationFooterSingleSource(t *testing.T) {
+	series := []*model.SeriesData{
+		{Meta: &model.SeriesMeta{CitationText: "Source: Board of Governors via FRED"}},
+	}
+	got := obsCitationFooter(series)
+	want := "Source: Board of Governors via FRED"
+	if got != want {
+		t.Fatalf("obs citation footer = %q, want %q", got, want)
+	}
+}
+
 func TestResolveObsSourceDefaultIsLive(t *testing.T) {
 	src, err := resolveObsSource("")
 	if err != nil {

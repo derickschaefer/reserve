@@ -36,6 +36,21 @@ func normaliseIDs(ids []string) []string {
 	return out
 }
 
+func resolveSeriesID(deps *app.Deps, id string) string {
+	if deps == nil || deps.Config == nil {
+		return strings.ToUpper(strings.TrimSpace(id))
+	}
+	return deps.Config.ResolveSeriesAlias(id)
+}
+
+func resolveSeriesIDs(deps *app.Deps, ids []string) []string {
+	resolved := make([]string, 0, len(ids))
+	for _, id := range ids {
+		resolved = append(resolved, resolveSeriesID(deps, id))
+	}
+	return normaliseIDs(resolved)
+}
+
 // resolveFormat returns the effective format string, falling back to "table".
 func resolveFormat(cfgFormat string) string {
 	if globalFlags.Format != "" {

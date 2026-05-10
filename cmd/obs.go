@@ -114,7 +114,7 @@ var obsGetCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		ids := normaliseIDs(args)
+		ids := resolveSeriesIDs(deps, args)
 		format := resolveFormat(deps.Config.Format)
 		commandFrom := ""
 		if obsFrom != "" {
@@ -150,6 +150,23 @@ var obsGetCmd = &cobra.Command{
 
 		// Multiple series: fetch concurrently, output sequentially
 		results, warnings, anyCache := batchGetObs(cmd.Context(), deps, ids, opts, src)
+		if format == render.FormatTable || format == "" {
+			printSimpleTable(cmd.OutOrStdout(), []string{"SERIES", "DATE", "VALUE"}, func(add func(...string)) {
+				for _, data := range results {
+					for _, obs := range data.Obs {
+						add(data.SeriesID, obs.Date.Format("2006-01-02"), obs.ValueRaw)
+					}
+				}
+			})
+			for _, w := range warnings {
+				fmt.Fprintf(cmd.OutOrStdout(), "⚠  %s\n", w)
+			}
+			if footer := obsCitationFooter(results); footer != "" {
+				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintln(cmd.OutOrStdout(), footer)
+			}
+			return nil
+		}
 
 		for _, data := range results {
 			result := &model.Result{
@@ -209,7 +226,7 @@ var obsLatestCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		ids := normaliseIDs(args)
+		ids := resolveSeriesIDs(deps, args)
 		format := resolveFormat(deps.Config.Format)
 
 		var rows []latestRow
@@ -315,4 +332,15 @@ func latestCitationFooter(rows []latestRow) string {
 		}
 		return "Sources: " + strings.Join(citations, "; ")
 	}
+}
+
+func obsCitationFooter(seriesData []*model.SeriesData) string {
+	rows := make([]latestRow, 0, len(seriesData))
+	for _, data := range seriesData {
+		if data == nil || data.Meta == nil {
+			continue
+		}
+		rows = append(rows, latestRow{Meta: data.Meta})
+	}
+	return latestCitationFooter(rows)
 }

@@ -43,25 +43,48 @@ type configCandidate struct {
 	exists bool
 }
 
+type Alias struct {
+	SeriesID string `json:"series_id"`
+	Note     string `json:"note,omitempty"`
+}
+
+func (a *Alias) UnmarshalJSON(data []byte) error {
+	var seriesID string
+	if err := json.Unmarshal(data, &seriesID); err == nil {
+		a.SeriesID = seriesID
+		a.Note = ""
+		return nil
+	}
+	type aliasJSON Alias
+	var dec aliasJSON
+	if err := json.Unmarshal(data, &dec); err != nil {
+		return err
+	}
+	a.SeriesID = dec.SeriesID
+	a.Note = dec.Note
+	return nil
+}
+
 // File is the on-disk representation of config.json.
 type File struct {
-	APIKey                               string         `json:"api_key"`
-	DefaultFormat                        string         `json:"default_format"`
-	Timeout                              string         `json:"timeout"`
-	Concurrency                          int            `json:"concurrency"`
-	Rate                                 float64        `json:"rate"`
-	BaseURL                              string         `json:"base_url"`
-	DBPath                               string         `json:"db_path"`
-	PersonOrgType                        string         `json:"person_org_type"`
-	BlockUnknownRights                   bool           `json:"block_unknown_rights"`
-	BlockAmbiguousRights                 bool           `json:"block_ambiguous_rights"`
-	BlockPreapprovalRequiredInCommercial bool           `json:"block_preapproval_required_in_commercial"`
-	RequireCitationOnDisplay             bool           `json:"require_citation_on_display"`
-	RequireCitationOnExport              bool           `json:"require_citation_on_export"`
-	AllowOverrideWithPermissionRecord    bool           `json:"allow_override_with_permission_record"`
-	GrantedSeriesPermissions             []string       `json:"granted_series_permissions,omitempty"`
-	RightsRefreshDays                    map[string]int `json:"rights_refresh_days"`
-	LogComplianceDecisions               bool           `json:"log_compliance_decisions"`
+	APIKey                               string           `json:"api_key"`
+	DefaultFormat                        string           `json:"default_format"`
+	Timeout                              string           `json:"timeout"`
+	Concurrency                          int              `json:"concurrency"`
+	Rate                                 float64          `json:"rate"`
+	BaseURL                              string           `json:"base_url"`
+	DBPath                               string           `json:"db_path"`
+	PersonOrgType                        string           `json:"person_org_type"`
+	BlockUnknownRights                   bool             `json:"block_unknown_rights"`
+	BlockAmbiguousRights                 bool             `json:"block_ambiguous_rights"`
+	BlockPreapprovalRequiredInCommercial bool             `json:"block_preapproval_required_in_commercial"`
+	RequireCitationOnDisplay             bool             `json:"require_citation_on_display"`
+	RequireCitationOnExport              bool             `json:"require_citation_on_export"`
+	AllowOverrideWithPermissionRecord    bool             `json:"allow_override_with_permission_record"`
+	GrantedSeriesPermissions             []string         `json:"granted_series_permissions,omitempty"`
+	SeriesAliases                        map[string]Alias `json:"series_aliases,omitempty"`
+	RightsRefreshDays                    map[string]int   `json:"rights_refresh_days"`
+	LogComplianceDecisions               bool             `json:"log_compliance_decisions"`
 }
 
 // Config is the fully-resolved runtime configuration.
@@ -82,6 +105,7 @@ type Config struct {
 	RequireCitationOnExport              bool
 	AllowOverrideWithPermissionRecord    bool
 	GrantedSeriesPermissions             []string
+	SeriesAliases                        map[string]Alias
 	RightsRefreshDays                    map[string]int
 	LogComplianceDecisions               bool
 	ConfigPath                           string // path of the config.json that was loaded (empty if none found)
@@ -314,6 +338,14 @@ func applyFile(cfg *Config, f *File, path string) {
 	cfg.RequireCitationOnExport = f.RequireCitationOnExport
 	cfg.AllowOverrideWithPermissionRecord = f.AllowOverrideWithPermissionRecord
 	cfg.GrantedSeriesPermissions = normalizeSeriesIDs(f.GrantedSeriesPermissions)
+	if len(f.SeriesAliases) > 0 {
+		if cfg.SeriesAliases == nil {
+			cfg.SeriesAliases = map[string]Alias{}
+		}
+		for alias, entry := range normalizeSeriesAliases(f.SeriesAliases) {
+			cfg.SeriesAliases[alias] = entry
+		}
+	}
 	if len(f.RightsRefreshDays) > 0 {
 		cfg.RightsRefreshDays = cloneRightsRefreshDays(f.RightsRefreshDays)
 	}
@@ -375,6 +407,20 @@ func (c *Config) HasGrantedSeriesPermission(seriesID string) bool {
 	return false
 }
 
+func (c *Config) ResolveSeriesAlias(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	if c == nil || len(c.SeriesAliases) == 0 {
+		return strings.ToUpper(id)
+	}
+	if entry, ok := c.SeriesAliases[NormalizeAlias(id)]; ok {
+		return entry.SeriesID
+	}
+	return strings.ToUpper(id)
+}
+
 func cloneRightsRefreshDays(in map[string]int) map[string]int {
 	out := make(map[string]int, len(in))
 	for k, v := range in {
@@ -401,6 +447,34 @@ func normalizeSeriesIDs(ids []string) []string {
 		out = append(out, id)
 	}
 	slices.Sort(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func NormalizeAlias(alias string) string {
+	return strings.ToLower(strings.TrimSpace(alias))
+}
+
+func NormalizeSeriesAliases(in map[string]Alias) map[string]Alias {
+	return normalizeSeriesAliases(in)
+}
+
+func normalizeSeriesAliases(in map[string]Alias) map[string]Alias {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]Alias, len(in))
+	for alias, entry := range in {
+		alias = NormalizeAlias(alias)
+		entry.SeriesID = strings.ToUpper(strings.TrimSpace(entry.SeriesID))
+		entry.Note = strings.TrimSpace(entry.Note)
+		if alias == "" || entry.SeriesID == "" {
+			continue
+		}
+		out[alias] = entry
+	}
 	if len(out) == 0 {
 		return nil
 	}
@@ -436,6 +510,7 @@ func canonicalizeFile(f File) File {
 		f.PersonOrgType = DefaultPersonOrg
 	}
 	f.GrantedSeriesPermissions = normalizeSeriesIDs(f.GrantedSeriesPermissions)
+	f.SeriesAliases = normalizeSeriesAliases(f.SeriesAliases)
 	f.RightsRefreshDays = mergeRightsRefreshDays(f.RightsRefreshDays)
 	return f
 }

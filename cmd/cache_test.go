@@ -211,6 +211,7 @@ func seriesWithDates(id string, dates []string) model.SeriesData {
 
 func TestCacheResetBackfillCommandClearsMarker(t *testing.T) {
 	dir := t.TempDir()
+	isolateCacheCommandConfig(t, dir)
 	dbPath := filepath.Join(dir, "reserve.db")
 	s, err := store.Open(dbPath)
 	if err != nil {
@@ -255,6 +256,7 @@ func TestCacheResetBackfillCommandClearsMarker(t *testing.T) {
 
 func TestCachePathCommandPrintsActiveDBPath(t *testing.T) {
 	dir := t.TempDir()
+	isolateCacheCommandConfig(t, dir)
 	dbPath := filepath.Join(dir, "reserve.db")
 	s, err := store.Open(dbPath)
 	if err != nil {
@@ -286,6 +288,7 @@ func TestCachePathCommandPrintsActiveDBPath(t *testing.T) {
 
 func TestCacheStatsCommandIncludesMetadata(t *testing.T) {
 	dir := t.TempDir()
+	isolateCacheCommandConfig(t, dir)
 	dbPath := filepath.Join(dir, "reserve.db")
 	s, err := store.Open(dbPath)
 	if err != nil {
@@ -328,4 +331,14 @@ func TestCacheStatsCommandIncludesMetadata(t *testing.T) {
 			t.Fatalf("expected output to contain %q, got:\n%s", needle, out)
 		}
 	}
+}
+
+func isolateCacheCommandConfig(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv(config.EnvAPIKey, "")
+	t.Setenv(config.EnvDBPath, "")
+	t.Setenv("HOME", filepath.Join(dir, "home"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "xdg"))
+	t.Setenv("APPDATA", filepath.Join(dir, "appdata"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(dir, "localappdata"))
 }

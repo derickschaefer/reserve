@@ -46,7 +46,7 @@ func TestCommandSurface(t *testing.T) {
 
 	rootHelp := runReserveHelp(t, "--help")
 	for _, cmdName := range []string{
-		"analyze", "cache", "category", "chart", "completion", "config",
+		"alias", "analyze", "cache", "category", "chart", "completion", "config",
 		"fetch", "meta", "obs", "onboard", "release", "search",
 		"series", "source", "tag", "transform", "version", "window",
 	} {
@@ -581,6 +581,51 @@ func TestValueSemanticsOffline(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Group 10 — Alias Contracts (offline command behavior)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestAliasContracts(t *testing.T) {
+	printBanner(t, "ALIAS CONTRACTS")
+	r := &result{}
+
+	aliasHelp := runReserveHelp(t, "alias", "--help")
+	for _, token := range []string{"set", "list", "get", "delete", "rm"} {
+		r.check(t, strings.Contains(aliasHelp, token),
+			fmt.Sprintf("alias help includes [%s]", token),
+			fmt.Sprintf("alias help is missing [%s]", token),
+		)
+	}
+	aliasSetHelp := runReserveHelp(t, "alias", "set", "--help")
+	r.check(t, strings.Contains(aliasSetHelp, "--note string"),
+		"alias set help includes [--note string]",
+		"alias set help is missing [--note string]",
+	)
+
+	// Reserved alias names should be rejected before API/config work.
+	out, err := runReserveCmd(t, "alias", "set", "window", "GDP")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "reserved"),
+		"alias set rejects reserved command name [window]",
+		fmt.Sprintf("expected reserved-name rejection, got err=%v out=%q", err, out),
+	)
+
+	// Invalid alias characters should be rejected with guidance.
+	out, err = runReserveCmd(t, "alias", "set", "bad alias", "GDP")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "invalid"),
+		"alias set rejects invalid alias characters",
+		fmt.Sprintf("expected invalid-alias rejection, got err=%v out=%q", err, out),
+	)
+
+	// Missing alias should produce a clear not-found error.
+	out, err = runReserveCmd(t, "alias", "delete", "does-not-exist")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "not found"),
+		"alias delete reports missing alias clearly",
+		fmt.Sprintf("expected not-found rejection, got err=%v out=%q", err, out),
+	)
+
+	r.summary(t, "ALIAS CONTRACTS")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -609,4 +654,15 @@ func runReserveHelp(t *testing.T, args ...string) string {
 		t.Fatalf("go %s failed: %v\n%s", strings.Join(cmdArgs, " "), err, string(out))
 	}
 	return string(out)
+}
+
+func runReserveCmd(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+
+	cmdArgs := append([]string{"run", ".."}, args...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir = filepath.Join("..", "tests")
+	cmd.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }

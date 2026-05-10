@@ -57,7 +57,7 @@ var fetchSeriesCmd = &cobra.Command{
 		}
 
 		start := time.Now()
-		ids := normaliseIDs(args)
+		ids := resolveSeriesIDs(deps, args)
 		format := resolveFormat(deps.Config.Format)
 
 		// --store implies --with-obs for this invocation only.

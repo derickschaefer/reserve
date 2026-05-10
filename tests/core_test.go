@@ -29,6 +29,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -175,6 +176,7 @@ func TestFredAPIConnectivity(t *testing.T) {
 		false,
 	)
 	requireReachableHost(t, mustFormatHostPort("api.stlouisfed.org", 443))
+	skipIfFREDUnavailable(t, client, "UNRATE")
 	dateRegex := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	const seriesID = "UNRATE"
 
@@ -425,6 +427,39 @@ func TestPayloadIntegrity(t *testing.T) {
 	)
 
 	r.summary(t, "PAYLOAD INTEGRITY")
+}
+
+func skipIfFREDUnavailable(t *testing.T, client *fred.Client, probeSeriesID string) {
+	t.Helper()
+
+	_, err := client.GetSeries(context.Background(), probeSeriesID)
+	if err == nil {
+		return
+	}
+
+	if isTransientFREDError(err) {
+		t.Skipf("⏭️  Skipping live FRED checks: upstream unavailable for %s (%v)", probeSeriesID, err)
+	}
+}
+
+func isTransientFREDError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "client.timeout exceeded") ||
+		strings.Contains(msg, "http 502") ||
+		strings.Contains(msg, "http 503") ||
+		strings.Contains(msg, "http 504") ||
+		strings.Contains(msg, "gateway time-out") ||
+		strings.Contains(msg, "temporary failure")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

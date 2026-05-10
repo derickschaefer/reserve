@@ -13,6 +13,7 @@ type onboardCommandGuide struct {
 }
 
 var onboardCommandRegistry = []onboardCommandGuide{
+	{Name: "alias", Category: "setup", Summary: "Manage local friendly names for long FRED series IDs.", Build: buildAliasGuide},
 	{Name: "analyze", Category: "pipeline", Summary: "Terminal statistical summaries and trend fitting for JSONL observation streams.", Build: buildAnalyzeGuide},
 	{Name: "cache", Category: "maintenance", Summary: "Inspect and maintain the local embedded key-value cache file (bbolt).", Build: buildCacheGuide},
 	{Name: "category", Category: "discovery", Summary: "Explore the FRED category tree and list series under categories.", Build: buildCategoryGuide},
@@ -32,6 +33,55 @@ var onboardCommandRegistry = []onboardCommandGuide{
 	{Name: "update", Category: "support", Summary: "Check a remote release manifest for newer versions and release highlights.", Build: buildUpdateGuide},
 	{Name: "version", Category: "support", Summary: "Report build, Go, and platform metadata for provenance and packaging.", Build: buildVersionGuide},
 	{Name: "window", Category: "pipeline", Summary: "Compute rolling-window statistics from JSONL observation streams.", Build: buildWindowGuide},
+}
+
+func buildAliasGuide() map[string]any {
+	return makeGuide(
+		"Create, inspect, and delete local aliases for FRED series IDs.",
+		"`alias` stores user-defined series aliases in config.json so awkward FRED IDs can be referenced by memorable local names.",
+		"Use `alias set` to create or update an alias, `alias list|get` to inspect aliases, and `alias delete|rm` to remove one.",
+		"Not part of the JSONL pipeline model; aliases resolve before source commands call FRED.",
+		"Reads and writes the resolved config file. Alias set verifies the target series and rejects aliases that collide with real FRED series IDs.",
+		map[string]any{
+			"set":    "reserve alias set <ALIAS> <SERIES_ID>",
+			"list":   "reserve alias list",
+			"get":    "reserve alias get <ALIAS>",
+			"delete": "reserve alias delete <ALIAS>",
+			"rm":     "reserve alias rm <ALIAS>",
+		},
+		map[string]any{
+			"set":    "requires API access to verify the target series and detect real-series alias collisions",
+			"list":   "uses global --format json for structured output",
+			"get":    "uses global --format json for structured output",
+			"delete": "also available as rm or remove",
+		},
+		[]string{"alias table", "alias mapping JSON", "confirmation text"},
+		[]string{
+			"When a FRED series ID is long, cryptic, or hard to type repeatedly.",
+			"When building a local project vocabulary over canonical FRED series IDs.",
+		},
+		[]string{
+			"When a canonical FRED series ID is already clear enough.",
+			"When trying to rename data in exported output; aliases only affect command input resolution.",
+		},
+		[]string{
+			"Give a long BEA series a short local handle.",
+			"List all configured aliases before running a workflow.",
+			"Delete a stale project alias.",
+		},
+		[]string{
+			"reserve alias set pce-services PB0000031Q225SBEA",
+			"reserve alias list",
+			"reserve obs latest pce-services",
+			"reserve alias rm pce-services",
+		},
+		[]string{
+			"Alias names are normalized to lowercase and may contain letters, numbers, dot, underscore, or hyphen.",
+			"Aliases cannot use reserved command names or collide with an existing FRED series ID.",
+			"Stored mappings are local configuration, not FRED metadata and not cache data.",
+		},
+		[]string{"config", "obs", "series", "fetch"},
+	)
 }
 
 func buildBaseOnboardDoc() map[string]any {

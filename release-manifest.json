@@ -1,16 +1,17 @@
 {
-  "latest_version": "v1.1.4",
-  "published_at": "2026-04-29T00:00:00Z",
+  "latest_version": "v1.1.5",
+  "published_at": "2026-05-10T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.4",
-  "summary": "Adds multi-series summary analysis and sharper onboarding for LLM-driven reserve workflows.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.5",
+  "summary": "Adds alias notes and consolidates obs latest citation footers for cleaner multi-series output.",
   "highlights": [
-    "New reserve analyze summary --by-series mode for grouped per-series summaries",
-    "Batched obs get workflows now pair cleanly with multi-series summary analysis",
-    "Pipeline layer now supports grouped JSONL observation reading by series_id",
-    "Bare reserve onboard is now a concise routing brief for LLMs",
-    "Onboarding content now highlights batched multi-series obs get usage much more explicitly",
-    "Topic onboarding was trimmed to avoid duplicate command catalogs in the base program payload"
+    "Go toolchain baseline is now go 1.26.3",
+    "New reserve alias set <ALIAS> <SERIES_ID> --note \"...\" support for optional user-authored alias notes",
+    "Alias list output now includes a NOTE column and alias get prints notes when present",
+    "reserve obs latest table-output citations now collapse to one compact footer line",
+    "Multi-source obs latest output uses a deduplicated Sources: line with semicolon-separated providers",
+    "Single-source obs latest output preserves the existing Source: label",
+    "Alias collision checks now fail closed on transient upstream errors and alias delete resolves the owning config file"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

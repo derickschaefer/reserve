@@ -32,6 +32,7 @@ Federal Reserve Bank of St. Louis FRED® API.
   - [window](#window) — rolling statistics
   - [analyze](#analyze) — statistical analysis
   - [cache](#cache) — manage local database
+  - [alias](#alias) — local series aliases with optional notes
   - [config](#config) — configuration management
   - [version](#version) — binary version and build info
   - [update](#update) — release update checks
@@ -97,7 +98,7 @@ cd reserve
 make build
 ```
 
-Requires Go 1.25.7+ for source builds.
+Requires Go 1.26.3+ for source builds.
 
 For distributed release binaries, use the stripped release target:
 
@@ -319,6 +320,8 @@ reserve obs get CPIAUCSL --freq monthly --units pc1    # year-over-year % change
 reserve obs get GDP CPIAUCSL --format csv --out data.csv
 reserve obs latest GDP UNRATE CPIAUCSL FEDFUNDS
 ```
+
+`reserve obs latest` table output prints one citation footer for the result set. If all series share the same source, it prints `Source: ...`. If multiple unique sources are present, it prints one compact `Sources:` line with semicolon-separated entries.
 
 ---
 
@@ -599,6 +602,36 @@ reserve cache compact
 
 ---
 
+### alias
+
+Manage local aliases for awkward FRED series IDs. Aliases resolve before API calls and are stored in `config.json`.
+
+```bash
+reserve alias set <ALIAS> <SERIES_ID> [--note "..."]  # create/update alias
+reserve alias list                                     # list aliases (with note column)
+reserve alias get <ALIAS>                              # show one alias mapping
+reserve alias delete <ALIAS>                           # delete alias
+reserve alias rm <ALIAS>                               # shorthand delete alias
+```
+
+Examples:
+
+```bash
+reserve alias set rfsdp PB0000031Q225SBEA --note "Real Final Sales Dom. Producers"
+reserve alias list
+reserve alias get rfsdp
+reserve alias delete rfsdp
+```
+
+Rules:
+
+- Alias names are normalized to lowercase.
+- Valid characters: letters, numbers, dot (`.`), underscore (`_`), hyphen (`-`).
+- Aliases cannot use reserved command names.
+- `alias set` verifies the target series ID and blocks collisions with real FRED series IDs.
+
+---
+
 ### config
 
 Manage `config.json` in the user config directory, with optional local `./config.json` overrides.
@@ -632,7 +665,7 @@ Plain text output:
 
 ```bash
 reserve v1.1.4
-go      go1.26.1
+go      go1.26.3
 os      darwin/arm64
 ```
 
@@ -835,6 +868,12 @@ Example file contents:
   "require_citation_on_display": true,
   "require_citation_on_export": true,
   "allow_override_with_permission_record": true,
+  "series_aliases": {
+    "rfsdp": {
+      "series_id": "PB0000031Q225SBEA",
+      "note": "Real Final Sales Dom. Producers"
+    }
+  },
   "rights_refresh_days": {
     "default": 30,
     "export": 7,

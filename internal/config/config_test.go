@@ -129,6 +129,34 @@ func TestLoadFromFile(t *testing.T) {
 	}
 }
 
+func TestLoadSeriesAliasesFromFile(t *testing.T) {
+	dir := t.TempDir()
+	clearEnv(t)
+	writeConfig(t, dir, config.File{
+		APIKey: "filekey123",
+		SeriesAliases: map[string]config.Alias{
+			"PCE-Services": {SeriesID: "pb0000031q225sbea", Note: "service demand"},
+		},
+	})
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.SeriesAliases["pce-services"].SeriesID; got != "PB0000031Q225SBEA" {
+		t.Fatalf("alias not normalized: got %q", got)
+	}
+	if got := cfg.SeriesAliases["pce-services"].Note; got != "service demand" {
+		t.Fatalf("note not preserved: got %q", got)
+	}
+	if got := cfg.ResolveSeriesAlias("PCE-Services"); got != "PB0000031Q225SBEA" {
+		t.Fatalf("ResolveSeriesAlias = %q", got)
+	}
+	if got := cfg.ResolveSeriesAlias("unrate"); got != "UNRATE" {
+		t.Fatalf("unknown aliases should normalize as series IDs, got %q", got)
+	}
+}
+
 func TestLoadFromUserConfigFile(t *testing.T) {
 	clearEnv(t)
 	dir := t.TempDir()
@@ -193,6 +221,46 @@ func TestLoadLocalConfigOverridesUserConfig(t *testing.T) {
 	}
 	if gotPath != wantPath {
 		t.Errorf("ConfigPath: expected %q, got %q", wantPath, gotPath)
+	}
+}
+
+func TestLoadLocalSeriesAliasesExtendUserConfig(t *testing.T) {
+	clearEnv(t)
+	dir := t.TempDir()
+
+	path, err := config.UserConfigPath()
+	if err != nil {
+		t.Fatalf("UserConfigPath: %v", err)
+	}
+	if err := config.WriteFile(path, config.File{
+		APIKey: "userkey",
+		SeriesAliases: map[string]config.Alias{
+			"cpi": {SeriesID: "CPIAUCSL"},
+			"pce": {SeriesID: "OLD", Note: "old note"},
+		},
+	}); err != nil {
+		t.Fatalf("WriteFile(user): %v", err)
+	}
+
+	writeConfig(t, dir, config.File{
+		APIKey: "localkey",
+		SeriesAliases: map[string]config.Alias{
+			"pce": {SeriesID: "PB0000031Q225SBEA", Note: "new note"},
+		},
+	})
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.SeriesAliases["cpi"].SeriesID; got != "CPIAUCSL" {
+		t.Fatalf("user alias missing: got %q", got)
+	}
+	if got := cfg.SeriesAliases["pce"].SeriesID; got != "PB0000031Q225SBEA" {
+		t.Fatalf("local alias should override user alias, got %q", got)
+	}
+	if got := cfg.SeriesAliases["pce"].Note; got != "new note" {
+		t.Fatalf("local alias note should override user note, got %q", got)
 	}
 }
 

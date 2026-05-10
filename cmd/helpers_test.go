@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/derickschaefer/reserve/internal/app"
+	"github.com/derickschaefer/reserve/internal/config"
 )
 
 func TestOutputWriterDefault(t *testing.T) {
@@ -50,5 +53,25 @@ func TestParseIntIDAllowsZero(t *testing.T) {
 	}
 	if got != 0 {
 		t.Fatalf("expected parsed zero, got %d", got)
+	}
+}
+
+func TestResolveSeriesIDsUsesAliases(t *testing.T) {
+	deps := &app.Deps{Config: &config.Config{
+		SeriesAliases: map[string]config.Alias{
+			"pce-services": {SeriesID: "PB0000031Q225SBEA"},
+			"cpi":          {SeriesID: "CPIAUCSL"},
+		},
+	}}
+
+	got := resolveSeriesIDs(deps, []string{"pce-services", "GDP", "cpi", "GDP"})
+	want := []string{"PB0000031Q225SBEA", "GDP", "CPIAUCSL"}
+	if len(got) != len(want) {
+		t.Fatalf("len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("id[%d] = %q, want %q", i, got[i], want[i])
+		}
 	}
 }

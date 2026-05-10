@@ -44,7 +44,7 @@ var metaSeriesCmd = &cobra.Command{
 			return err
 		}
 		start := time.Now()
-		ids := normaliseIDs(args)
+		ids := resolveSeriesIDs(deps, args)
 		metas, warnings := batchGetSeries(cmd.Context(), deps, ids)
 		sort.Slice(metas, func(i, j int) bool { return metas[i].ID < metas[j].ID })
 
