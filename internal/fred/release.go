@@ -67,6 +67,12 @@ func (c *Client) GetRelease(ctx context.Context, releaseID int) (*model.Release,
 	if len(raw.Releases) == 0 {
 		return nil, fmt.Errorf("release not found: %d", releaseID)
 	}
+
+	sources, err := c.GetReleaseSources(ctx, releaseID, 0)
+	if err != nil {
+		return nil, err
+	}
+
 	r := raw.Releases[0]
 	return &model.Release{
 		ID:           r.ID,
@@ -74,7 +80,37 @@ func (c *Client) GetRelease(ctx context.Context, releaseID int) (*model.Release,
 		PressRelease: r.PressRelease,
 		Link:         r.Link,
 		Notes:        r.Notes,
+		Sources:      sources,
 	}, nil
+}
+
+// GetReleaseSources fetches all sources associated with a release.
+func (c *Client) GetReleaseSources(ctx context.Context, releaseID int, limit int) ([]model.Source, error) {
+	params := url.Values{}
+	params.Set("release_id", strconv.Itoa(releaseID))
+	if limit > 0 {
+		params.Set("limit", strconv.Itoa(limit))
+	} else {
+		params.Set("limit", "1000")
+	}
+
+	var raw struct {
+		Sources []struct {
+			ID    int    `json:"id"`
+			Name  string `json:"name"`
+			Link  string `json:"link"`
+			Notes string `json:"notes"`
+		} `json:"sources"`
+	}
+	if err := c.get(ctx, "release/sources", params, &raw); err != nil {
+		return nil, fmt.Errorf("release sources %d: %w", releaseID, err)
+	}
+
+	sources := make([]model.Source, len(raw.Sources))
+	for i, s := range raw.Sources {
+		sources[i] = model.Source{ID: s.ID, Name: s.Name, Link: s.Link, Notes: s.Notes}
+	}
+	return sources, nil
 }
 
 // ReleaseDate represents a single release date record.

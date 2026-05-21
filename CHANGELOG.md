@@ -2,9 +2,37 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.4` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.6` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.6 — 2026-05-14 — Release Source Arrays, Agent Onboarding Metadata, and Per-Series Citations
+
+**Added**
+
+- `release get --format json` and `meta release --format json` now include full associated release source arrays under `sources`
+- `SeriesMeta` now carries `source_names` for multi-source citation-aware workflows
+- Onboarding JSON now includes explicit audience metadata:
+  - `primary_audience: "AI agents and LLMs interfacing with reserve CLI for economic data workflows."`
+  - `intended_for_humans: false`
+  - `content_type: "agent_onboarding"`
+
+**Changed**
+
+- `reserve obs latest` and multi-series table-mode `reserve obs get` now render citations as a per-series footer block:
+  - header: `Sources by series:`
+  - one line per series in table order: `- <SERIES_ID>: <source(s)> via FRED`
+- Single-series citation behavior remains concise:
+  - one source: `Source: ... via FRED`
+  - multiple sources: `Sources: ... via FRED`
+- Citation-source display names are now normalized for readability when upstream source tags are entirely lowercase (display-only normalization; raw source tags are preserved)
+
+**Fixed**
+
+- Removed nested/awkward combined footer strings such as `Sources: ...; Sources: ...` in mixed-source multi-series outputs
+- `release` metadata hydration now pulls `release/sources` so associated institutions are no longer dropped from JSON output
 
 ---
 

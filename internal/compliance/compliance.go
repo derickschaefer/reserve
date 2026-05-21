@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/model"
@@ -108,7 +109,12 @@ func EnrichSeriesMeta(meta model.SeriesMeta, tags []model.Tag) model.SeriesMeta 
 	meta.RawRightsTags = rawTags
 	meta.RightsAmbiguous = ambiguous
 	meta.LastRightsCheckAt = time.Now().UTC()
-	meta.SourceName = detectSourceName(tags)
+	meta.SourceNames = detectSourceNames(tags)
+	if len(meta.SourceNames) > 0 {
+		meta.SourceName = meta.SourceNames[0]
+	} else {
+		meta.SourceName = ""
+	}
 	meta.CitationText = buildCitationText(meta)
 
 	meta.PermissionRequired = status == StatusCopyrightedPreapprovalRequired
@@ -294,30 +300,99 @@ func classifyRights(tags []model.Tag) (string, []string, bool) {
 	}
 }
 
-func detectSourceName(tags []model.Tag) string {
+func detectSourceNames(tags []model.Tag) []string {
+	seen := make(map[string]struct{})
+	sources := make([]string, 0)
 	for _, tag := range tags {
 		if tag.GroupID != "src" {
 			continue
 		}
+		candidate := ""
 		if strings.TrimSpace(tag.Notes) != "" {
-			return strings.TrimSpace(tag.Notes)
+			candidate = strings.TrimSpace(tag.Notes)
+		} else if strings.TrimSpace(tag.Name) != "" {
+			candidate = strings.TrimSpace(tag.Name)
 		}
-		if strings.TrimSpace(tag.Name) != "" {
-			return strings.TrimSpace(tag.Name)
+		if candidate == "" {
+			continue
 		}
+		key := strings.ToLower(candidate)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		sources = append(sources, candidate)
 	}
-	return ""
+	return sources
 }
 
 func buildCitationText(meta model.SeriesMeta) string {
 	if !RequiresCitation(meta) {
 		return ""
 	}
-	source := strings.TrimSpace(meta.SourceName)
-	if source == "" {
-		source = "Unknown source"
+	switch len(meta.SourceNames) {
+	case 0:
+		source := normalizeSourceDisplayName(strings.TrimSpace(meta.SourceName))
+		if source == "" {
+			source = "Unknown source"
+		}
+		return fmt.Sprintf("Source: %s via FRED", source)
+	case 1:
+		return fmt.Sprintf("Source: %s via FRED", normalizeSourceDisplayName(strings.TrimSpace(meta.SourceNames[0])))
+	default:
+		names := make([]string, 0, len(meta.SourceNames))
+		for _, s := range meta.SourceNames {
+			s = normalizeSourceDisplayName(strings.TrimSpace(s))
+			if s == "" {
+				continue
+			}
+			names = append(names, s)
+		}
+		if len(names) == 0 {
+			return "Source: Unknown source via FRED"
+		}
+		return fmt.Sprintf("Sources: %s via FRED", strings.Join(names, "; "))
 	}
-	return fmt.Sprintf("Source: %s via FRED", source)
+}
+
+func normalizeSourceDisplayName(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return ""
+	}
+	if hasUpper(source) {
+		return source
+	}
+	parts := strings.Fields(source)
+	for i, p := range parts {
+		parts[i] = titleToken(p)
+	}
+	return strings.Join(parts, " ")
+}
+
+func hasUpper(s string) bool {
+	for _, r := range s {
+		if unicode.IsUpper(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func titleToken(tok string) string {
+	runes := []rune(tok)
+	for i, r := range runes {
+		if unicode.IsLetter(r) {
+			runes[i] = unicode.ToUpper(r)
+			for j := i + 1; j < len(runes); j++ {
+				if unicode.IsLetter(runes[j]) {
+					runes[j] = unicode.ToLower(runes[j])
+				}
+			}
+			return string(runes)
+		}
+	}
+	return tok
 }
 
 func usageAllowed(status, personOrgType string, permissionOnFile bool) bool {

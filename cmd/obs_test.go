@@ -104,13 +104,13 @@ func TestObsFooterWriterUsesStderrForMachineFormats(t *testing.T) {
 
 func TestLatestCitationFooter(t *testing.T) {
 	rows := []latestRow{
-		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
-		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
-		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Economic Analysis via FRED"}},
+		{SeriesID: "UNRATE", Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{SeriesID: "WFHFRACMATRETAIL", Meta: &model.SeriesMeta{CitationText: "Sources: Barrero, Jose Maria; Davis, Steven J.; Bloom, Nick via FRED"}},
+		{SeriesID: "GDP", Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Economic Analysis via FRED"}},
 	}
 
 	got := latestCitationFooter(rows)
-	want := "Sources: Bureau of Labor Statistics via FRED; Bureau of Economic Analysis via FRED"
+	want := "Sources by series:\n- UNRATE: Bureau of Labor Statistics via FRED\n- WFHFRACMATRETAIL: Barrero, Jose Maria; Davis, Steven J.; Bloom, Nick via FRED\n- GDP: Bureau of Economic Analysis via FRED"
 	if got != want {
 		t.Fatalf("citation footer = %q, want %q", got, want)
 	}
@@ -130,12 +130,12 @@ func TestLatestCitationFooterKeepsSingleSourceLabel(t *testing.T) {
 
 func TestObsCitationFooterMultiSource(t *testing.T) {
 	series := []*model.SeriesData{
-		{Meta: &model.SeriesMeta{CitationText: "Source: Board of Governors via FRED"}},
-		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
-		{Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{SeriesID: "FEDFUNDS", Meta: &model.SeriesMeta{CitationText: "Source: Board of Governors via FRED"}},
+		{SeriesID: "UNRATE", Meta: &model.SeriesMeta{CitationText: "Source: Bureau of Labor Statistics via FRED"}},
+		{SeriesID: "WFHCOVIDFRACMATMEN", Meta: &model.SeriesMeta{CitationText: "Sources: Barrero, Jose Maria; Davis, Steven J.; Bloom, Nick via FRED"}},
 	}
 	got := obsCitationFooter(series)
-	want := "Sources: Board of Governors via FRED; Bureau of Labor Statistics via FRED"
+	want := "Sources by series:\n- FEDFUNDS: Board of Governors via FRED\n- UNRATE: Bureau of Labor Statistics via FRED\n- WFHCOVIDFRACMATMEN: Barrero, Jose Maria; Davis, Steven J.; Bloom, Nick via FRED"
 	if got != want {
 		t.Fatalf("obs citation footer = %q, want %q", got, want)
 	}

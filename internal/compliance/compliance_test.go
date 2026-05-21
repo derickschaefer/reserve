@@ -159,6 +159,24 @@ func TestEnrichSeriesMetaClassifiesPublicDomainCitationRequested(t *testing.T) {
 	}
 }
 
+func TestEnrichSeriesMetaBuildsMultiSourceCitation(t *testing.T) {
+	meta := compliance.EnrichSeriesMeta(model.SeriesMeta{ID: "FULLONSITECURR"}, []model.Tag{
+		{Name: "public domain: citation requested", GroupID: "cc"},
+		{Name: "barrero, jose maria", GroupID: "src", Notes: "barrero, jose maria"},
+		{Name: "bloom, nick", GroupID: "src", Notes: "bloom, nick"},
+		{Name: "davis, steven j.", GroupID: "src", Notes: "davis, steven j."},
+	})
+	if got, want := len(meta.SourceNames), 3; got != want {
+		t.Fatalf("source_names length = %d, want %d", got, want)
+	}
+	if got, want := meta.SourceNames[0], "barrero, jose maria"; got != want {
+		t.Fatalf("source_names[0] = %q, want %q", got, want)
+	}
+	if got, want := meta.CitationText, "Sources: Barrero, Jose Maria; Bloom, Nick; Davis, Steven J. via FRED"; got != want {
+		t.Fatalf("citation text = %q, want %q", got, want)
+	}
+}
+
 func TestEvaluateBlocksPreapprovalSeriesWithoutGrant(t *testing.T) {
 	cfg := &config.Config{
 		PersonOrgType:                     "student",

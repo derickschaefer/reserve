@@ -39,6 +39,15 @@ func TestBuildProgramOnboardDocIncludesRoutingIndexes(t *testing.T) {
 	if got := doc["scope"]; got != "program" {
 		t.Fatalf("scope = %v, want program", got)
 	}
+	if got := doc["primary_audience"]; got != "AI agents and LLMs interfacing with reserve CLI for economic data workflows." {
+		t.Fatalf("primary_audience = %v", got)
+	}
+	if got := doc["intended_for_humans"]; got != false {
+		t.Fatalf("intended_for_humans = %v, want false", got)
+	}
+	if got := doc["content_type"]; got != "agent_onboarding" {
+		t.Fatalf("content_type = %v, want agent_onboarding", got)
+	}
 
 	program, ok := doc["program"].(map[string]any)
 	if !ok {

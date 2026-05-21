@@ -323,6 +323,15 @@ reserve obs latest GDP UNRATE CPIAUCSL FEDFUNDS
 
 `reserve obs latest` table output prints one citation footer for the result set. If all series share the same source, it prints `Source: ...`. If multiple unique sources are present, it prints one compact `Sources:` line with semicolon-separated entries.
 
+For multi-series table output, reserve now prints a per-series citation block:
+
+```text
+Sources by series:
+- UNRATE: Bureau of Labor Statistics via FRED
+- GDP: Bureau of Economic Analysis via FRED
+- WFHCOVIDFRACMATMEN: Barrero, Jose Maria; Davis, Steven J.; Bloom, Nick via FRED
+```
+
 ---
 
 ### category
@@ -356,6 +365,8 @@ reserve release get <RELEASE_ID>
 reserve release dates <RELEASE_ID>
 reserve release series <RELEASE_ID> [--limit N]
 ```
+
+`release get --format json` includes associated source institutions under `sources[]`.
 
 ---
 
@@ -664,7 +675,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.4
+reserve v1.1.6
 go      go1.26.3
 os      darwin/arm64
 ```
@@ -737,6 +748,12 @@ reserve onboard --topic pipeline,data-model,gotchas
 reserve onboard export ./onboard
 # writes program.json plus command docs like obs.json, series.json, and config.json
 ```
+
+Onboarding JSON includes explicit agent metadata fields so LLM clients can treat the payload as agent context rather than end-user help:
+
+- `primary_audience`
+- `intended_for_humans`
+- `content_type`
 
 **Suggested prompt:**
 ```

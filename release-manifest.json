@@ -1,17 +1,16 @@
 {
-  "latest_version": "v1.1.5",
-  "published_at": "2026-05-10T00:00:00Z",
+  "latest_version": "v1.1.6",
+  "published_at": "2026-05-14T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.5",
-  "summary": "Adds alias notes and consolidates obs latest citation footers for cleaner multi-series output.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.6",
+  "summary": "Adds release source arrays to JSON metadata, agent-focused onboard fields, and per-series citation footers for multi-series obs output.",
   "highlights": [
-    "Go toolchain baseline is now go 1.26.3",
-    "New reserve alias set <ALIAS> <SERIES_ID> --note \"...\" support for optional user-authored alias notes",
-    "Alias list output now includes a NOTE column and alias get prints notes when present",
-    "reserve obs latest table-output citations now collapse to one compact footer line",
-    "Multi-source obs latest output uses a deduplicated Sources: line with semicolon-separated providers",
-    "Single-source obs latest output preserves the existing Source: label",
-    "Alias collision checks now fail closed on transient upstream errors and alias delete resolves the owning config file"
+    "release get and meta release JSON now include full associated sources[] arrays",
+    "Series metadata now supports multi-source citation text with source_names",
+    "obs latest and multi-series obs get now print Sources by series footer blocks for unambiguous attribution",
+    "Single-series citations keep concise Source:/Sources: output",
+    "Citation display names are normalized when upstream source tags are all lowercase",
+    "Onboard JSON now includes primary_audience, intended_for_humans, and content_type=agent_onboarding"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

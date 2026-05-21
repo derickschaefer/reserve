@@ -36,6 +36,7 @@ type SeriesMeta struct {
 	Popularity              int       `json:"popularity"`
 	Notes                   string    `json:"notes"`
 	SourceName              string    `json:"source_name,omitempty"`
+	SourceNames             []string  `json:"source_names,omitempty"`
 	SourceLink              string    `json:"source_link,omitempty"`
 	CopyrightStatus         string    `json:"copyright_status,omitempty"`
 	CitationText            string    `json:"citation_text,omitempty"`
@@ -62,6 +63,7 @@ type Release struct {
 	PressRelease bool   `json:"press_release"`
 	Link         string `json:"link"`
 	Notes        string `json:"notes"`
+	Sources      []Source `json:"sources,omitempty"`
 }
 
 // Source represents a FRED data source (institution).

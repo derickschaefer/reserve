@@ -160,6 +160,15 @@ func TestNewAPIEndpoints(t *testing.T) {
 				},
 			})
 		},
+		"/release/sources": func(w http.ResponseWriter, req *http.Request) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"sources": []map[string]interface{}{
+					{"id": 104, "name": "First Source Name", "link": "source104.gov"},
+					{"id": 105, "name": "Second Source Name", "link": "source105.gov"},
+					{"id": 499, "name": "Third Source Name", "link": "source499.org"},
+				},
+			})
+		},
 		"/release/dates": func(w http.ResponseWriter, req *http.Request) {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"release_dates": []map[string]interface{}{
@@ -185,7 +194,7 @@ func TestNewAPIEndpoints(t *testing.T) {
 	)
 
 	rel, err := relClient.GetRelease(context.Background(), 10)
-	r.check(t, err == nil && rel != nil && rel.ID == 10 && rel.Name == "Employment Situation",
+	r.check(t, err == nil && rel != nil && rel.ID == 10 && rel.Name == "Employment Situation" && len(rel.Sources) == 3,
 		fmt.Sprintf("GetRelease(10): name=%q", rel.Name),
 		fmt.Sprintf("GetRelease(10) failed: %v", err),
 	)

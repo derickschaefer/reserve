@@ -304,7 +304,6 @@ func init() {
 }
 
 func latestCitationFooter(rows []latestRow) string {
-	seen := make(map[string]struct{})
 	citations := make([]string, 0, len(rows))
 	for _, r := range rows {
 		if r.Meta == nil {
@@ -314,24 +313,25 @@ func latestCitationFooter(rows []latestRow) string {
 		if citation == "" {
 			continue
 		}
-		if _, ok := seen[citation]; ok {
-			continue
-		}
-		seen[citation] = struct{}{}
 		citations = append(citations, citation)
 	}
 
-	switch len(citations) {
-	case 0:
+	if len(citations) == 0 {
 		return ""
-	case 1:
-		return citations[0]
-	default:
-		for i, citation := range citations {
-			citations[i] = strings.TrimSpace(strings.TrimPrefix(citation, "Source:"))
-		}
-		return "Sources: " + strings.Join(citations, "; ")
 	}
+	if len(rows) <= 1 {
+		return citations[0]
+	}
+	lines := make([]string, 0, len(rows)+1)
+	lines = append(lines, "Sources by series:")
+	for _, r := range rows {
+		if r.Meta == nil || strings.TrimSpace(r.Meta.CitationText) == "" {
+			continue
+		}
+		citation := normalizeCitationLabel(r.Meta.CitationText)
+		lines = append(lines, fmt.Sprintf("- %s: %s", r.SeriesID, citation))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func obsCitationFooter(seriesData []*model.SeriesData) string {
@@ -340,7 +340,14 @@ func obsCitationFooter(seriesData []*model.SeriesData) string {
 		if data == nil || data.Meta == nil {
 			continue
 		}
-		rows = append(rows, latestRow{Meta: data.Meta})
+		rows = append(rows, latestRow{SeriesID: data.SeriesID, Meta: data.Meta})
 	}
 	return latestCitationFooter(rows)
+}
+
+func normalizeCitationLabel(citation string) string {
+	citation = strings.TrimSpace(citation)
+	citation = strings.TrimPrefix(citation, "Source:")
+	citation = strings.TrimPrefix(citation, "Sources:")
+	return strings.TrimSpace(citation)
 }
