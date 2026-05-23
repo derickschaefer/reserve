@@ -675,7 +675,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.6
+reserve v1.1.7
 go      go1.26.3
 os      darwin/arm64
 ```

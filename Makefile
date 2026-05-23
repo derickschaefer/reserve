@@ -1,5 +1,5 @@
 BINARY   := reserve
-VERSION  := v1.1.6
+VERSION  := v1.1.7
 RELEASE_TAG ?= $(VERSION)
 GOCACHE_DIR := $(CURDIR)/.gocache
 GOMODCACHE_DIR := $(CURDIR)/.gomodcache

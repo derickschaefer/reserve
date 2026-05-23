@@ -1,16 +1,19 @@
 {
-  "latest_version": "v1.1.6",
-  "published_at": "2026-05-14T00:00:00Z",
+  "latest_version": "v1.1.7",
+  "published_at": "2026-05-22T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.6",
-  "summary": "Adds release source arrays to JSON metadata, agent-focused onboard fields, and per-series citation footers for multi-series obs output.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.7",
+  "summary": "Adds config-backed snippet commands for reusable pipelines, hardens batch concurrency tests with deterministic synctest coverage, and improves ASCII chart value label consistency.",
   "highlights": [
-    "release get and meta release JSON now include full associated sources[] arrays",
-    "Series metadata now supports multi-source citation text with source_names",
-    "obs latest and multi-series obs get now print Sources by series footer blocks for unambiguous attribution",
-    "Single-series citations keep concise Source:/Sources: output",
-    "Citation display names are normalized when upstream source tags are all lowercase",
-    "Onboard JSON now includes primary_audience, intended_for_humans, and content_type=agent_onboarding"
+    "New snippet command family: snippet set, list, get, run, and delete",
+    "Snippet entries are stored in config.json with structured fields cmd and optional desc",
+    "snippet set enforces a 10-snippet cap and validates snippet names and empty commands",
+    "snippet list now displays NAME and DESCRIPTION for a compact local snippet catalog",
+    "Legacy string-based snippet entries in config.json are still readable through backward-compatible parsing",
+    "Horizontal ASCII bar chart values now render with fixed two-decimal labels (for example 59.00)",
+    "batchGetObs and batchGetSeries now have deterministic synctest coverage for concurrency caps, order, warnings, and fallback behavior",
+    "Batch concurrency integration test no longer relies on time.Sleep and now uses deterministic request gating",
+    "Added Snippet Contracts integration section to verify snippet CLI help surface and core command behavior"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

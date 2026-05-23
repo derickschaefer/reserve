@@ -99,7 +99,7 @@ func Bar(w io.Writer, seriesID string, obs []model.Observation, opts BarOptions)
 	// Value label width
 	valWidth := 0
 	for _, o := range valid {
-		if l := len(formatFloat(o.Value)); l > valWidth {
+		if l := len(formatBarValue(o.Value)); l > valWidth {
 			valWidth = l
 		}
 	}
@@ -131,7 +131,7 @@ func Bar(w io.Writer, seriesID string, obs []model.Observation, opts BarOptions)
 	// Render each bar
 	for _, o := range valid {
 		dateLabel := o.Date.Format(dateFmt)
-		valLabel := formatFloat(o.Value)
+		valLabel := formatBarValue(o.Value)
 
 		var bar string
 		if hasNeg {
@@ -557,6 +557,14 @@ func formatFloat(v float64) string {
 		}
 	}
 	return s
+}
+
+// formatBarValue keeps horizontal bar value labels fixed-width and stable.
+func formatBarValue(v float64) string {
+	if math.IsNaN(v) {
+		return "."
+	}
+	return strconv.FormatFloat(v, 'f', 2, 64)
 }
 
 // termWidth returns the terminal width from $COLUMNS, defaulting to 80.

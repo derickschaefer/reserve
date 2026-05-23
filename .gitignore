@@ -36,4 +36,12 @@ dist/
 # Local workflow / planning files
 DEVPLAN.md
 gitpush.sh
+ghpush.sh
 reserve-rpi
+
+# Generated release notes
+dist/releases/**/RELEASE_NOTES.md
+
+# Local LLM release-note templates/prompts
+release-notes-template.md
+release-notes-prompt.md

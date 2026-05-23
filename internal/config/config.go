@@ -48,6 +48,11 @@ type Alias struct {
 	Note     string `json:"note,omitempty"`
 }
 
+type Snippet struct {
+	Command     string `json:"cmd"`
+	Description string `json:"desc,omitempty"`
+}
+
 func (a *Alias) UnmarshalJSON(data []byte) error {
 	var seriesID string
 	if err := json.Unmarshal(data, &seriesID); err == nil {
@@ -65,26 +70,44 @@ func (a *Alias) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (s *Snippet) UnmarshalJSON(data []byte) error {
+	var command string
+	if err := json.Unmarshal(data, &command); err == nil {
+		s.Command = command
+		s.Description = ""
+		return nil
+	}
+	type snippetJSON Snippet
+	var dec snippetJSON
+	if err := json.Unmarshal(data, &dec); err != nil {
+		return err
+	}
+	s.Command = dec.Command
+	s.Description = dec.Description
+	return nil
+}
+
 // File is the on-disk representation of config.json.
 type File struct {
-	APIKey                               string           `json:"api_key"`
-	DefaultFormat                        string           `json:"default_format"`
-	Timeout                              string           `json:"timeout"`
-	Concurrency                          int              `json:"concurrency"`
-	Rate                                 float64          `json:"rate"`
-	BaseURL                              string           `json:"base_url"`
-	DBPath                               string           `json:"db_path"`
-	PersonOrgType                        string           `json:"person_org_type"`
-	BlockUnknownRights                   bool             `json:"block_unknown_rights"`
-	BlockAmbiguousRights                 bool             `json:"block_ambiguous_rights"`
-	BlockPreapprovalRequiredInCommercial bool             `json:"block_preapproval_required_in_commercial"`
-	RequireCitationOnDisplay             bool             `json:"require_citation_on_display"`
-	RequireCitationOnExport              bool             `json:"require_citation_on_export"`
-	AllowOverrideWithPermissionRecord    bool             `json:"allow_override_with_permission_record"`
-	GrantedSeriesPermissions             []string         `json:"granted_series_permissions,omitempty"`
-	SeriesAliases                        map[string]Alias `json:"series_aliases,omitempty"`
-	RightsRefreshDays                    map[string]int   `json:"rights_refresh_days"`
-	LogComplianceDecisions               bool             `json:"log_compliance_decisions"`
+	APIKey                               string             `json:"api_key"`
+	DefaultFormat                        string             `json:"default_format"`
+	Timeout                              string             `json:"timeout"`
+	Concurrency                          int                `json:"concurrency"`
+	Rate                                 float64            `json:"rate"`
+	BaseURL                              string             `json:"base_url"`
+	DBPath                               string             `json:"db_path"`
+	PersonOrgType                        string             `json:"person_org_type"`
+	BlockUnknownRights                   bool               `json:"block_unknown_rights"`
+	BlockAmbiguousRights                 bool               `json:"block_ambiguous_rights"`
+	BlockPreapprovalRequiredInCommercial bool               `json:"block_preapproval_required_in_commercial"`
+	RequireCitationOnDisplay             bool               `json:"require_citation_on_display"`
+	RequireCitationOnExport              bool               `json:"require_citation_on_export"`
+	AllowOverrideWithPermissionRecord    bool               `json:"allow_override_with_permission_record"`
+	GrantedSeriesPermissions             []string           `json:"granted_series_permissions,omitempty"`
+	SeriesAliases                        map[string]Alias   `json:"series_aliases,omitempty"`
+	Snippets                             map[string]Snippet `json:"snippets,omitempty"`
+	RightsRefreshDays                    map[string]int     `json:"rights_refresh_days"`
+	LogComplianceDecisions               bool               `json:"log_compliance_decisions"`
 }
 
 // Config is the fully-resolved runtime configuration.
@@ -106,6 +129,7 @@ type Config struct {
 	AllowOverrideWithPermissionRecord    bool
 	GrantedSeriesPermissions             []string
 	SeriesAliases                        map[string]Alias
+	Snippets                             map[string]Snippet
 	RightsRefreshDays                    map[string]int
 	LogComplianceDecisions               bool
 	ConfigPath                           string // path of the config.json that was loaded (empty if none found)
@@ -346,6 +370,14 @@ func applyFile(cfg *Config, f *File, path string) {
 			cfg.SeriesAliases[alias] = entry
 		}
 	}
+	if len(f.Snippets) > 0 {
+		if cfg.Snippets == nil {
+			cfg.Snippets = map[string]Snippet{}
+		}
+		for name, value := range normalizeSnippets(f.Snippets) {
+			cfg.Snippets[name] = value
+		}
+	}
 	if len(f.RightsRefreshDays) > 0 {
 		cfg.RightsRefreshDays = cloneRightsRefreshDays(f.RightsRefreshDays)
 	}
@@ -481,6 +513,30 @@ func normalizeSeriesAliases(in map[string]Alias) map[string]Alias {
 	return out
 }
 
+func NormalizeSnippets(in map[string]Snippet) map[string]Snippet {
+	return normalizeSnippets(in)
+}
+
+func normalizeSnippets(in map[string]Snippet) map[string]Snippet {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]Snippet, len(in))
+	for name, snip := range in {
+		name = strings.ToLower(strings.TrimSpace(name))
+		snip.Command = strings.TrimSpace(snip.Command)
+		snip.Description = strings.TrimSpace(snip.Description)
+		if name == "" || snip.Command == "" {
+			continue
+		}
+		out[name] = snip
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func parseRawConfig(data []byte) (map[string]json.RawMessage, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -511,6 +567,7 @@ func canonicalizeFile(f File) File {
 	}
 	f.GrantedSeriesPermissions = normalizeSeriesIDs(f.GrantedSeriesPermissions)
 	f.SeriesAliases = normalizeSeriesAliases(f.SeriesAliases)
+	f.Snippets = normalizeSnippets(f.Snippets)
 	f.RightsRefreshDays = mergeRightsRefreshDays(f.RightsRefreshDays)
 	return f
 }

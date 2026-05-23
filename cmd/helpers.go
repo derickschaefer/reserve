@@ -88,7 +88,7 @@ func batchGetSeries(ctx context.Context, deps *app.Deps, ids []string) ([]model.
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			meta, err := ensureSeriesCompliance(ctx, deps, id, "display")
+			meta, err := seriesComplianceLookup(ctx, deps, id, "display")
 			if err != nil {
 				results[i] = result{idx: i, err: err}
 				return
@@ -109,6 +109,8 @@ func batchGetSeries(ctx context.Context, deps *app.Deps, ids []string) ([]model.
 	}
 	return metas, warnings
 }
+
+var seriesComplianceLookup = ensureSeriesCompliance
 
 type obsResult struct {
 	data  *model.SeriesData

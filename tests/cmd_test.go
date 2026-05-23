@@ -317,6 +317,8 @@ func TestBatchConcurrency(t *testing.T) {
 	var activeCount int64
 	var peakActive int64
 	var mu sync.Mutex
+	started := make(chan struct{}, numRequests)
+	release := make(chan struct{}, numRequests)
 
 	client := newMockFREDClient(t, map[string]http.HandlerFunc{"/series": func(w http.ResponseWriter, req *http.Request) {
 		current := atomic.AddInt64(&activeCount, 1)
@@ -325,8 +327,8 @@ func TestBatchConcurrency(t *testing.T) {
 			peakActive = current
 		}
 		mu.Unlock()
-
-		time.Sleep(20 * time.Millisecond) // simulate latency
+		started <- struct{}{}
+		<-release
 		atomic.AddInt64(&activeCount, -1)
 
 		seriesID := req.URL.Query().Get("series_id")
@@ -370,6 +372,15 @@ func TestBatchConcurrency(t *testing.T) {
 			}
 			results[i] = res{meta: *meta}
 		}()
+	}
+
+	// Wait until first worker wave saturates configured concurrency.
+	for i := 0; i < concurrencyLimit; i++ {
+		<-started
+	}
+	// Unblock all requests and let the worker pool drain naturally.
+	for i := 0; i < numRequests; i++ {
+		release <- struct{}{}
 	}
 	wg.Wait()
 
@@ -635,6 +646,79 @@ func TestAliasContracts(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Group 11 — Snippet Contracts (offline command behavior)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestSnippetContracts(t *testing.T) {
+	printBanner(t, "SNIPPET CONTRACTS")
+	r := &result{}
+
+	baseEnv := isolatedConfigEnv(t)
+
+	snippetHelp := runReserveHelpWithEnv(t, baseEnv, "snippet", "--help")
+	for _, token := range []string{"set", "list", "get", "run", "delete", "rm"} {
+		r.check(t, strings.Contains(snippetHelp, token),
+			fmt.Sprintf("snippet help includes [%s]", token),
+			fmt.Sprintf("snippet help is missing [%s]", token),
+		)
+	}
+
+	snippetSetHelp := runReserveHelpWithEnv(t, baseEnv, "snippet", "set", "--help")
+	r.check(t, strings.Contains(snippetSetHelp, "--cmd string"),
+		"snippet set help includes [--cmd string]",
+		"snippet set help is missing [--cmd string]",
+	)
+	r.check(t, strings.Contains(snippetSetHelp, "--desc string"),
+		"snippet set help includes [--desc string]",
+		"snippet set help is missing [--desc string]",
+	)
+
+	out, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "bad alias", "--cmd", "echo hi")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "invalid"),
+		"snippet set rejects invalid snippet name",
+		fmt.Sprintf("expected invalid-name rejection, got err=%v out=%q", err, out),
+	)
+
+	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "empty_cmd", "--cmd", "   ")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "cannot be empty"),
+		"snippet set rejects empty --cmd",
+		fmt.Sprintf("expected empty-cmd rejection, got err=%v out=%q", err, out),
+	)
+
+	for i := 1; i <= 10; i++ {
+		name := fmt.Sprintf("snip%02d", i)
+		_, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "set", name, "--desc", "desc "+name, "--cmd", "echo "+name)
+		if err != nil {
+			t.Fatalf("setting snippet %s failed unexpectedly: %v", name, err)
+		}
+	}
+	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "snip11", "--cmd", "echo snip11")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "limit"),
+		"snippet set enforces max snippet limit",
+		fmt.Sprintf("expected limit rejection, got err=%v out=%q", err, out),
+	)
+
+	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "get", "does-not-exist")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "not found"),
+		"snippet get reports missing snippet clearly",
+		fmt.Sprintf("expected not-found rejection, got err=%v out=%q", err, out),
+	)
+	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "delete", "does-not-exist")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "not found"),
+		"snippet delete reports missing snippet clearly",
+		fmt.Sprintf("expected not-found rejection, got err=%v out=%q", err, out),
+	)
+
+	listOut, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "list")
+	r.check(t, err == nil && strings.Contains(listOut, "NAME") && strings.Contains(listOut, "DESCRIPTION"),
+		"snippet list prints NAME + DESCRIPTION columns",
+		fmt.Sprintf("unexpected snippet list output: err=%v out=%q", err, listOut),
+	)
+
+	r.summary(t, "SNIPPET CONTRACTS")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -654,10 +738,16 @@ func containsStr(s, sub string) bool {
 func runReserveHelp(t *testing.T, args ...string) string {
 	t.Helper()
 
+	return runReserveHelpWithEnv(t, nil, args...)
+}
+
+func runReserveHelpWithEnv(t *testing.T, env map[string]string, args ...string) string {
+	t.Helper()
+
 	cmdArgs := append([]string{"run", ".."}, args...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = filepath.Join("..", "tests")
-	cmd.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+	cmd.Env = buildCmdEnv(t, env)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go %s failed: %v\n%s", strings.Join(cmdArgs, " "), err, string(out))
@@ -668,10 +758,53 @@ func runReserveHelp(t *testing.T, args ...string) string {
 func runReserveCmd(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 
+	return runReserveCmdWithEnv(t, nil, args...)
+}
+
+func runReserveCmdWithEnv(t *testing.T, env map[string]string, args ...string) (string, error) {
+	t.Helper()
+
 	cmdArgs := append([]string{"run", ".."}, args...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = filepath.Join("..", "tests")
-	cmd.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+	cmd.Env = buildCmdEnv(t, env)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+func buildCmdEnv(t *testing.T, extra map[string]string) []string {
+	t.Helper()
+	base := os.Environ()
+	skip := map[string]bool{}
+	for k := range extra {
+		skip[k] = true
+	}
+	env := make([]string, 0, len(base)+len(extra)+1)
+	for _, kv := range base {
+		if i := strings.IndexByte(kv, '='); i > 0 && skip[kv[:i]] {
+			continue
+		}
+		env = append(env, kv)
+	}
+	env = append(env, "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+	for k, v := range extra {
+		env = append(env, k+"="+v)
+	}
+	return env
+}
+
+func isolatedConfigEnv(t *testing.T) map[string]string {
+	t.Helper()
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	appData := filepath.Join(home, "AppData", "Roaming")
+	localAppData := filepath.Join(home, "AppData", "Local")
+	return map[string]string{
+		"HOME":            home,
+		"XDG_CONFIG_HOME": xdg,
+		"APPDATA":         appData,
+		"LOCALAPPDATA":    localAppData,
+		"FRED_API_KEY":    "",
+		"RESERVE_DB_PATH": filepath.Join(home, "reserve.db"),
+	}
 }

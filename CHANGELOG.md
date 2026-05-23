@@ -2,9 +2,42 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.6` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.7` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.7 — 2026-05-22 — Snippet Library MVP, Deterministic Batch Concurrency Tests, and ASCII Chart Precision
+
+**Added**
+
+- New `snippet` command family for reusable local command chains:
+  - `reserve snippet set <NAME> --cmd "..." [--desc "..."]`
+  - `reserve snippet list`
+  - `reserve snippet get <NAME>`
+  - `reserve snippet run <NAME>`
+  - `reserve snippet delete <NAME>` (`rm`/`remove` aliases)
+- Config-backed snippet storage under `snippets` with structured fields:
+  - `cmd` (required)
+  - `desc` (optional)
+- Snippet command onboarding guide entry and examples in onboard command metadata
+- New integration `Snippet Contracts` section in `tests/cmd_test.go` covering snippet help surface and core CLI contracts
+
+**Changed**
+
+- Snippet `set` now supports `--desc` so list output can serve as a compact pipeline catalog
+- Snippet list output now prioritizes `NAME` + `DESCRIPTION` (with command preview fallback when description is missing)
+- `batchGetObs` and `batchGetSeries` now have deterministic `testing/synctest` coverage for:
+  - concurrency ceilings
+  - ordering guarantees
+  - warning aggregation
+  - fallback concurrency behavior
+- `TestBatchConcurrency` integration test no longer relies on wall-clock `time.Sleep`; it now uses deterministic request gating
+
+**Fixed**
+
+- Horizontal ASCII `chart bar` value labels now render as fixed two-decimal values (e.g. `59.00`) to keep numeric columns visually aligned
 
 ---
 
