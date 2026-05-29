@@ -8,7 +8,7 @@
     "New snippet command family: snippet set, list, get, run, and delete",
     "Snippet libraries are filesystem-backed and designed for scalable sharing and growth beyond local one-off command notes",
     "Snippet command onboarding metadata and contract coverage are now in place for stable command-surface evolution",
-    "Horizontal ASCII bar chart values now render with fixed two-decimal labels (for example 59.00)",
+    "Horizontal ASCII bar chart values now render with fixed two-decimal labels (example 59.00)",
     "Transform pipeline outputs now preserve upstream citation metadata so source attribution is retained after resample and other transform operations",
     "batchGetObs and batchGetSeries now have deterministic synctest coverage for concurrency caps, order, warnings, and fallback behavior",
     "Batch concurrency integration test no longer relies on time.Sleep and now uses deterministic request gating",
