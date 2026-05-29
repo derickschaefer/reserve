@@ -8,7 +8,7 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 
 ---
 
-### v1.1.7 — 2026-05-22 — Snippet Library MVP, Deterministic Batch Concurrency Tests, and ASCII Chart Precision
+### v1.1.7 — 2026-05-22 — Snippet Library Foundation (Soft Launch), Deterministic Batch Concurrency Tests, and ASCII Chart Precision
 
 **Added**
 
@@ -18,9 +18,7 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
   - `reserve snippet get <NAME>`
   - `reserve snippet run <NAME>`
   - `reserve snippet delete <NAME>` (`rm`/`remove` aliases)
-- Config-backed snippet storage under `snippets` with structured fields:
-  - `cmd` (required)
-  - `desc` (optional)
+- Filesystem-backed snippet library infrastructure for local and shared command catalogs
 - Snippet command onboarding guide entry and examples in onboard command metadata
 - New integration `Snippet Contracts` section in `tests/cmd_test.go` covering snippet help surface and core CLI contracts
 
@@ -38,6 +36,7 @@ current release, and `v1.0.5` was the first publicly tagged release. Prior versi
 **Fixed**
 
 - Horizontal ASCII `chart bar` value labels now render as fixed two-decimal values (e.g. `59.00`) to keep numeric columns visually aligned
+- `transform` pipeline commands now preserve citation metadata from upstream JSONL input so source attribution is retained in transformed outputs (including resample workflows)
 
 ---
 

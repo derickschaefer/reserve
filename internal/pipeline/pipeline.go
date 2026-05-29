@@ -29,23 +29,36 @@ type observationRow struct {
 	Date     string      `json:"date"`
 	Value    interface{} `json:"value"`
 	ValueRaw string      `json:"value_raw"`
+	Citation string      `json:"citation_text"`
 }
 
 // ReadObservations reads JSONL records from r (stdin) and returns
 // the series_id and slice of Observations.
 // Each line must be a JSON object with at least "date" and "value" fields.
 func ReadObservations(r io.Reader) (string, []model.Observation, error) {
+	seriesID, obs, _, err := readObservationsInternal(r)
+	return seriesID, obs, err
+}
+
+// ReadObservationsWithCitation reads JSONL records and returns series_id,
+// observations, and optional citation text when present on input rows.
+func ReadObservationsWithCitation(r io.Reader) (string, []model.Observation, string, error) {
+	return readObservationsInternal(r)
+}
+
+func readObservationsInternal(r io.Reader) (string, []model.Observation, string, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 
 	var obs []model.Observation
 	seriesID := ""
+	citation := ""
 
 	lineNum := 0
 	for scanner.Scan() {
 		rec, observation, skip, err := parseObservationLine(scanner.Text(), &lineNum)
 		if err != nil {
-			return "", nil, err
+			return "", nil, "", err
 		}
 		if skip {
 			continue
@@ -53,15 +66,18 @@ func ReadObservations(r io.Reader) (string, []model.Observation, error) {
 		if seriesID == "" && rec.SeriesID != "" {
 			seriesID = rec.SeriesID
 		}
+		if citation == "" && strings.TrimSpace(rec.Citation) != "" {
+			citation = strings.TrimSpace(rec.Citation)
+		}
 		obs = append(obs, observation)
 	}
 	if err := scanner.Err(); err != nil {
-		return "", nil, fmt.Errorf("reading input: %w", err)
+		return "", nil, "", fmt.Errorf("reading input: %w", err)
 	}
 	if len(obs) == 0 {
-		return "", nil, fmt.Errorf("no observations read from input (is stdin empty?)")
+		return "", nil, "", fmt.Errorf("no observations read from input (is stdin empty?)")
 	}
-	return seriesID, obs, nil
+	return seriesID, obs, citation, nil
 }
 
 // ReadObservationGroups reads JSONL records from r and groups them by series_id.

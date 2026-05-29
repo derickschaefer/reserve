@@ -157,13 +157,14 @@ func TestLoadSeriesAliasesFromFile(t *testing.T) {
 	}
 }
 
-func TestLoadSnippetsFromFile(t *testing.T) {
+func TestLoadSnippetSystemConfigFromFile(t *testing.T) {
 	dir := t.TempDir()
 	clearEnv(t)
 	writeConfig(t, dir, config.File{
 		APIKey: "filekey123",
-		Snippets: map[string]config.Snippet{
-			"  PCU_Annual_Bar  ": {Command: "  ./reserve obs get X | ./reserve chart bar  ", Description: "  Test Desc  "},
+		Snippet: config.SnippetSystem{
+			Home:    "  ~/.reserve/snippets  ",
+			Enabled: []string{" Personal ", "official", "official"},
 		},
 	})
 
@@ -171,15 +172,15 @@ func TestLoadSnippetsFromFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got := cfg.Snippets["pcu_annual_bar"].Command; got != "./reserve obs get X | ./reserve chart bar" {
-		t.Fatalf("snippet not normalized: got %q", got)
+	if got := cfg.Snippet.Home; got != "~/.reserve/snippets" {
+		t.Fatalf("snippet home not normalized: got %q", got)
 	}
-	if got := cfg.Snippets["pcu_annual_bar"].Description; got != "Test Desc" {
-		t.Fatalf("snippet description not normalized: got %q", got)
+	if got := strings.Join(cfg.Snippet.Enabled, ","); got != "personal,official" {
+		t.Fatalf("snippet enabled not normalized: got %q", got)
 	}
 }
 
-func TestLoadSnippetsFromLegacyStringFormat(t *testing.T) {
+func TestLoadLegacySnippetsDoesNotFail(t *testing.T) {
 	dir := t.TempDir()
 	clearEnv(t)
 	data := `{
@@ -205,15 +206,8 @@ func TestLoadSnippetsFromLegacyStringFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	got, ok := cfg.Snippets["pcu_annual_bar"]
-	if !ok {
-		t.Fatalf("expected snippet to load")
-	}
-	if got.Command != "./reserve obs get X | ./reserve chart bar" {
-		t.Fatalf("legacy command mismatch: got %q", got.Command)
-	}
-	if got.Description != "" {
-		t.Fatalf("legacy description should be empty, got %q", got.Description)
+	if cfg == nil {
+		t.Fatalf("expected config")
 	}
 }
 

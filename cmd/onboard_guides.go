@@ -27,7 +27,7 @@ var onboardCommandRegistry = []onboardCommandGuide{
 	{Name: "release", Category: "discovery", Summary: "Browse FRED data releases, release dates, and release-linked series.", Build: buildReleaseGuide},
 	{Name: "search", Category: "discovery", Summary: "Run global full-text search across FRED series.", Build: buildSearchGuide},
 	{Name: "series", Category: "discovery", Summary: "Fetch, search, and inspect FRED series metadata and relationships.", Build: buildSeriesGuide},
-	{Name: "snippet", Category: "setup", Summary: "Store and run reusable local pipeline command snippets from config.json.", Build: buildSnippetGuide},
+	{Name: "snippet", Category: "setup", Summary: "Store and run reusable local pipeline command snippets from filesystem-backed libraries.", Build: buildSnippetGuide},
 	{Name: "source", Category: "discovery", Summary: "Browse institutions that publish data on FRED.", Build: buildSourceGuide},
 	{Name: "tag", Category: "discovery", Summary: "Search tags, list tag-related series, and find related tags.", Build: buildTagGuide},
 	{Name: "transform", Category: "pipeline", Summary: "Apply stateless JSONL-to-JSONL transformations to observation streams.", Build: buildTransformGuide},
@@ -88,10 +88,10 @@ func buildAliasGuide() map[string]any {
 func buildSnippetGuide() map[string]any {
 	return makeGuide(
 		"Store, inspect, delete, and run reusable local command snippets.",
-		"`snippet` stores named shell command strings in config.json for repeatable reserve workflows.",
+		"`snippet` stores named shell command strings in filesystem-backed snippet libraries (default: `~/.reserve/snippets/personal/snippets.yaml`).",
 		"Use `snippet set` to create/update, `snippet list|get` to inspect, `snippet delete|rm` to remove, and `snippet run` to execute through the shell.",
 		"Not part of the JSONL pipeline model; snippets wrap full commands or pipelines for convenience.",
-		"Reads and writes config.json. `snippet run` executes the stored command via `bash -lc`.",
+		"Reads and writes snippet library YAML files. `snippet run` executes the stored command via `bash -lc`.",
 		map[string]any{
 			"set":    "reserve snippet set <NAME> --desc \"<DESCRIPTION>\" --cmd \"<COMMAND>\"",
 			"list":   "reserve snippet list",
@@ -101,7 +101,7 @@ func buildSnippetGuide() map[string]any {
 			"rm":     "reserve snippet rm <NAME>",
 		},
 		map[string]any{
-			"set":    fmt.Sprintf("stores up to %d snippets; name must use letters, numbers, dot, underscore, or hyphen", maxSnippets),
+			"set":    "name must use letters, numbers, dot, underscore, or hyphen",
 			"list":   "uses global --format json for structured output",
 			"run":    "executes exactly the saved command string",
 			"delete": "also available as rm or remove",
@@ -128,7 +128,7 @@ func buildSnippetGuide() map[string]any {
 		},
 		[]string{
 			"Snippet names are normalized to lowercase.",
-			fmt.Sprintf("Maximum stored snippets: %d.", maxSnippets),
+			"Snippets are library-backed and not limited by a fixed hard cap.",
 			"Because run executes through the shell, only run snippets you trust.",
 		},
 		[]string{"config", "alias", "transform", "chart"},

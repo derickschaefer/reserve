@@ -685,17 +685,17 @@ func TestSnippetContracts(t *testing.T) {
 		fmt.Sprintf("expected empty-cmd rejection, got err=%v out=%q", err, out),
 	)
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 12; i++ {
 		name := fmt.Sprintf("snip%02d", i)
 		_, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "set", name, "--desc", "desc "+name, "--cmd", "echo "+name)
 		if err != nil {
 			t.Fatalf("setting snippet %s failed unexpectedly: %v", name, err)
 		}
 	}
-	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "snip11", "--cmd", "echo snip11")
-	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "limit"),
-		"snippet set enforces max snippet limit",
-		fmt.Sprintf("expected limit rejection, got err=%v out=%q", err, out),
+	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "snip13", "--cmd", "echo snip13")
+	r.check(t, err == nil,
+		"snippet set has no fixed hard limit",
+		fmt.Sprintf("expected no hard-limit rejection, got err=%v out=%q", err, out),
 	)
 
 	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "get", "does-not-exist")

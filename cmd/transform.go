@@ -36,7 +36,7 @@ var transformPctCmd = &cobra.Command{
 	Example: `  reserve obs get GDP --from cache --format jsonl | reserve transform pct-change
   reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -44,7 +44,7 @@ var transformPctCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -58,7 +58,7 @@ var transformDiffCmd = &cobra.Command{
 	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform diff
   reserve obs get GDP --from cache --format jsonl | reserve transform diff --order 2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ var transformDiffCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -77,7 +77,7 @@ var transformLogCmd = &cobra.Command{
 	Short:   "Natural log of each observation value",
 	Example: `  reserve obs get GDP --from cache --format jsonl | reserve transform log`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ var transformLogCmd = &cobra.Command{
 		for _, w := range warnings {
 			fmt.Fprintf(os.Stderr, "⚠  %s\n", w)
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -99,7 +99,7 @@ var transformNormCmd = &cobra.Command{
 	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform normalize
   reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform normalize --method minmax`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ var transformNormCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -130,7 +130,7 @@ var transformIndexCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("--at: invalid date %q, expected YYYY-MM-DD", transformIndexAt)
 		}
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ var transformIndexCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -155,7 +155,7 @@ var transformResampleCmd = &cobra.Command{
 	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform resample --freq quarterly --method mean
   reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform resample --freq annual --method last`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ var transformResampleCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -186,7 +186,7 @@ var transformFilterCmd = &cobra.Command{
 	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve transform filter --after 2020-01-01
   reserve obs get GDP --from cache --format jsonl | reserve transform filter --min 20000 --max 25000`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -212,7 +212,7 @@ var transformFilterCmd = &cobra.Command{
 			opts.MaxValue = transformFilterMax
 		}
 		out := transform.Filter(obs, opts)
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -235,7 +235,7 @@ var windowRollCmd = &cobra.Command{
 	Example: `  reserve obs get UNRATE --from cache --format jsonl | reserve window roll --stat mean --window 12
   reserve obs get GDP --from cache --format jsonl | reserve window roll --stat std --window 4 --min-periods 2`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		seriesID, obs, err := pipeline.ReadObservations(os.Stdin)
+		seriesID, obs, citation, err := pipeline.ReadObservationsWithCitation(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -243,7 +243,7 @@ var windowRollCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return writeTransformOutput(cmd, seriesID, out)
+		return writeTransformOutput(cmd, seriesID, out, citation)
 	},
 }
 
@@ -295,7 +295,7 @@ func init() {
 // ─── Output helper ────────────────────────────────────────────────────────────
 
 // writeTransformOutput writes obs to stdout in JSONL (pipeline) or table (terminal).
-func writeTransformOutput(cmd *cobra.Command, seriesID string, obs []model.Observation) error {
+func writeTransformOutput(cmd *cobra.Command, seriesID string, obs []model.Observation, citation string) error {
 	format := resolveFormat("")
 	// If no explicit format and stdout is a terminal, use table
 	if globalFlags.Format == "" {
@@ -306,13 +306,12 @@ func writeTransformOutput(cmd *cobra.Command, seriesID string, obs []model.Obser
 		}
 	}
 
-	if format == render.FormatJSONL {
-		return pipeline.WriteJSONL(os.Stdout, seriesID, obs)
-	}
-
 	result := buildSeriesDataResult("transform", &model.SeriesData{
 		SeriesID: seriesID,
 		Obs:      obs,
 	})
+	if citation != "" {
+		result.Data.(*model.SeriesData).Meta = &model.SeriesMeta{CitationText: citation}
+	}
 	return render.RenderTo(globalFlags.Out, result, format)
 }

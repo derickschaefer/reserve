@@ -53,6 +53,11 @@ type Snippet struct {
 	Description string `json:"desc,omitempty"`
 }
 
+type SnippetSystem struct {
+	Home    string   `json:"home,omitempty"`
+	Enabled []string `json:"enabled,omitempty"`
+}
+
 func (a *Alias) UnmarshalJSON(data []byte) error {
 	var seriesID string
 	if err := json.Unmarshal(data, &seriesID); err == nil {
@@ -105,7 +110,8 @@ type File struct {
 	AllowOverrideWithPermissionRecord    bool               `json:"allow_override_with_permission_record"`
 	GrantedSeriesPermissions             []string           `json:"granted_series_permissions,omitempty"`
 	SeriesAliases                        map[string]Alias   `json:"series_aliases,omitempty"`
-	Snippets                             map[string]Snippet `json:"snippets,omitempty"`
+	Snippet                              SnippetSystem      `json:"snippet,omitempty"`
+	LegacySnippets                       map[string]Snippet `json:"snippets,omitempty"`
 	RightsRefreshDays                    map[string]int     `json:"rights_refresh_days"`
 	LogComplianceDecisions               bool               `json:"log_compliance_decisions"`
 }
@@ -129,7 +135,7 @@ type Config struct {
 	AllowOverrideWithPermissionRecord    bool
 	GrantedSeriesPermissions             []string
 	SeriesAliases                        map[string]Alias
-	Snippets                             map[string]Snippet
+	Snippet                              SnippetSystem
 	RightsRefreshDays                    map[string]int
 	LogComplianceDecisions               bool
 	ConfigPath                           string // path of the config.json that was loaded (empty if none found)
@@ -370,14 +376,8 @@ func applyFile(cfg *Config, f *File, path string) {
 			cfg.SeriesAliases[alias] = entry
 		}
 	}
-	if len(f.Snippets) > 0 {
-		if cfg.Snippets == nil {
-			cfg.Snippets = map[string]Snippet{}
-		}
-		for name, value := range normalizeSnippets(f.Snippets) {
-			cfg.Snippets[name] = value
-		}
-	}
+	cfg.Snippet.Home = strings.TrimSpace(f.Snippet.Home)
+	cfg.Snippet.Enabled = normalizeStringSlice(f.Snippet.Enabled)
 	if len(f.RightsRefreshDays) > 0 {
 		cfg.RightsRefreshDays = cloneRightsRefreshDays(f.RightsRefreshDays)
 	}
@@ -537,6 +537,29 @@ func normalizeSnippets(in map[string]Snippet) map[string]Snippet {
 	return out
 }
 
+func normalizeStringSlice(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, item := range in {
+		item = strings.ToLower(strings.TrimSpace(item))
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func parseRawConfig(data []byte) (map[string]json.RawMessage, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -567,7 +590,9 @@ func canonicalizeFile(f File) File {
 	}
 	f.GrantedSeriesPermissions = normalizeSeriesIDs(f.GrantedSeriesPermissions)
 	f.SeriesAliases = normalizeSeriesAliases(f.SeriesAliases)
-	f.Snippets = normalizeSnippets(f.Snippets)
+	f.Snippet.Home = strings.TrimSpace(f.Snippet.Home)
+	f.Snippet.Enabled = normalizeStringSlice(f.Snippet.Enabled)
+	f.LegacySnippets = normalizeSnippets(f.LegacySnippets)
 	f.RightsRefreshDays = mergeRightsRefreshDays(f.RightsRefreshDays)
 	return f
 }

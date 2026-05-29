@@ -3,14 +3,13 @@
   "published_at": "2026-05-22T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
   "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.7",
-  "summary": "Adds config-backed snippet commands for reusable pipelines, hardens batch concurrency tests with deterministic synctest coverage, and improves ASCII chart value label consistency.",
+  "summary": "Adds a soft-launch snippet library foundation for reusable pipelines, hardens batch concurrency tests with deterministic synctest coverage, and improves ASCII chart value label consistency.",
   "highlights": [
     "New snippet command family: snippet set, list, get, run, and delete",
-    "Snippet entries are stored in config.json with structured fields cmd and optional desc",
-    "snippet set enforces a 10-snippet cap and validates snippet names and empty commands",
-    "snippet list now displays NAME and DESCRIPTION for a compact local snippet catalog",
-    "Legacy string-based snippet entries in config.json are still readable through backward-compatible parsing",
+    "Snippet libraries are filesystem-backed and designed for scalable sharing and growth beyond local one-off command notes",
+    "Snippet command onboarding metadata and contract coverage are now in place for stable command-surface evolution",
     "Horizontal ASCII bar chart values now render with fixed two-decimal labels (for example 59.00)",
+    "Transform pipeline outputs now preserve upstream citation metadata so source attribution is retained after resample and other transform operations",
     "batchGetObs and batchGetSeries now have deterministic synctest coverage for concurrency caps, order, warnings, and fallback behavior",
     "Batch concurrency integration test no longer relies on time.Sleep and now uses deterministic request gating",
     "Added Snippet Contracts integration section to verify snippet CLI help surface and core command behavior"

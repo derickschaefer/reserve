@@ -113,6 +113,7 @@ var configGetCmd = &cobra.Command{
 				AllowOverrideWithPermissionRecord  bool                    `json:"allow_override_with_permission_record"`
 				GrantedSeriesPermissions           []string                `json:"granted_series_permissions,omitempty"`
 				SeriesAliases                      map[string]config.Alias `json:"series_aliases,omitempty"`
+				Snippet                            config.SnippetSystem    `json:"snippet,omitempty"`
 				RightsRefreshDays                  map[string]int          `json:"rights_refresh_days"`
 				LogComplianceDecisions             bool                    `json:"log_compliance_decisions"`
 				ConfigFile                         string                  `json:"config_file"`
@@ -136,6 +137,7 @@ var configGetCmd = &cobra.Command{
 				AllowOverrideWithPermissionRecord:  cfg.AllowOverrideWithPermissionRecord,
 				GrantedSeriesPermissions:           cfg.GrantedSeriesPermissions,
 				SeriesAliases:                      cfg.SeriesAliases,
+				Snippet:                            cfg.Snippet,
 				RightsRefreshDays:                  cfg.RightsRefreshDays,
 				LogComplianceDecisions:             cfg.LogComplianceDecisions,
 				ConfigFile:                         src,
@@ -165,6 +167,8 @@ var configGetCmd = &cobra.Command{
 				{"allow_override_with_permission_record", fmt.Sprintf("%t", cfg.AllowOverrideWithPermissionRecord)},
 				{"granted_series_permissions", strings.Join(cfg.GrantedSeriesPermissions, ", ")},
 				{"series_aliases", formatSeriesAliases(cfg.SeriesAliases)},
+				{"snippet.home", cfg.Snippet.Home},
+				{"snippet.enabled", strings.Join(cfg.Snippet.Enabled, ", ")},
 				{"rights_refresh_days.default", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("default"))},
 				{"rights_refresh_days.export", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("export"))},
 				{"rights_refresh_days.publish", fmt.Sprintf("%d", cfg.RightsRefreshDaysFor("publish"))},
@@ -263,6 +267,10 @@ var configSetCmd = &cobra.Command{
 			if err := setConfigIntMap(&f.RightsRefreshDays, "publish", key, val); err != nil {
 				return err
 			}
+		case "snippet.home":
+			f.Snippet.Home = strings.TrimSpace(val)
+		case "snippet.enabled":
+			f.Snippet.Enabled = splitCSV(val)
 		default:
 			return fmt.Errorf("unknown config key: %q", key)
 		}
@@ -452,4 +460,17 @@ func setConfigIntMap(dst *map[string]int, nestedKey, key, val string) error {
 	}
 	(*dst)[nestedKey] = n
 	return nil
+}
+
+func splitCSV(input string) []string {
+	parts := strings.Split(input, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }

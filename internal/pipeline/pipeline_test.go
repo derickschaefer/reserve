@@ -147,6 +147,26 @@ func TestReadSeriesIDEmptyWhenAbsent(t *testing.T) {
 	}
 }
 
+func TestReadObservationsWithCitation(t *testing.T) {
+	input := jsonl(
+		`{"series_id":"UNRATE","date":"2020-01-01","value":3.5,"value_raw":"3.5","citation_text":"Source: Bureau of Labor Statistics via FRED"}`,
+		`{"series_id":"UNRATE","date":"2020-02-01","value":3.6,"value_raw":"3.6","citation_text":"Source: Bureau of Labor Statistics via FRED"}`,
+	)
+	sid, observations, citation, err := pipeline.ReadObservationsWithCitation(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sid != "UNRATE" {
+		t.Fatalf("series_id: got %q want UNRATE", sid)
+	}
+	if len(observations) != 2 {
+		t.Fatalf("expected 2 observations, got %d", len(observations))
+	}
+	if citation != "Source: Bureau of Labor Statistics via FRED" {
+		t.Fatalf("citation: got %q", citation)
+	}
+}
+
 func TestReadDateParsed(t *testing.T) {
 	input := jsonl(
 		`{"series_id":"TEST","date":"2024-06-15","value":5.0}`,
