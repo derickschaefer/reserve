@@ -3,7 +3,7 @@
 
 Author: Derick Schaefer
 Audience: Codex / implementation LLMs
-Status: Approved Direction
+Status: Released v1.1.6
 Date: 2026-05-23
 
 ---
