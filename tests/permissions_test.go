@@ -5,7 +5,6 @@ package tests
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -39,12 +38,12 @@ func TestPermissionsCompliance(t *testing.T) {
 	}
 
 	for _, tc := range classCases {
-		meta, err := client.GetSeries(context.Background(), tc.seriesID)
+		meta, err := pacedGetSeries(t, client, tc.seriesID)
 		if err != nil {
 			permFail(r, t, fmt.Sprintf("GetSeries(%s) returned metadata", tc.seriesID), err.Error())
 			continue
 		}
-		tags, err := client.GetSeriesTags(context.Background(), tc.seriesID)
+		tags, err := pacedGetSeriesTags(t, client, tc.seriesID)
 		if err != nil {
 			permFail(r, t, fmt.Sprintf("GetSeriesTags(%s) returned tags", tc.seriesID), err.Error())
 			continue
@@ -79,7 +78,7 @@ func TestPermissionsCompliance(t *testing.T) {
 	}
 
 	for _, tc := range renderCases {
-		resultData, err := fetchSeriesDataResult(client, tc.seriesID, tc.start, tc.end)
+		resultData, err := fetchSeriesDataResult(t, client, tc.seriesID, tc.start, tc.end)
 		if err != nil {
 			permFail(r, t, fmt.Sprintf("%s fetched observations for render checks", tc.seriesID), err.Error())
 			continue
@@ -113,10 +112,10 @@ func TestPermissionsCompliance(t *testing.T) {
 		)
 	}
 
-	preMeta, err := client.GetSeries(context.Background(), "BAMLC0A0CM")
+	preMeta, err := pacedGetSeries(t, client, "BAMLC0A0CM")
 	if err != nil {
 		permFail(r, t, "BAMLC0A0CM metadata fetched for block check", err.Error())
-	} else if preTags, tagsErr := client.GetSeriesTags(context.Background(), "BAMLC0A0CM"); tagsErr != nil {
+	} else if preTags, tagsErr := pacedGetSeriesTags(t, client, "BAMLC0A0CM"); tagsErr != nil {
 		permFail(r, t, "BAMLC0A0CM tags fetched for block check", tagsErr.Error())
 	} else {
 		enriched := compliance.EnrichSeriesMeta(*preMeta, preTags)
@@ -131,10 +130,10 @@ func TestPermissionsCompliance(t *testing.T) {
 		)
 	}
 
-	ambMeta, err := client.GetSeries(context.Background(), "00XALCEZ17M086NEST")
+	ambMeta, err := pacedGetSeries(t, client, "00XALCEZ17M086NEST")
 	if err != nil {
 		permFail(r, t, "00XALCEZ17M086NEST metadata fetched for ambiguity check", err.Error())
-	} else if ambTags, tagsErr := client.GetSeriesTags(context.Background(), "00XALCEZ17M086NEST"); tagsErr != nil {
+	} else if ambTags, tagsErr := pacedGetSeriesTags(t, client, "00XALCEZ17M086NEST"); tagsErr != nil {
 		permFail(r, t, "00XALCEZ17M086NEST tags fetched for ambiguity check", tagsErr.Error())
 	} else {
 		enriched := compliance.EnrichSeriesMeta(*ambMeta, ambTags)
@@ -161,16 +160,16 @@ func newPermissionsClient(cfg *config.Config) *fred.Client {
 	)
 }
 
-func fetchSeriesDataResult(client *fred.Client, seriesID, start, end string) (*model.Result, error) {
-	meta, err := client.GetSeries(context.Background(), seriesID)
+func fetchSeriesDataResult(t *testing.T, client *fred.Client, seriesID, start, end string) (*model.Result, error) {
+	meta, err := pacedGetSeries(t, client, seriesID)
 	if err != nil {
 		return nil, fmt.Errorf("GetSeries(%s): %w", seriesID, err)
 	}
-	tags, err := client.GetSeriesTags(context.Background(), seriesID)
+	tags, err := pacedGetSeriesTags(t, client, seriesID)
 	if err != nil {
 		return nil, fmt.Errorf("GetSeriesTags(%s): %w", seriesID, err)
 	}
-	data, err := client.GetObservations(context.Background(), seriesID, fred.ObsOptions{
+	data, err := pacedGetObservations(t, client, seriesID, fred.ObsOptions{
 		Start: start,
 		End:   end,
 	})

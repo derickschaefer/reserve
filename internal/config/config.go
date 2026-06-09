@@ -26,7 +26,7 @@ const (
 	DefaultFormat      = "table"
 	DefaultTimeout     = 30 * time.Second
 	DefaultConcurrency = 8
-	DefaultRate        = 5.0
+	DefaultRate        = 2.0
 	EnvAPIKey          = "FRED_API_KEY"
 	EnvDBPath          = "RESERVE_DB_PATH"
 	DefaultPersonOrg   = "student"

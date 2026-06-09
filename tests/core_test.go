@@ -184,7 +184,7 @@ func TestFredAPIConnectivity(t *testing.T) {
 	r.pass(t, "DNS and TCP reachability checks passed for api.stlouisfed.org:443")
 
 	// ── Check 2: Series metadata returns successfully ────────────────────────
-	meta, metaErr := client.GetSeries(context.Background(), seriesID)
+	meta, metaErr := pacedGetSeries(t, client, seriesID)
 	r.check(t,
 		metaErr == nil && meta != nil,
 		fmt.Sprintf("GetSeries(%s) returned metadata without error", seriesID),
@@ -216,7 +216,7 @@ func TestFredAPIConnectivity(t *testing.T) {
 	}
 
 	// ── Check 6: Observations return successfully ────────────────────────────
-	data, obsErr := client.GetObservations(context.Background(), seriesID, fred.ObsOptions{
+	data, obsErr := pacedGetObservations(t, client, seriesID, fred.ObsOptions{
 		Start: "2020-01-01",
 		Limit: 10,
 	})
@@ -432,7 +432,7 @@ func TestPayloadIntegrity(t *testing.T) {
 func skipIfFREDUnavailable(t *testing.T, client *fred.Client, probeSeriesID string) {
 	t.Helper()
 
-	_, err := client.GetSeries(context.Background(), probeSeriesID)
+	_, err := pacedGetSeries(t, client, probeSeriesID)
 	if err == nil {
 		return
 	}
@@ -583,7 +583,7 @@ func TestAPIClientBehaviour(t *testing.T) {
 		},
 	})
 
-	paramClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{
+	_, _ = paramClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{
 		Start: "2020-01-01", End: "2024-12-31",
 	})
 	r.check(t, gotStart == "2020-01-01" && gotEnd == "2024-12-31",

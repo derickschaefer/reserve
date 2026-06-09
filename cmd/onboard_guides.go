@@ -236,7 +236,7 @@ func buildGlobalFlags() map[string]any {
 		"--api-key":     "FRED API key override (also: FRED_API_KEY env, config.json)",
 		"--timeout":     "HTTP request timeout e.g. 30s, 2m  (default: 30s)",
 		"--concurrency": "max parallel requests for batch operations  (default: 8)",
-		"--rate":        "API requests/sec client-side limit  (default: 5.0)",
+		"--rate":        "API requests/sec client-side limit  (default: 2.0)",
 		"--verbose":     "show timing and cache stats after output",
 		"--debug":       "log HTTP requests with API key redacted",
 		"--quiet":       "suppress all non-error output",
@@ -290,44 +290,62 @@ func makeGuide(summary, description, mentalModel, pipelineRole, ioContract strin
 
 func buildAnalyzeGuide() map[string]any {
 	return makeGuide(
-		"Statistical summaries and trend models for JSONL observation streams, including grouped per-series summaries.",
+		"Statistical summaries, trend models, comparisons, and experimental regime detection for JSONL observation streams.",
 		"`analyze` is a terminal pipeline command family. It consumes JSONL from stdin and prints human-oriented output or JSON summaries.",
-		"Use `analyze summary` for descriptive statistics, add `--by-series` when one JSONL stream contains several series IDs, and use `analyze trend` when you need slope, direction, and fit quality for one series stream.",
-		"Terminal pipeline stage: JSONL in, summary out.",
+		"Use `analyze summary` for descriptive statistics, add `--by-series` when one JSONL stream contains several series IDs, use `analyze trend` when you need slope, direction, and fit quality, use `analyze compare` when you want pairwise series comparison, and use `analyze regime` for experimental change-point detection.",
+		"Terminal pipeline stage: JSONL in, summary/comparison/regime output out.",
 		"Reads JSONL observations from stdin. Does not emit JSONL for downstream reserve commands.",
 		map[string]any{
-			"summary": "reserve analyze summary [--by-series]",
-			"trend":   "reserve analyze trend [--method linear|theil-sen]",
+			"summary": "reserve analyze summary [--by-series] [--window N]",
+			"trend":   "reserve analyze trend [--method linear|theil-sen] [--confidence]",
+			"compare": "reserve analyze compare --against <SERIES_ID> [--series <SERIES_ID>]",
+			"regime":  "reserve analyze regime --method cusum [--threshold N]",
 		},
 		map[string]any{
-			"summary": "global `--format` plus optional `--by-series` for grouped multi-series summaries",
-			"trend":   "--method linear|theil-sen",
+			"summary": "global `--format` plus optional `--by-series` and `--window N`",
+			"trend":   "--method linear|theil-sen, --confidence for slope uncertainty",
+			"compare": "--against <SERIES_ID> and optional --series <SERIES_ID>",
+			"regime":  "--method cusum and optional --threshold N (experimental)",
 		},
-		[]string{"summary table", "JSON summary object when `--format json`", "JSON array or JSONL stream when `--by-series` is used"},
+		[]string{
+			"summary table",
+			"rolling summary table when `--window` is used",
+			"JSON summary object when `--format json`",
+			"comparison table or JSON object",
+			"regime table with change points and segments",
+		},
 		[]string{
 			"When you already have a single observation stream and want descriptive statistics or a trend estimate.",
 			"When you have batched several series through one `obs get ... --format jsonl` call and want one descriptive summary per series.",
+			"When you want to compare two aligned series, inspect confidence around a fitted trend, or detect likely regime shifts.",
 			"When the next step is interpretation, reporting, or comparison rather than more pipeline transformation.",
 		},
 		[]string{
 			"When you need downstream JSONL for another reserve pipeline stage.",
 			"When you want grouped multi-series trend fits; `trend` still operates on one series stream at a time.",
+			"When you need a source-producing command; `analyze` only consumes JSONL.",
 		},
 		[]string{
 			"Summarize one series after filtering or resampling.",
 			"Summarize several indicators fetched together in one batched pipeline.",
 			"Estimate whether a post-2020 trend is up, down, or flat.",
+			"Compare unemployment against fed funds over a shared date range.",
+			"Inspect an experimental regime change-point snapshot for a monthly series.",
 		},
 		[]string{
 			"reserve obs get CPIAUCSL --from cache --format jsonl | reserve analyze summary",
 			"reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
 			"reserve obs get UNRATE --start 2020-01-01 --format jsonl | reserve analyze trend --method theil-sen",
+			"reserve obs get UNRATE FEDFUNDS --start 2010-01-01 --format jsonl | reserve analyze compare --against FEDFUNDS",
+			"reserve obs get UNRATE --start 2010-01-01 --format jsonl | reserve analyze regime --method cusum --threshold 5",
 		},
 		[]string{
 			"`analyze` is terminal. Do not pipe its output into another reserve command.",
-			"`analyze summary --by-series` is the supported way to summarize batched multi-series JSONL input. Other analyze verbs still expect one logical series stream.",
+			"`analyze summary --by-series` is the supported way to summarize batched multi-series JSONL input.",
+			"`analyze compare` expects two aligned series IDs and prints pairwise comparison statistics.",
+			"`analyze regime` is experimental and may need threshold tuning for noisy monthly data.",
 		},
-		[]string{"obs", "transform", "window", "chart"},
+		[]string{"obs", "transform", "window", "chart", "compare", "regime"},
 	)
 }
 

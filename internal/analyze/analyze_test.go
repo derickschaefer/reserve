@@ -56,8 +56,8 @@ func TestSummarizeBasicCounts(t *testing.T) {
 	if s.Count != 5 {
 		t.Errorf("Count: expected 5, got %d", s.Count)
 	}
-	if s.Missing != 1 {
-		t.Errorf("Missing: expected 1, got %d", s.Missing)
+	if s.MissingCount != 1 {
+		t.Errorf("MissingCount: expected 1, got %d", s.MissingCount)
 	}
 	if !approxEqual(s.MissingPct, 20.0, 1e-9) {
 		t.Errorf("MissingPct: expected 20.0, got %g", s.MissingPct)
@@ -218,8 +218,8 @@ func TestSummarizeAllNaN(t *testing.T) {
 	if s.Count != 3 {
 		t.Errorf("Count: expected 3, got %d", s.Count)
 	}
-	if s.Missing != 3 {
-		t.Errorf("Missing: expected 3, got %d", s.Missing)
+	if s.MissingCount != 3 {
+		t.Errorf("MissingCount: expected 3, got %d", s.MissingCount)
 	}
 	if !approxEqual(s.MissingPct, 100.0, 1e-9) {
 		t.Errorf("MissingPct: expected 100.0, got %g", s.MissingPct)
@@ -393,6 +393,38 @@ func TestTrendMethodPreserved(t *testing.T) {
 	}
 }
 
+func TestTrendConfidenceLinear(t *testing.T) {
+	obs := makeAnnual(2010, 1, 2, 3, 4, 5, 6)
+	tr, err := analyze.Trend("TEST", obs, analyze.TrendLinear)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	conf := analyze.AddTrendConfidence(tr, obs)
+	if conf == nil {
+		t.Fatal("expected confidence metadata for linear trend")
+	}
+	if conf.SlopeStdErr < 0 {
+		t.Errorf("SlopeStdErr should be non-negative, got %g", conf.SlopeStdErr)
+	}
+	if conf.SlopePValue < 0 || conf.SlopePValue > 1 {
+		t.Errorf("SlopePValue should be in [0,1], got %g", conf.SlopePValue)
+	}
+}
+
+func TestSummarizeWindows(t *testing.T) {
+	obs := makeObs(2020, 1, 1, 2, 3, 4)
+	w := analyze.SummarizeWindows("TEST", obs, 2)
+	if len(w) != 3 {
+		t.Fatalf("expected 3 windows, got %d", len(w))
+	}
+	if w[0].StartDate != "2020-01-01" || w[0].EndDate != "2020-02-01" {
+		t.Fatalf("unexpected first window dates: %+v", w[0])
+	}
+	if w[2].StartDate != "2020-03-01" || w[2].EndDate != "2020-04-01" {
+		t.Fatalf("unexpected last window dates: %+v", w[2])
+	}
+}
+
 // ─── Theil-Sen ────────────────────────────────────────────────────────────────
 
 func TestTrendTheilSenUpward(t *testing.T) {
@@ -470,16 +502,70 @@ func TestSummarizeThenTrendDirection(t *testing.T) {
 }
 
 func TestSummarizeCountMatchesNonNaN(t *testing.T) {
-	// Count - Missing should equal the number of valid values used in stats
+	// Count - MissingCount should equal the number of valid values used in stats
 	obs := makeObs(2020, 1, 1.0, math.NaN(), 3.0, math.NaN(), 5.0)
 	s := analyze.Summarize("TEST", obs)
 
-	validCount := s.Count - s.Missing
+	validCount := s.Count - s.MissingCount
 	if validCount != 3 {
-		t.Errorf("valid count (Count-Missing): expected 3, got %d", validCount)
+		t.Errorf("valid count (Count-MissingCount): expected 3, got %d", validCount)
 	}
 	// Mean of [1,3,5] = 3
 	if !approxEqual(s.Mean, 3.0, 1e-9) {
 		t.Errorf("Mean of [1,3,5]: expected 3.0, got %g", s.Mean)
+	}
+}
+
+func TestCompareAligned(t *testing.T) {
+	lhs := makeObs(2020, 1, 1, 2, 3, 4)
+	rhs := makeObs(2020, 1, 1, 1, 2, 2)
+	res, err := analyze.Compare("A", lhs, "B", rhs)
+	if err != nil {
+		t.Fatalf("Compare: %v", err)
+	}
+	if res.CountAligned != 4 {
+		t.Fatalf("CountAligned=%d want 4", res.CountAligned)
+	}
+	if res.Beta <= 0 {
+		t.Fatalf("Beta should be positive, got %g", res.Beta)
+	}
+}
+
+func TestRegimeCUSUMBasic(t *testing.T) {
+	obs := makeObs(2020, 1, 1, 1, 1, 1, 10, 10, 10, 10)
+	res, err := analyze.RegimeCUSUM("X", obs, 2.0)
+	if err != nil {
+		t.Fatalf("RegimeCUSUM: %v", err)
+	}
+	if res.Method != "cusum" {
+		t.Fatalf("Method=%q", res.Method)
+	}
+	if len(res.Segments) == 0 {
+		t.Fatal("expected at least one segment")
+	}
+	if res.Signal != "diff" {
+		t.Fatalf("expected diff signal, got %q", res.Signal)
+	}
+	if res.MinGap <= 0 {
+		t.Fatalf("expected positive min gap, got %d", res.MinGap)
+	}
+}
+
+func TestRegimeCUSUMRespectsMinGap(t *testing.T) {
+	obs := makeObs(2020, 1, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10)
+	res, err := analyze.RegimeCUSUM("X", obs, 1.5)
+	if err != nil {
+		t.Fatalf("RegimeCUSUM: %v", err)
+	}
+	dateIdx := map[string]int{}
+	for i, o := range obs {
+		dateIdx[o.Date.Format("2006-01-02")] = i
+	}
+	for i := 1; i < len(res.ChangePoints); i++ {
+		i1 := dateIdx[res.ChangePoints[i-1].Date]
+		i2 := dateIdx[res.ChangePoints[i].Date]
+		if i2-i1 < res.MinGap {
+			t.Fatalf("change points too close: %s then %s with min_gap=%d", res.ChangePoints[i-1].Date, res.ChangePoints[i].Date, res.MinGap)
+		}
 	}
 }

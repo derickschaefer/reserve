@@ -2,9 +2,38 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.7` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.8` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.8 — 2026-06-04 — Analyze Output Contract, Provenance Flow, Regime/Compare, and Rate Hardening
+
+**Added**
+
+- `analyze compare` for aligned-series comparison with table and JSON output
+- Experimental `analyze regime` with CUSUM-based change-point and segment reporting
+- `analyze trend --confidence` for slope uncertainty metadata
+- `analyze summary --window N` for rolling summaries over trailing windows
+
+**Changed**
+
+- `analyze summary`, `trend`, `compare`, and `regime` now share a cleaner, more consistent table layout
+- Numeric table output now uses human-friendly formatting while JSON/JSONL stay machine-clean
+- Source and citation provenance now flows through analysis outputs and appears in table footers
+- Default request rate now uses a safer 2 requests/second standard
+- Live test traffic is paced more conservatively so API usage is less bursty
+
+**Fixed**
+
+- `analyze compare` now preserves provenance in machine-readable output
+- Rate-limited FRED client retries now respect pacing and `Retry-After`
+- Test helpers no longer pace mock/offline API-client tests unnecessarily
+
+**Known limitations**
+
+- `transform` operators remain single-series by design in this release. Batched multi-series transforms like `pct-change` over several `series_id` values are not supported; run them per series as a workaround, then use `analyze summary --by-series` or `analyze compare` downstream as appropriate.
 
 ---
 

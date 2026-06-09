@@ -79,7 +79,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.4
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.8
 ```
 
 Windows PowerShell:
@@ -547,12 +547,13 @@ reserve analyze trend [--method linear|theil-sen]
 | Field | Description |
 |---|---|
 | count | total observations |
-| missing | NaN count and percentage |
+| missing_count, missing_pct | NaN count and percentage |
 | mean, std | mean and standard deviation |
 | min, p25, median, p75, max | five-number summary |
 | skew | Fisher-Pearson skewness coefficient |
 | first, last | boundary non-NaN values |
 | change, change_pct | absolute and percentage change over the full series |
+| analysis_version, start_date, end_date, n_obs | stable machine-readable metadata/context |
 
 **`analyze trend`** produces:
 
@@ -572,6 +573,12 @@ reserve obs get UNRATE --from cache --format jsonl | reserve analyze summary
 reserve obs get GDP --from cache --format jsonl | reserve transform pct-change | reserve analyze summary
 reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend
 reserve obs get UNRATE --from cache --format jsonl | reserve analyze trend --method theil-sen
+
+# same summary, human-first table output
+reserve obs get GDP --start 2020-01-01 --format jsonl | reserve analyze summary --format table
+
+# same summary, machine-first JSON contract
+reserve obs get GDP --start 2020-01-01 --format jsonl | reserve analyze summary --format json
 ```
 
 ---
@@ -675,7 +682,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.7
+reserve v1.1.8
 go      go1.26.3
 os      darwin/arm64
 ```
@@ -835,7 +842,7 @@ These flags are available on every command:
 --api-key <key>                         override API key for this invocation only
 --timeout <duration>                    HTTP request timeout (default: 30s)
 --concurrency <n>                       parallel requests for batch operations (default: 8)
---rate <n>                              API requests/sec client-side limit (default: 5.0)
++-rate <n>                              API requests/sec client-side limit (default: 2.0)
 --verbose                               show timing and cache stats after output
 --debug                                 log HTTP requests (API key redacted)
 --quiet                                 suppress all non-error output
@@ -876,7 +883,7 @@ Example file contents:
   "default_format": "table",
   "timeout":        "30s",
   "concurrency":    8,
-  "rate":           5.0,
+  "rate":           2.0,
   "db_path":        "",
   "person_org_type": "student",
   "block_unknown_rights": true,

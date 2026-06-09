@@ -69,10 +69,23 @@ func TestCommandSurface(t *testing.T) {
 	}
 
 	onboardHelp := runReserveHelp(t, "onboard", "--help")
-	for _, token := range []string{"reserve onboard [command]", "--topic string", "reserve onboard series", "export"} {
+	for _, token := range []string{"reserve onboard [command]", "--topic string", "reserve onboard series", "reserve onboard analyze", "export"} {
 		r.check(t, strings.Contains(onboardHelp, token),
 			fmt.Sprintf("onboard help includes [%s]", token),
 			fmt.Sprintf("onboard help is missing [%s]", token),
+		)
+	}
+
+	analyzeOnboard := runReserveHelp(t, "onboard", "analyze")
+	for _, token := range []string{
+		"reserve analyze summary [--by-series] [--window N]",
+		"reserve analyze trend [--method linear|theil-sen] [--confidence]",
+		"reserve analyze compare --against <SERIES_ID> [--series <SERIES_ID>]",
+		"reserve analyze regime --method cusum [--threshold N]",
+	} {
+		r.check(t, strings.Contains(analyzeOnboard, token),
+			fmt.Sprintf("onboard analyze includes [%s]", token),
+			fmt.Sprintf("onboard analyze is missing [%s]", token),
 		)
 	}
 

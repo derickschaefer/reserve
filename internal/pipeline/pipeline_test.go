@@ -167,6 +167,23 @@ func TestReadObservationsWithCitation(t *testing.T) {
 	}
 }
 
+func TestReadObservationsWithProvenance(t *testing.T) {
+	input := jsonl(
+		`{"series_id":"UNRATE","date":"2020-01-01","value":3.5,"value_raw":"3.5","citation_text":"Source: Bureau of Labor Statistics via FRED","source_name":"Bureau of Labor Statistics","source_names":["Bureau of Labor Statistics"]}`,
+		`{"series_id":"UNRATE","date":"2020-02-01","value":3.6,"value_raw":"3.6","citation_text":"Source: Bureau of Labor Statistics via FRED","source_name":"Bureau of Labor Statistics","source_names":["Bureau of Labor Statistics"]}`,
+	)
+	sid, observations, prov, err := pipeline.ReadObservationsWithProvenance(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sid != "UNRATE" || len(observations) != 2 {
+		t.Fatalf("unexpected series parse: sid=%q n=%d", sid, len(observations))
+	}
+	if prov.CitationText == "" || prov.SourceName == "" || len(prov.SourceNames) != 1 {
+		t.Fatalf("unexpected provenance: %+v", prov)
+	}
+}
+
 func TestReadDateParsed(t *testing.T) {
 	input := jsonl(
 		`{"series_id":"TEST","date":"2024-06-15","value":5.0}`,

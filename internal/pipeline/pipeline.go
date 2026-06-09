@@ -20,16 +20,25 @@ import (
 
 // ObservationGroup holds a single grouped observation stream keyed by series ID.
 type ObservationGroup struct {
-	SeriesID string
-	Obs      []model.Observation
+	SeriesID   string
+	Obs        []model.Observation
+	Provenance Provenance
+}
+
+type Provenance struct {
+	CitationText string   `json:"citation_text,omitempty"`
+	SourceName   string   `json:"source_name,omitempty"`
+	SourceNames  []string `json:"source_names,omitempty"`
 }
 
 type observationRow struct {
-	SeriesID string      `json:"series_id"`
-	Date     string      `json:"date"`
-	Value    interface{} `json:"value"`
-	ValueRaw string      `json:"value_raw"`
-	Citation string      `json:"citation_text"`
+	SeriesID    string      `json:"series_id"`
+	Date        string      `json:"date"`
+	Value       interface{} `json:"value"`
+	ValueRaw    string      `json:"value_raw"`
+	Citation    string      `json:"citation_text"`
+	SourceName  string      `json:"source_name"`
+	SourceNames []string    `json:"source_names"`
 }
 
 // ReadObservations reads JSONL records from r (stdin) and returns
@@ -43,7 +52,17 @@ func ReadObservations(r io.Reader) (string, []model.Observation, error) {
 // ReadObservationsWithCitation reads JSONL records and returns series_id,
 // observations, and optional citation text when present on input rows.
 func ReadObservationsWithCitation(r io.Reader) (string, []model.Observation, string, error) {
-	return readObservationsInternal(r)
+	seriesID, obs, prov, err := ReadObservationsWithProvenance(r)
+	if err != nil {
+		return "", nil, "", err
+	}
+	return seriesID, obs, prov.CitationText, nil
+}
+
+// ReadObservationsWithProvenance reads JSONL rows and returns the parsed observations
+// with any carried provenance fields from the stream.
+func ReadObservationsWithProvenance(r io.Reader) (string, []model.Observation, Provenance, error) {
+	return readObservationsWithProvenance(r)
 }
 
 func readObservationsInternal(r io.Reader) (string, []model.Observation, string, error) {
@@ -87,6 +106,7 @@ func ReadObservationGroups(r io.Reader) ([]ObservationGroup, error) {
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
 
 	groups := make(map[string][]model.Observation)
+	provenance := make(map[string]Provenance)
 	order := make([]string, 0)
 	lineNum := 0
 
@@ -104,6 +124,17 @@ func ReadObservationGroups(r io.Reader) ([]ObservationGroup, error) {
 			order = append(order, seriesID)
 		}
 		groups[seriesID] = append(groups[seriesID], observation)
+		p := provenance[seriesID]
+		if p.CitationText == "" && strings.TrimSpace(rec.Citation) != "" {
+			p.CitationText = strings.TrimSpace(rec.Citation)
+		}
+		if p.SourceName == "" && strings.TrimSpace(rec.SourceName) != "" {
+			p.SourceName = strings.TrimSpace(rec.SourceName)
+		}
+		if len(rec.SourceNames) > 0 && len(p.SourceNames) == 0 {
+			p.SourceNames = normalizeSourceNames(rec.SourceNames)
+		}
+		provenance[seriesID] = p
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading input: %w", err)
@@ -115,11 +146,69 @@ func ReadObservationGroups(r io.Reader) ([]ObservationGroup, error) {
 	out := make([]ObservationGroup, 0, len(order))
 	for _, seriesID := range order {
 		out = append(out, ObservationGroup{
-			SeriesID: seriesID,
-			Obs:      groups[seriesID],
+			SeriesID:   seriesID,
+			Obs:        groups[seriesID],
+			Provenance: provenance[seriesID],
 		})
 	}
 	return out, nil
+}
+
+func readObservationsWithProvenance(r io.Reader) (string, []model.Observation, Provenance, error) {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+
+	var obs []model.Observation
+	seriesID := ""
+	lineNum := 0
+	var prov Provenance
+
+	for scanner.Scan() {
+		rec, observation, skip, err := parseObservationLine(scanner.Text(), &lineNum)
+		if err != nil {
+			return "", nil, Provenance{}, err
+		}
+		if skip {
+			continue
+		}
+		if seriesID == "" && rec.SeriesID != "" {
+			seriesID = rec.SeriesID
+		}
+		if prov.CitationText == "" && strings.TrimSpace(rec.Citation) != "" {
+			prov.CitationText = strings.TrimSpace(rec.Citation)
+		}
+		if prov.SourceName == "" && strings.TrimSpace(rec.SourceName) != "" {
+			prov.SourceName = strings.TrimSpace(rec.SourceName)
+		}
+		if len(prov.SourceNames) == 0 && len(rec.SourceNames) > 0 {
+			prov.SourceNames = normalizeSourceNames(rec.SourceNames)
+		}
+		obs = append(obs, observation)
+	}
+	if err := scanner.Err(); err != nil {
+		return "", nil, Provenance{}, fmt.Errorf("reading input: %w", err)
+	}
+	if len(obs) == 0 {
+		return "", nil, Provenance{}, fmt.Errorf("no observations read from input (is stdin empty?)")
+	}
+	return seriesID, obs, prov, nil
+}
+
+func normalizeSourceNames(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 func parseObservationLine(line string, lineNum *int) (observationRow, model.Observation, bool, error) {

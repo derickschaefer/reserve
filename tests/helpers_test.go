@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,7 +13,53 @@ import (
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/fred"
+	"github.com/derickschaefer/reserve/internal/model"
 )
+
+var (
+	fredRequestMu      = make(chan struct{}, 1)
+	lastFREDRequestAt  time.Time
+	fredRequestSpacing = 1 * time.Second
+)
+
+func paceFREDRequests(t *testing.T) {
+	t.Helper()
+
+	fredRequestMu <- struct{}{}
+	defer func() { <-fredRequestMu }()
+
+	if !lastFREDRequestAt.IsZero() {
+		wait := time.Until(lastFREDRequestAt.Add(fredRequestSpacing))
+		if wait > 0 {
+			time.Sleep(wait)
+		}
+	}
+	lastFREDRequestAt = time.Now()
+}
+
+func pacedGetSeries(t *testing.T, client *fred.Client, seriesID string) (*model.SeriesMeta, error) {
+	t.Helper()
+	paceFREDRequests(t)
+	return client.GetSeries(context.Background(), seriesID)
+}
+
+func pacedGetSeriesTags(t *testing.T, client *fred.Client, seriesID string) ([]model.Tag, error) {
+	t.Helper()
+	paceFREDRequests(t)
+	return client.GetSeriesTags(context.Background(), seriesID)
+}
+
+func pacedGetObservations(t *testing.T, client *fred.Client, seriesID string, opts fred.ObsOptions) (*model.SeriesData, error) {
+	t.Helper()
+	paceFREDRequests(t)
+	return client.GetObservations(context.Background(), seriesID, opts)
+}
+
+func pacedGetLatestObservation(t *testing.T, client *fred.Client, seriesID string) (*model.Observation, error) {
+	t.Helper()
+	paceFREDRequests(t)
+	return client.GetLatestObservation(context.Background(), seriesID)
+}
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
 

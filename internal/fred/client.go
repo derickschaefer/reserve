@@ -24,6 +24,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,10 +76,6 @@ func (c *Client) SetHTTPClient(httpClient *http.Client) {
 
 // get performs a GET request to the FRED API, handling rate limiting and retries.
 func (c *Client) get(ctx context.Context, endpoint string, params url.Values, out interface{}) error {
-	if err := c.limiter.Wait(ctx); err != nil {
-		return err
-	}
-
 	params.Set("api_key", c.apiKey)
 	params.Set("file_type", "json")
 
@@ -91,6 +88,9 @@ func (c *Client) get(ctx context.Context, endpoint string, params url.Values, ou
 
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
+		if err := c.limiter.Wait(ctx); err != nil {
+			return err
+		}
 		if attempt > 0 {
 			backoff := time.Duration(math.Pow(2, float64(attempt-1))*500) * time.Millisecond
 			slog.Debug("retrying after backoff", "attempt", attempt, "backoff", backoff)
@@ -125,7 +125,19 @@ func (c *Client) get(ctx context.Context, endpoint string, params url.Values, ou
 			slog.Debug("fred response", "status", resp.StatusCode, "bytes", len(body))
 		}
 
-		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+		if resp.StatusCode == http.StatusTooManyRequests {
+			lastErr = fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+			if ra := parseRetryAfter(resp.Header.Get("Retry-After")); ra > 0 {
+				slog.Debug("fred 429 retry-after", "wait", ra)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(ra):
+				}
+			}
+			continue
+		}
+		if resp.StatusCode >= 500 {
 			lastErr = fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 			continue
 		}
@@ -147,4 +159,21 @@ func (c *Client) get(ctx context.Context, endpoint string, params url.Values, ou
 		return nil
 	}
 	return fmt.Errorf("after %d attempts: %w", maxRetries, lastErr)
+}
+
+func parseRetryAfter(v string) time.Duration {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		d := time.Until(t)
+		if d > 0 {
+			return d
+		}
+	}
+	return 0
 }

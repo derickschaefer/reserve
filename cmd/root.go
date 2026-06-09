@@ -6,13 +6,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
-	"github.com/derickschaefer/reserve/internal/compliance"
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -103,16 +101,6 @@ func buildDeps() (*app.Deps, error) {
 	}
 
 	deps := app.New(cfg)
-	if deps.Store != nil && cfg.APIKey != "" {
-		ctx := rootCmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		if err := compliance.MaybeBackfillStore(ctx, cfg, deps.Client, deps.Store); err != nil {
-			deps.Close()
-			return nil, err
-		}
-	}
 	return deps, nil
 }
 
@@ -165,7 +153,7 @@ func init() {
 	pf.IntVar(&globalFlags.Concurrency, "concurrency", 0,
 		"max parallel requests for batch operations (default: 8)")
 	pf.Float64Var(&globalFlags.Rate, "rate", 0,
-		"max API requests per second (default: 5.0)")
+		"max API requests per second (default: 2.0)")
 	pf.BoolVar(&globalFlags.Quiet, "quiet", false,
 		"suppress all non-error output")
 	pf.BoolVar(&globalFlags.Verbose, "verbose", false,

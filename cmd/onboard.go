@@ -118,6 +118,7 @@ Topics:
 Command-specific onboarding:
   reserve onboard series
   reserve onboard config
+  reserve onboard analyze
   reserve onboard transform
 
 Bundle export:
@@ -319,7 +320,7 @@ func buildStart() map[string]any {
 			"Three rules to internalize before we start: " +
 			"(1) always add --format jsonl on source commands like `obs get` when piping — they default to table format and will break downstream operators without it; " +
 			"(2) rolling windows use `reserve window roll`, not `reserve transform roll` — window is a separate noun; " +
-			"(3) when several series share the same date window, prefer one batched `reserve obs get <ID...> --format jsonl` call; then use `reserve analyze summary --by-series` for per-series summaries. " +
+			"(3) when several series share the same date window, prefer one batched `reserve obs get <ID...> --format jsonl` call; then use `reserve analyze summary --by-series` for per-series summaries, `reserve analyze compare` for pairwise comparison, or `reserve analyze regime` for experimental change-point detection. " +
 			"When you are ready to help me explore FRED economic data, say so.",
 		"commands": buildCommands(),
 		"pipeline": buildPipeline(),
@@ -347,6 +348,7 @@ func buildTOC() map[string]any {
 		"operating_rules": []string{
 			"Prefer one batched `reserve obs get <ID...>` call over many single-series calls when the series share the same date range and options.",
 			"For per-series summaries from batched observation streams, use `reserve analyze summary --by-series`.",
+			"For pairwise comparison use `reserve analyze compare` and for experimental change-point detection use `reserve analyze regime`.",
 			"Always add `--format jsonl` on source commands before piping into transform/window/analyze/chart.",
 			"`reserve window roll` is a separate noun; there is no `reserve transform roll`.",
 			"Use `reserve onboard <command>` for authoritative command detail instead of guessing syntax.",
@@ -441,9 +443,9 @@ func buildCommands() map[string]any {
 
 func buildPipeline() map[string]any {
 	return map[string]any{
-		"model":                 "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print a summary table or JSON, not JSONL.",
+		"model":                 "Unix stdin/stdout. Every pipeline operator reads JSONL from stdin and writes JSONL to stdout. analyze verbs are terminal — they consume JSONL and print summaries, comparisons, or regime tables, not JSONL.",
 		"critical_rule":         "obs get defaults to TABLE format even when piped. You MUST add --format jsonl on the source command or the downstream operator will fail with 'invalid character +' (table border characters are not JSON).",
-		"high_value_batch_rule": "When several series share the same date range or options, prefer one batched `reserve obs get <ID...> --format jsonl` call. For descriptive statistics by series, follow it with `reserve analyze summary --by-series`.",
+		"high_value_batch_rule": "When several series share the same date range or options, prefer one batched `reserve obs get <ID...> --format jsonl` call. For descriptive statistics by series, follow it with `reserve analyze summary --by-series`; for pairwise comparison use `reserve analyze compare`.",
 		"jsonl_format": map[string]any{
 			"one_object_per_line": true,
 			"schema":              `{"series_id":"CPIAUCSL","date":"2024-01-01","value":308.417,"value_raw":"308.417"}`,
@@ -465,9 +467,9 @@ func buildPipeline() map[string]any {
 			"transform": "transform pct-change / diff / log / index / normalize / resample / filter  — JSONL → JSONL",
 			"window":    "window roll  — JSONL → JSONL  (note: separate noun, not under transform)",
 			"chart":     "chart bar / chart plot  — JSONL → terminal ASCII chart  (no `chart line` verb)",
-			"terminal":  "analyze summary / analyze trend  — JSONL → table or JSON summary",
+			"terminal":  "analyze summary / analyze trend / analyze compare / analyze regime  — JSONL → table or JSON summary",
 		},
-		"multi_series_semantics": "Most pipeline operators still treat all JSONL on stdin as one logical series stream. The exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series.",
+		"multi_series_semantics": "Most pipeline operators still treat all JSONL on stdin as one logical series stream. The exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series. `reserve analyze compare` consumes two aligned series, and `reserve analyze regime` is an experimental single-series detector.",
 		"store_get_pattern":      "reserve obs get CPIAUCSL --from cache --format jsonl | reserve transform pct-change --period 12 | reserve analyze summary",
 	}
 }
@@ -566,7 +568,7 @@ func buildGotchas() map[string]any {
 			{
 				"id":      "multi-series-pipeline",
 				"title":   "Use the right multi-series downstream operator",
-				"detail":  "Batched `obs get` is preferred when several series share the same window, but most downstream pipeline operators still treat stdin as one logical stream. The direct exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series.",
+				"detail":  "Batched `obs get` is preferred when several series share the same window, but most downstream pipeline operators still treat stdin as one logical stream. The direct exception is `reserve analyze summary --by-series`, which groups rows by `series_id` and emits one summary per series. `reserve analyze compare` is for two aligned series, and `reserve analyze regime` is an experimental single-series detector.",
 				"wrong":   "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze trend",
 				"correct": "reserve obs get UNRATE FEDFUNDS --format jsonl | reserve analyze summary --by-series",
 			},
@@ -597,7 +599,7 @@ func buildGotchas() map[string]any {
 			{
 				"id":     "analyze-is-terminal",
 				"title":  "analyze verbs do not emit JSONL",
-				"detail": "analyze summary and analyze trend consume the JSONL stream and print a formatted table or JSON summary. They are terminal operators — you cannot pipe their output into another reserve command.",
+				"detail": "analyze summary, analyze trend, analyze compare, and analyze regime consume the JSONL stream and print a formatted table or JSON summary. They are terminal operators — you cannot pipe their output into another reserve command.",
 			},
 		},
 	}
