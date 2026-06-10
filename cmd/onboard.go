@@ -145,49 +145,11 @@ Bundle export:
 		return names, cobra.ShellCompDirectiveNoFileComp
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var doc map[string]any
-		var err error
-
-		switch {
-		case len(args) == 1:
-			if cmd.Flags().Changed("topic") {
-				return fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve onboard --topic ...` or `reserve onboard %s`", args[0])
-			}
-			var ok bool
-			doc, ok = buildCommandOnboardDoc(args[0])
-			if !ok {
-				return fmt.Errorf("unknown onboard command %q (available: %s)", args[0], strings.Join(onboardCommandNames(), ", "))
-			}
-		case cmd.Flags().Changed("topic"):
-			topics := parseOnboardTopics(onboardTopicFlag)
-			doc = buildOnboardDoc(topics)
-		default:
-			doc = buildProgramOnboardDoc()
-		}
-
-		format := globalFlags.Format
-		if format == "" {
-			format = "json"
-		}
-
-		w, closeFn, err := outputWriter(cmd.OutOrStdout())
+		doc, err := resolveOnboardDoc(cmd, args)
 		if err != nil {
 			return err
 		}
-		defer closeFn()
-
-		switch format {
-		case "jsonl":
-			enc := json.NewEncoder(w)
-			enc.SetEscapeHTML(false)
-			return enc.Encode(doc)
-		default:
-			enc := json.NewEncoder(w)
-			enc.SetIndent("", "  ")
-			enc.SetEscapeHTML(false)
-			err = enc.Encode(doc)
-		}
-		return err
+		return renderOnboardDoc(cmd, doc)
 	},
 }
 
@@ -217,6 +179,49 @@ func parseOnboardTopics(flag string) []string {
 		out = append(out, strings.TrimSpace(p))
 	}
 	return out
+}
+
+func resolveOnboardDoc(cmd *cobra.Command, args []string) (map[string]any, error) {
+	switch {
+	case len(args) == 1:
+		if cmd.Flags().Changed("topic") {
+			return nil, fmt.Errorf("--topic is only supported for program-level onboarding; use either `reserve onboard --topic ...` or `reserve onboard %s`", args[0])
+		}
+		doc, ok := buildCommandOnboardDoc(args[0])
+		if !ok {
+			return nil, fmt.Errorf("unknown onboard command %q (available: %s)", args[0], strings.Join(onboardCommandNames(), ", "))
+		}
+		return doc, nil
+	case cmd.Flags().Changed("topic"):
+		return buildOnboardDoc(parseOnboardTopics(onboardTopicFlag)), nil
+	default:
+		return buildProgramOnboardDoc(), nil
+	}
+}
+
+func renderOnboardDoc(cmd *cobra.Command, doc map[string]any) error {
+	format := globalFlags.Format
+	if format == "" {
+		format = "json"
+	}
+
+	w, closeFn, err := outputWriter(cmd.OutOrStdout())
+	if err != nil {
+		return err
+	}
+	defer closeFn()
+
+	switch format {
+	case "jsonl":
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
+		return enc.Encode(doc)
+	default:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.SetEscapeHTML(false)
+		return enc.Encode(doc)
+	}
 }
 
 func onboardCommandNames() []string {

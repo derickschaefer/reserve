@@ -6,6 +6,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -81,4 +82,57 @@ func resetGlobalFlag(t *testing.T, name string) {
 		t.Fatalf("reset %s: %v", name, err)
 	}
 	flag.Changed = false
+}
+
+func TestRewriteArgsForAIOnboard(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "top level command",
+			args: []string{"obs", "--ai-onboard"},
+			want: []string{"onboard", "obs"},
+		},
+		{
+			name: "nested command collapses to top level guide",
+			args: []string{"obs", "get", "GDP", "--ai-onboard"},
+			want: []string{"onboard", "obs"},
+		},
+		{
+			name: "global flag value before command",
+			args: []string{"--api-key", "secret", "obs", "--ai-onboard"},
+			want: []string{"onboard", "obs"},
+		},
+		{
+			name: "preserves format and out",
+			args: []string{"obs", "--ai-onboard", "--format", "jsonl", "--out", "guide.jsonl"},
+			want: []string{"onboard", "obs", "--format", "jsonl", "--out", "guide.jsonl"},
+		},
+		{
+			name: "topic mode without command",
+			args: []string{"--ai-onboard", "--topic", "pipeline"},
+			want: []string{"onboard", "--topic", "pipeline"},
+		},
+		{
+			name: "onboard command remains onboard",
+			args: []string{"onboard", "obs", "--ai-onboard"},
+			want: []string{"onboard", "obs"},
+		},
+		{
+			name: "explicit false does not rewrite",
+			args: []string{"obs", "--ai-onboard=false"},
+			want: []string{"obs", "--ai-onboard=false"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := rewriteArgsForAIOnboard(tc.args)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("rewriteArgsForAIOnboard(%v) = %v, want %v", tc.args, got, tc.want)
+			}
+		})
+	}
 }

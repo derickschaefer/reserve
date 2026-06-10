@@ -242,6 +242,7 @@ func buildGlobalFlags() map[string]any {
 		"--quiet":       "suppress all non-error output",
 		"--no-cache":    "bypass local database reads",
 		"--refresh":     "force re-fetch and overwrite cached entries",
+		"--ai-onboard":  "emit AI onboarding for the addressed command instead of executing it",
 	}
 }
 

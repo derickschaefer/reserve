@@ -61,7 +61,7 @@ func TestCommandSurface(t *testing.T) {
 	)
 
 	obsGetHelp := runReserveHelp(t, "obs", "get", "--help")
-	for _, token := range []string{"--from string", "live|cache", "--start string", "--end string"} {
+	for _, token := range []string{"--from string", "live|cache", "--start string", "--end string", "--ai-onboard"} {
 		r.check(t, strings.Contains(obsGetHelp, token),
 			fmt.Sprintf("obs get help includes [%s]", token),
 			fmt.Sprintf("obs get help is missing [%s]", token),
@@ -94,6 +94,30 @@ func TestCommandSurface(t *testing.T) {
 		r.check(t, strings.Contains(seriesHelp, sub),
 			fmt.Sprintf("series help includes [%s]", sub),
 			fmt.Sprintf("series help is missing [%s]", sub),
+		)
+	}
+
+	obsAIOnboard := runReserveHelp(t, "obs", "--ai-onboard")
+	for _, token := range []string{`"scope": "command"`, `"command_name": "obs"`} {
+		r.check(t, strings.Contains(obsAIOnboard, token),
+			fmt.Sprintf("obs --ai-onboard includes [%s]", token),
+			fmt.Sprintf("obs --ai-onboard is missing [%s]", token),
+		)
+	}
+
+	obsGetAIOnboard := runReserveHelp(t, "obs", "get", "--ai-onboard")
+	for _, token := range []string{`"scope": "command"`, `"command_name": "obs"`} {
+		r.check(t, strings.Contains(obsGetAIOnboard, token),
+			fmt.Sprintf("obs get --ai-onboard includes [%s]", token),
+			fmt.Sprintf("obs get --ai-onboard is missing [%s]", token),
+		)
+	}
+
+	analyzeTrendAIOnboard := runReserveHelp(t, "analyze", "trend", "--ai-onboard")
+	for _, token := range []string{`"scope": "command"`, `"command_name": "analyze"`} {
+		r.check(t, strings.Contains(analyzeTrendAIOnboard, token),
+			fmt.Sprintf("analyze trend --ai-onboard includes [%s]", token),
+			fmt.Sprintf("analyze trend --ai-onboard is missing [%s]", token),
 		)
 	}
 	r.summary(t, "COMMAND SURFACE")

@@ -38,6 +38,7 @@ DEVPLAN.md
 gitpush.sh
 ghpush.sh
 reserve-rpi
+ANAlYSIS_ROADMAP.md
 
 # Generated release notes
 dist/releases/**/RELEASE_NOTES.md

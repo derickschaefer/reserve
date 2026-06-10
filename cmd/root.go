@@ -8,6 +8,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/derickschaefer/reserve/internal/app"
@@ -29,6 +30,7 @@ var globalFlags struct {
 	Quiet       bool
 	Verbose     bool
 	Debug       bool
+	AIOnboard   bool
 }
 
 // rootCmd is the base command. Running `reserve` with no subcommand
@@ -57,6 +59,7 @@ Quick start:
 
 // Execute is the entry point called by main.
 func Execute() {
+	rootCmd.SetArgs(rewriteArgsForAIOnboard(os.Args[1:]))
 	if err := rootCmd.Execute(); err != nil {
 		label := "Error:"
 		if IsNoticeError(err) {
@@ -64,6 +67,110 @@ func Execute() {
 		}
 		fmt.Fprintln(os.Stderr, label, err)
 		os.Exit(1)
+	}
+}
+
+func rewriteArgsForAIOnboard(args []string) []string {
+	if !containsAIOnboardFlag(args) {
+		return args
+	}
+
+	filtered := make([]string, 0, len(args))
+	var passthrough []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--ai-onboard":
+			continue
+		case strings.HasPrefix(arg, "--ai-onboard="):
+			if strings.EqualFold(strings.TrimSpace(strings.TrimPrefix(arg, "--ai-onboard=")), "false") {
+				filtered = append(filtered, arg)
+				continue
+			}
+			continue
+		case strings.HasPrefix(arg, "--topic="):
+			passthrough = append(passthrough, arg)
+			continue
+		case arg == "--topic":
+			passthrough = append(passthrough, arg)
+			if i+1 < len(args) {
+				i++
+				passthrough = append(passthrough, args[i])
+			}
+			continue
+		case strings.HasPrefix(arg, "--format="):
+			passthrough = append(passthrough, arg)
+			continue
+		case arg == "--format":
+			passthrough = append(passthrough, arg)
+			if i+1 < len(args) {
+				i++
+				passthrough = append(passthrough, args[i])
+			}
+			continue
+		case strings.HasPrefix(arg, "--out="):
+			passthrough = append(passthrough, arg)
+			continue
+		case arg == "--out":
+			passthrough = append(passthrough, arg)
+			if i+1 < len(args) {
+				i++
+				passthrough = append(passthrough, args[i])
+			}
+			continue
+		default:
+			filtered = append(filtered, arg)
+		}
+	}
+
+	if len(filtered) > 0 && filtered[0] == "onboard" {
+		return append([]string{"onboard"}, append(filtered[1:], passthrough...)...)
+	}
+
+	commandName := firstCommandToken(filtered)
+	if commandName == "" {
+		return append([]string{"onboard"}, passthrough...)
+	}
+
+	return append([]string{"onboard", commandName}, passthrough...)
+}
+
+func containsAIOnboardFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == "--ai-onboard" {
+			return true
+		}
+		if strings.HasPrefix(arg, "--ai-onboard=") {
+			value := strings.TrimSpace(strings.TrimPrefix(arg, "--ai-onboard="))
+			return !strings.EqualFold(value, "false")
+		}
+	}
+	return false
+}
+
+func firstCommandToken(args []string) string {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") {
+			if flagConsumesNextArg(arg) && i+1 < len(args) {
+				i++
+			}
+			continue
+		}
+		return arg
+	}
+	return ""
+}
+
+func flagConsumesNextArg(arg string) bool {
+	if strings.Contains(arg, "=") {
+		return false
+	}
+	switch arg {
+	case "--api-key", "--format", "--out", "--timeout", "--concurrency", "--rate", "--topic":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -160,4 +267,6 @@ func init() {
 		"show cache/timing stats after output")
 	pf.BoolVar(&globalFlags.Debug, "debug", false,
 		"log HTTP requests and responses (API key redacted)")
+	pf.BoolVar(&globalFlags.AIOnboard, "ai-onboard", false,
+		"emit AI onboarding for the addressed command instead of executing it")
 }
