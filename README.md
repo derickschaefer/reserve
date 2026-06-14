@@ -7,6 +7,22 @@ Federal Reserve Bank of St. Louis FRED® API.
 > Data sourced from FRED®, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/  
 > This project is not affiliated with or endorsed by the Federal Reserve Bank of St. Louis.
 
+<p>
+  <a href="https://go.dev/">
+    <img alt="Go Version" src="https://img.shields.io/github/go-mod/go-version/derickschaefer/reserve">
+  </a>
+  <a href="https://github.com/derickschaefer/reserve/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/derickschaefer/reserve">
+  </a>
+  <a href="https://github.com/derickschaefer/reserve/blob/main/LICENSE">
+    <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue">
+  </a>
+  <a>
+    <img alt="FRED CLI" src="https://img.shields.io/badge/FRED-CLI-blue">
+    <img alt="AI Ready" src="https://img.shields.io/badge/AI-Ready-purple">
+  </a>
+</p>
+
 ---
 
 ## Table of Contents
@@ -49,30 +65,12 @@ Federal Reserve Bank of St. Louis FRED® API.
 ## Quality
 
 <p>
-  <a href="https://go.dev/">
-    <img alt="Go Version" src="https://img.shields.io/github/go-mod/go-version/derickschaefer/reserve">
-  </a>
-  <a href="https://github.com/derickschaefer/reserve/releases/latest">
-    <img alt="Release" src="https://img.shields.io/github/v/release/derickschaefer/reserve">
-  </a>
-  <a href="https://github.com/derickschaefer/reserve/blob/main/LICENSE">
-    <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue">
-  </a>
-</p>
-<p>
-  <a href="https://github.com/derickschaefer/reserve/actions/workflows/release-keyless.yml">
-    <img alt="Build" src="https://github.com/derickschaefer/reserve/actions/workflows/release-keyless.yml/badge.svg?branch=main">
-  </a>
   <a href="https://github.com/derickschaefer/reserve">
     <img alt="Coverage" src="https://img.shields.io/badge/coverage-62.4%25-brightgreen">
   </a>
   <a href="docs/release-security.md">
     <img alt="Security" src="https://img.shields.io/badge/security-manual%20review-informational">
   </a>
-</p>
-<p>
-  <img alt="FRED CLI" src="https://img.shields.io/badge/FRED-CLI-blue">
-  <img alt="AI Ready" src="https://img.shields.io/badge/AI-Ready-purple">
 </p>
 
 - ✅ 96.9% coverage for data transformations
