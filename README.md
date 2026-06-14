@@ -46,6 +46,29 @@ Federal Reserve Bank of St. Louis FRED® API.
 
 ---
 
+## Quality
+
+![Go Version](https://img.shields.io/github/go-mod/go-version/derickschaefer/reserve)
+![Release](https://img.shields.io/github/v/release/derickschaefer/reserve)
+![License](https://img.shields.io/github/license/derickschaefer/reserve)
+
+![Build](https://img.shields.io/github/actions/workflow/status/derickschaefer/reserve/test.yml?label=build)
+![Coverage](https://img.shields.io/badge/coverage-XX%25-brightgreen)
+![Security](https://img.shields.io/badge/security-A-success)
+
+![FRED](https://img.shields.io/badge/FRED-API-blue)
+![CLI](https://img.shields.io/badge/CLI-Go-blue)
+![AI-Ready](https://img.shields.io/badge/AI-Ready-purple)
+
+- ✅ 96.9% coverage for data transformations
+- ✅ 87.9% coverage for analysis engine
+- ✅ 84.8% coverage for data pipeline
+- ✅ Contract tests for CLI commands
+- ✅ Integration tests for core workflows
+- 🚧 Expanding coverage for rendering and API layers
+
+---
+
 ## Why reserve?
 
 The FRED® API is one of the richest free economic data sources in the world — 800,000+ series, updated continuously. But most tools that wrap it are platform-locked, dependency-heavy, or require a running database server just to get started.
@@ -79,7 +102,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.8
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.9
 ```
 
 Windows PowerShell:
@@ -682,7 +705,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.8
+reserve v1.1.9
 go      go1.26.3
 os      darwin/arm64
 ```

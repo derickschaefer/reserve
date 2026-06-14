@@ -2,9 +2,27 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.8` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.9` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.1.9 — 2026-06-10 — AI Onboarding Routing and Permission Guardrails
+
+**Added**
+
+- `--ai-onboard` global routing for every top-level command and subcommand path
+- Shared onboarding resolution so `reserve onboard <command>` and `reserve <command> --ai-onboard` use the same document source
+
+**Changed**
+
+- Onboarding output now advertises `--ai-onboard` in global flag metadata
+- `config` onboarding keeps explicit warnings that `config grant` requires user-owned authorization
+
+**Fixed**
+
+- `obs get --ai-onboard` no longer trips normal argument validation before onboarding output is emitted
 
 ---
 

@@ -1,17 +1,14 @@
 {
-  "latest_version": "v1.1.8",
-  "published_at": "2026-06-04T00:00:00Z",
+  "latest_version": "v1.1.9",
+  "published_at": "2026-06-10T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.8",
-  "summary": "Expands analyze with stable summary, trend, compare, and regime outputs; adds rolling window summaries, confidence metadata, citation propagation, and consistent table formatting.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.9",
+  "summary": "Adds AI onboarding routing for all commands, including the `--ai-onboard` shortcut, while preserving the shared command and onboarding code paths.",
   "highlights": [
-    "Analyze summary now emits stable machine-readable metadata and cleaner table output",
-    "Analyze trend supports confidence metadata and improved presentation",
-    "Analyze compare and regime extend the analysis surface with comparison and experimental regime detection",
-    "Rolling summary windows are now supported with --window",
-    "Citation and source provenance now flow through analyze outputs and footer rendering",
-    "Table formatting is consistent across obs, transform, and analyze commands",
-    "Live FRED traffic is paced more conservatively and tests are rate-aware"
+    "Global `--ai-onboard` routing now maps any command into the existing onboarding docs",
+    "`obs`, `analyze`, and other command families share the same onboarding code paths",
+    "Permission guardrails for `config grant` remain explicit in onboarding output",
+    "Release metadata, onboarding docs, and update manifest now point at v1.1.9"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."
