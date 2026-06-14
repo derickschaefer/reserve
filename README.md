@@ -48,21 +48,37 @@ Federal Reserve Bank of St. Louis FRED® API.
 
 ## Quality
 
-![Go Version](https://img.shields.io/github/go-mod/go-version/derickschaefer/reserve)
-![Release](https://img.shields.io/github/v/release/derickschaefer/reserve)
-![License](https://img.shields.io/github/license/derickschaefer/reserve)
-
-![Build](https://img.shields.io/github/actions/workflow/status/derickschaefer/reserve/test.yml?label=build)
-![Coverage](https://img.shields.io/badge/coverage-XX%25-brightgreen)
-![Security](https://img.shields.io/badge/security-A-success)
-
-![FRED](https://img.shields.io/badge/FRED-API-blue)
-![CLI](https://img.shields.io/badge/CLI-Go-blue)
-![AI-Ready](https://img.shields.io/badge/AI-Ready-purple)
+<p>
+  <a href="https://go.dev/">
+    <img alt="Go Version" src="https://img.shields.io/github/go-mod/go-version/derickschaefer/reserve">
+  </a>
+  <a href="https://github.com/derickschaefer/reserve/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/derickschaefer/reserve">
+  </a>
+  <a href="https://github.com/derickschaefer/reserve/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/derickschaefer/reserve">
+  </a>
+</p>
+<p>
+  <a href="https://github.com/derickschaefer/reserve/actions/workflows/release-keyless.yml">
+    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/derickschaefer/reserve/release-keyless.yml?branch=main&label=build">
+  </a>
+  <a href="https://github.com/derickschaefer/reserve">
+    <img alt="Coverage" src="https://img.shields.io/badge/coverage-62.4%25-brightgreen">
+  </a>
+  <a href="docs/release-security.md">
+    <img alt="Security" src="https://img.shields.io/badge/security-manual%20review-informational">
+  </a>
+</p>
+<p>
+  <img alt="FRED CLI" src="https://img.shields.io/badge/FRED-CLI-blue">
+  <img alt="AI Ready" src="https://img.shields.io/badge/AI-Ready-purple">
+</p>
 
 - ✅ 96.9% coverage for data transformations
 - ✅ 87.9% coverage for analysis engine
 - ✅ 84.8% coverage for data pipeline
+- ✅ 62.4% aggregate coverage across `cmd` + `internal` packages
 - ✅ Contract tests for CLI commands
 - ✅ Integration tests for core workflows
 - 🚧 Expanding coverage for rendering and API layers
