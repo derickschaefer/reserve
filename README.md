@@ -56,12 +56,12 @@ Federal Reserve Bank of St. Louis FRED® API.
     <img alt="Release" src="https://img.shields.io/github/v/release/derickschaefer/reserve">
   </a>
   <a href="https://github.com/derickschaefer/reserve/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/derickschaefer/reserve">
+    <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue">
   </a>
 </p>
 <p>
   <a href="https://github.com/derickschaefer/reserve/actions/workflows/release-keyless.yml">
-    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/derickschaefer/reserve/release-keyless.yml?branch=main&label=build">
+    <img alt="Build" src="https://github.com/derickschaefer/reserve/actions/workflows/release-keyless.yml/badge.svg?branch=main">
   </a>
   <a href="https://github.com/derickschaefer/reserve">
     <img alt="Coverage" src="https://img.shields.io/badge/coverage-62.4%25-brightgreen">
