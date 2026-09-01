@@ -27,12 +27,12 @@ var onboardCommandRegistry = []onboardCommandGuide{
 	{Name: "release", Category: "discovery", Summary: "Browse FRED data releases, release dates, and release-linked series.", Build: buildReleaseGuide},
 	{Name: "search", Category: "discovery", Summary: "Run global full-text search across FRED series.", Build: buildSearchGuide},
 	{Name: "series", Category: "discovery", Summary: "Fetch, search, and inspect FRED series metadata and relationships.", Build: buildSeriesGuide},
-	{Name: "snippet", Category: "setup", Summary: "Store and run reusable local pipeline command snippets from filesystem-backed libraries.", Build: buildSnippetGuide},
 	{Name: "source", Category: "discovery", Summary: "Browse institutions that publish data on FRED.", Build: buildSourceGuide},
 	{Name: "tag", Category: "discovery", Summary: "Search tags, list tag-related series, and find related tags.", Build: buildTagGuide},
 	{Name: "transform", Category: "pipeline", Summary: "Apply stateless JSONL-to-JSONL transformations to observation streams.", Build: buildTransformGuide},
 	{Name: "update", Category: "support", Summary: "Check a remote release manifest for newer versions and release highlights.", Build: buildUpdateGuide},
 	{Name: "version", Category: "support", Summary: "Report build, Go, and platform metadata for provenance and packaging.", Build: buildVersionGuide},
+	{Name: "workflow", Category: "setup", Summary: "Create, inspect, validate, and manage local workflow documents.", Build: buildWorkflowGuide},
 	{Name: "window", Category: "pipeline", Summary: "Compute rolling-window statistics from JSONL observation streams.", Build: buildWindowGuide},
 }
 
@@ -85,53 +85,57 @@ func buildAliasGuide() map[string]any {
 	)
 }
 
-func buildSnippetGuide() map[string]any {
+func buildWorkflowGuide() map[string]any {
 	return makeGuide(
-		"Store, inspect, delete, and run reusable local command snippets.",
-		"`snippet` stores named shell command strings in filesystem-backed snippet libraries (default: `~/.reserve/snippets/personal/snippets.yaml`).",
-		"Use `snippet set` to create/update, `snippet list|get` to inspect, `snippet delete|rm` to remove, and `snippet run` to execute through the shell.",
-		"Not part of the JSONL pipeline model; snippets wrap full commands or pipelines for convenience.",
-		"Reads and writes snippet library YAML files. `snippet run` executes the stored command via `bash -lc`.",
+		"Create, inspect, validate, and manage local workflow documents.",
+		"`workflow` is the v1.2 foundation for content-first YAML workflow definitions.",
+		"Use `workflow create` to scaffold a starter workflow file or collection manifest, `workflow show` to inspect a normalized document, `workflow list` to discover repository/collection layouts, `workflow validate` to check one or more files, `workflow edit` to open the file in $EDITOR, `workflow remove` to delete a file, `workflow contract` to inspect runtime inputs, and `workflow render` to resolve a pipeline as text.",
+		"Workflows are structured YAML documents that support collections, repository-aware discovery, positional runtime contracts, and a pipeline of local commands.",
+		"Reads and writes workflow YAML files via the local filesystem. `workflow render` substitutes positional inputs like `@1` and `@2`, joins stages with ` | `, and prints one copy-ready command without executing it.",
 		map[string]any{
-			"set":    "reserve snippet set <NAME> --desc \"<DESCRIPTION>\" --cmd \"<COMMAND>\"",
-			"list":   "reserve snippet list",
-			"get":    "reserve snippet get <NAME>",
-			"run":    "reserve snippet run <NAME>",
-			"delete": "reserve snippet delete <NAME>",
-			"rm":     "reserve snippet rm <NAME>",
+			"contract": "reserve workflow contract <FILE>",
+			"create":   "reserve workflow create <FILE>",
+			"list":     "reserve workflow list [DIR]",
+			"show":     "reserve workflow show <FILE>",
+			"edit":     "reserve workflow edit <FILE>",
+			"remove":   "reserve workflow remove <FILE>",
+			"render":   "reserve workflow render <FILE> [ARGS...]",
+			"validate": "reserve workflow validate <FILE...>",
 		},
 		map[string]any{
-			"set":    "name must use letters, numbers, dot, underscore, or hyphen",
-			"list":   "uses global --format json for structured output",
-			"run":    "executes exactly the saved command string",
-			"delete": "also available as rm or remove",
+			"contract": "prints the positional runtime inputs required by the workflow",
+			"create":   "writes a starter YAML document or collection manifest from the target shape",
+			"show":     "prints normalized YAML back to stdout",
+			"validate": "accepts one or more files and stops on the first parse/validation error",
+			"render":   "binds positional runtime inputs and prints one copy-ready pipeline command without executing it",
 		},
-		[]string{"snippet table", "snippet mapping JSON", "confirmation text", "command execution output"},
+		[]string{"workflow template JSON", "workflow contract output", "workflow validation result"},
 		[]string{
-			"When you repeatedly paste long reserve pipelines from notes or editors.",
-			"When you want a tiny local library of reproducible command workflows.",
-		},
-		[]string{
-			"When command strings are one-off and not worth storing.",
-			"When execution should be restricted to static built-in verbs only; snippet run executes shell commands.",
+			"When you want to start authoring a workflow file locally.",
+			"When you need to validate or inspect a workflow YAML document.",
 		},
 		[]string{
-			"Save a long annual resample + chart pipeline as a short name.",
-			"List stored snippets and copy one for editing.",
-			"Run a trusted snippet directly from the CLI.",
+			"When the content is still a one-off shell command.",
+			"When you need repository search or install behavior; that comes after the local foundation.",
 		},
 		[]string{
-			"reserve snippet set pcu_annual_bar --desc \"Bar chart of Semiconductor & Electronic PPI\" --cmd \"./reserve obs get PCU3344133441 --start 2018-01-01 --end 2026-05-01 --format jsonl | ./reserve transform resample --freq annual --method mean | ./reserve chart bar\"",
-			"reserve snippet list",
-			"reserve snippet run pcu_annual_bar",
-			"reserve snippet delete pcu_annual_bar",
+			"Create a starter inflation collection manifest.",
+			"Validate a small set of workflow documents before sharing them.",
+			"Show a normalized workflow file for review.",
 		},
 		[]string{
-			"Snippet names are normalized to lowercase.",
-			"Snippets are library-backed and not limited by a fixed hard cap.",
-			"Because run executes through the shell, only run snippets you trust.",
+			"reserve workflow create official/inflation",
+			"reserve workflow validate inflation-dashboard.yaml",
+			"reserve workflow show inflation-dashboard.yaml",
+			"reserve workflow contract GDP-Summary",
+			"reserve workflow render GDP-Summary 2020-01-01 2024-12-31",
 		},
-		[]string{"config", "alias", "transform", "chart"},
+		[]string{
+			"v1.2.0 renders resolved pipeline text but does not execute it; execution semantics are intentionally deferred.",
+			"Categories and outputs are normalized as lowercase slugs; concepts keep display casing.",
+			"The `workflow.contract` field declares positional runtime inputs and `workflow.pipeline` consumes them with `@1`, `@2`, and so on. Each contract slot can also include a sample value and description for `workflow contract`.",
+		},
+		[]string{"config", "obs", "transform", "chart", "onboard"},
 	)
 }
 

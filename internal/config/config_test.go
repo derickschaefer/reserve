@@ -157,34 +157,15 @@ func TestLoadSeriesAliasesFromFile(t *testing.T) {
 	}
 }
 
-func TestLoadSnippetSystemConfigFromFile(t *testing.T) {
-	dir := t.TempDir()
-	clearEnv(t)
-	writeConfig(t, dir, config.File{
-		APIKey: "filekey123",
-		Snippet: config.SnippetSystem{
-			Home:    "  ~/.reserve/snippets  ",
-			Enabled: []string{" Personal ", "official", "official"},
-		},
-	})
-
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if got := cfg.Snippet.Home; got != "~/.reserve/snippets" {
-		t.Fatalf("snippet home not normalized: got %q", got)
-	}
-	if got := strings.Join(cfg.Snippet.Enabled, ","); got != "personal,official" {
-		t.Fatalf("snippet enabled not normalized: got %q", got)
-	}
-}
-
-func TestLoadLegacySnippetsDoesNotFail(t *testing.T) {
+func TestLoadRemovedSnippetKeysDoesNotFail(t *testing.T) {
 	dir := t.TempDir()
 	clearEnv(t)
 	data := `{
   "api_key": "filekey123",
+  "snippet": {
+    "home": "~/.reserve/snippets",
+    "enabled": ["personal"]
+  },
   "snippets": {
     "pcu_annual_bar": "./reserve obs get X | ./reserve chart bar"
   }

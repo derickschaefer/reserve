@@ -513,7 +513,7 @@ func fmtConfidence(c *analyze.TrendConfidence, f func(*analyze.TrendConfidence) 
 }
 
 func fmtMissCompact(count int, pct float64) string {
-	return fmt.Sprintf("%d|%.1f%%", count, pct)
+	return fmt.Sprintf("%d (%.1f%%)", count, pct)
 }
 
 func applyProvenanceToSummary(s *analyze.Summary, p pipeline.Provenance) {

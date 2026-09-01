@@ -16,6 +16,7 @@ This document describes the current test surface in the `reserve` project. It is
    - [internal/pipeline](#internalpipeline)
    - [internal/store](#internalstore)
    - [internal/transform](#internaltransform)
+   - [internal/workflow](#internalworkflow)
 5. [Integration Tests](#integration-tests)
    - [tests/core_test.go](#testscore_testgo)
    - [tests/cmd_test.go](#testscmd_testgo)
@@ -70,6 +71,7 @@ go test -v ./tests/
 go test -v -run TestFredAPIConnectivity ./tests/
 go test -v -run TestPayloadIntegrity    ./tests/
 go test -v -run TestAPIClientBehaviour  ./tests/
+go test -v -run TestWorkflowContracts   ./tests/
 
 # Everything
 go test ./...
@@ -106,6 +108,9 @@ Key areas currently covered:
 - `cmd/helpers_test.go`
   - output writer selection
   - integer ID parsing helpers
+- `cmd/workflow_test.go`
+  - workflow YAML serialization and normalization
+  - terminal-safe title and summary truncation
 
 ---
 
@@ -195,6 +200,17 @@ Test isolation: every test uses a `testDB(t)` helper that creates an isolated bb
 
 ---
 
+### internal/workflow
+
+Workflow unit tests cover YAML parsing and normalization, collection-aware
+filesystem layout, workflow discovery and reference resolution, zero-slot and
+dynamic runtime contracts, positional value rendering, and structural
+validation. Integration coverage verifies that `workflow render` binds values
+without executing pipeline content and that `workflow contract` only inspects
+declared runtime inputs.
+
+---
+
 ### internal/transform
 
 **File:** `internal/transform/transform_test.go` — 77 tests
@@ -239,7 +255,7 @@ Three test groups covering API connectivity, payload parsing, and HTTP client be
 
 ### tests/cmd_test.go
 
-Five integration groups covering durable CLI contracts and offline behavior around the command layer.
+Integration groups covering durable CLI contracts and offline behavior around the command layer.
 
 **TestCommandSurface** — verifies the shipped command surface through real `--help` output. Confirms expected top-level commands are present, deprecated `store` is absent, `obs get` documents `--from live|cache`, `onboard` documents command-specific and topic-based usage, and `series` advertises the supported current verbs.
 
@@ -250,6 +266,11 @@ Five integration groups covering durable CLI contracts and offline behavior arou
 **TestPartialFailureWarnings** — verifies per-item batch failures are collected as warnings rather than aborting the whole batch.
 
 **TestValueSemanticsOffline** — verifies offline rendering and storage semantics such as numeric preservation, null/NaN handling, CSV output for missing values, and exact cache key lookup behavior.
+
+**TestWorkflowContracts** — verifies collection and workflow scaffolding,
+collection-aware discovery, normalized display, static and dynamic validation,
+contract help with samples and descriptions, non-executing pipeline rendering,
+and refusal of the retired Bash execution path.
 
 Command-level unit coverage in `cmd/` also includes `cmd/category_test.go`, which verifies `parseCategoryID` input handling and `walkCategoryTree` depth limiting against a mock FRED hierarchy.
 

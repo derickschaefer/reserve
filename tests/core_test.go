@@ -583,12 +583,16 @@ func TestAPIClientBehaviour(t *testing.T) {
 		},
 	})
 
-	_, _ = paramClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{
+	_, emptyObsErr := paramClient.GetObservations(context.Background(), "GDP", fred.ObsOptions{
 		Start: "2020-01-01", End: "2024-12-31",
 	})
 	r.check(t, gotStart == "2020-01-01" && gotEnd == "2024-12-31",
 		fmt.Sprintf("GetObservations: date params forwarded correctly (start=%q end=%q)", gotStart, gotEnd),
 		fmt.Sprintf("GetObservations: date params wrong: start=%q end=%q", gotStart, gotEnd),
+	)
+	r.check(t, emptyObsErr != nil && strings.Contains(emptyObsErr.Error(), "no observations found for GDP between 2020-01-01 and 2024-12-31"),
+		"GetObservations: empty ranges report the series and requested dates",
+		fmt.Sprintf("GetObservations: unexpected empty-range error: %v", emptyObsErr),
 	)
 
 	// ── Check 10: Retry on 5xx succeeds after transient failures ─────────────

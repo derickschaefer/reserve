@@ -255,6 +255,9 @@ func TestReadEmptyInputError(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for empty input")
 	}
+	if !strings.Contains(err.Error(), "upstream command may have failed or returned no rows") {
+		t.Errorf("empty-input error should explain the likely upstream cause, got: %v", err)
+	}
 }
 
 func TestReadBlankOnlyInputError(t *testing.T) {

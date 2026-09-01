@@ -48,16 +48,6 @@ type Alias struct {
 	Note     string `json:"note,omitempty"`
 }
 
-type Snippet struct {
-	Command     string `json:"cmd"`
-	Description string `json:"desc,omitempty"`
-}
-
-type SnippetSystem struct {
-	Home    string   `json:"home,omitempty"`
-	Enabled []string `json:"enabled,omitempty"`
-}
-
 func (a *Alias) UnmarshalJSON(data []byte) error {
 	var seriesID string
 	if err := json.Unmarshal(data, &seriesID); err == nil {
@@ -75,45 +65,26 @@ func (a *Alias) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Snippet) UnmarshalJSON(data []byte) error {
-	var command string
-	if err := json.Unmarshal(data, &command); err == nil {
-		s.Command = command
-		s.Description = ""
-		return nil
-	}
-	type snippetJSON Snippet
-	var dec snippetJSON
-	if err := json.Unmarshal(data, &dec); err != nil {
-		return err
-	}
-	s.Command = dec.Command
-	s.Description = dec.Description
-	return nil
-}
-
 // File is the on-disk representation of config.json.
 type File struct {
-	APIKey                               string             `json:"api_key"`
-	DefaultFormat                        string             `json:"default_format"`
-	Timeout                              string             `json:"timeout"`
-	Concurrency                          int                `json:"concurrency"`
-	Rate                                 float64            `json:"rate"`
-	BaseURL                              string             `json:"base_url"`
-	DBPath                               string             `json:"db_path"`
-	PersonOrgType                        string             `json:"person_org_type"`
-	BlockUnknownRights                   bool               `json:"block_unknown_rights"`
-	BlockAmbiguousRights                 bool               `json:"block_ambiguous_rights"`
-	BlockPreapprovalRequiredInCommercial bool               `json:"block_preapproval_required_in_commercial"`
-	RequireCitationOnDisplay             bool               `json:"require_citation_on_display"`
-	RequireCitationOnExport              bool               `json:"require_citation_on_export"`
-	AllowOverrideWithPermissionRecord    bool               `json:"allow_override_with_permission_record"`
-	GrantedSeriesPermissions             []string           `json:"granted_series_permissions,omitempty"`
-	SeriesAliases                        map[string]Alias   `json:"series_aliases,omitempty"`
-	Snippet                              SnippetSystem      `json:"snippet,omitempty"`
-	LegacySnippets                       map[string]Snippet `json:"snippets,omitempty"`
-	RightsRefreshDays                    map[string]int     `json:"rights_refresh_days"`
-	LogComplianceDecisions               bool               `json:"log_compliance_decisions"`
+	APIKey                               string           `json:"api_key"`
+	DefaultFormat                        string           `json:"default_format"`
+	Timeout                              string           `json:"timeout"`
+	Concurrency                          int              `json:"concurrency"`
+	Rate                                 float64          `json:"rate"`
+	BaseURL                              string           `json:"base_url"`
+	DBPath                               string           `json:"db_path"`
+	PersonOrgType                        string           `json:"person_org_type"`
+	BlockUnknownRights                   bool             `json:"block_unknown_rights"`
+	BlockAmbiguousRights                 bool             `json:"block_ambiguous_rights"`
+	BlockPreapprovalRequiredInCommercial bool             `json:"block_preapproval_required_in_commercial"`
+	RequireCitationOnDisplay             bool             `json:"require_citation_on_display"`
+	RequireCitationOnExport              bool             `json:"require_citation_on_export"`
+	AllowOverrideWithPermissionRecord    bool             `json:"allow_override_with_permission_record"`
+	GrantedSeriesPermissions             []string         `json:"granted_series_permissions,omitempty"`
+	SeriesAliases                        map[string]Alias `json:"series_aliases,omitempty"`
+	RightsRefreshDays                    map[string]int   `json:"rights_refresh_days"`
+	LogComplianceDecisions               bool             `json:"log_compliance_decisions"`
 }
 
 // Config is the fully-resolved runtime configuration.
@@ -135,7 +106,6 @@ type Config struct {
 	AllowOverrideWithPermissionRecord    bool
 	GrantedSeriesPermissions             []string
 	SeriesAliases                        map[string]Alias
-	Snippet                              SnippetSystem
 	RightsRefreshDays                    map[string]int
 	LogComplianceDecisions               bool
 	ConfigPath                           string // path of the config.json that was loaded (empty if none found)
@@ -376,8 +346,6 @@ func applyFile(cfg *Config, f *File, path string) {
 			cfg.SeriesAliases[alias] = entry
 		}
 	}
-	cfg.Snippet.Home = strings.TrimSpace(f.Snippet.Home)
-	cfg.Snippet.Enabled = normalizeStringSlice(f.Snippet.Enabled)
 	if len(f.RightsRefreshDays) > 0 {
 		cfg.RightsRefreshDays = cloneRightsRefreshDays(f.RightsRefreshDays)
 	}
@@ -513,53 +481,6 @@ func normalizeSeriesAliases(in map[string]Alias) map[string]Alias {
 	return out
 }
 
-func NormalizeSnippets(in map[string]Snippet) map[string]Snippet {
-	return normalizeSnippets(in)
-}
-
-func normalizeSnippets(in map[string]Snippet) map[string]Snippet {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]Snippet, len(in))
-	for name, snip := range in {
-		name = strings.ToLower(strings.TrimSpace(name))
-		snip.Command = strings.TrimSpace(snip.Command)
-		snip.Description = strings.TrimSpace(snip.Description)
-		if name == "" || snip.Command == "" {
-			continue
-		}
-		out[name] = snip
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func normalizeStringSlice(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(in))
-	seen := make(map[string]struct{}, len(in))
-	for _, item := range in {
-		item = strings.ToLower(strings.TrimSpace(item))
-		if item == "" {
-			continue
-		}
-		if _, ok := seen[item]; ok {
-			continue
-		}
-		seen[item] = struct{}{}
-		out = append(out, item)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
 func parseRawConfig(data []byte) (map[string]json.RawMessage, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -590,9 +511,6 @@ func canonicalizeFile(f File) File {
 	}
 	f.GrantedSeriesPermissions = normalizeSeriesIDs(f.GrantedSeriesPermissions)
 	f.SeriesAliases = normalizeSeriesAliases(f.SeriesAliases)
-	f.Snippet.Home = strings.TrimSpace(f.Snippet.Home)
-	f.Snippet.Enabled = normalizeStringSlice(f.Snippet.Enabled)
-	f.LegacySnippets = normalizeSnippets(f.LegacySnippets)
 	f.RightsRefreshDays = mergeRightsRefreshDays(f.RightsRefreshDays)
 	return f
 }

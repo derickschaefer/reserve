@@ -79,6 +79,9 @@ func (c *Client) GetObservations(ctx context.Context, seriesID string, opts ObsO
 	if err := c.get(ctx, "series/observations", params, &raw); err != nil {
 		return nil, fmt.Errorf("observations %s: %w", seriesID, err)
 	}
+	if len(raw.Observations) == 0 {
+		return nil, noObservationsError(seriesID, opts)
+	}
 
 	obs := make([]model.Observation, 0, len(raw.Observations))
 	for _, o := range raw.Observations {
@@ -94,11 +97,28 @@ func (c *Client) GetObservations(ctx context.Context, seriesID string, opts ObsO
 			RealtimeEnd:   o.RealtimeEnd,
 		})
 	}
+	if len(obs) == 0 {
+		return nil, noObservationsError(seriesID, opts)
+	}
 
 	return &model.SeriesData{
 		SeriesID: strings.ToUpper(seriesID),
 		Obs:      obs,
 	}, nil
+}
+
+func noObservationsError(seriesID string, opts ObsOptions) error {
+	seriesID = strings.ToUpper(strings.TrimSpace(seriesID))
+	switch {
+	case opts.Start != "" && opts.End != "":
+		return fmt.Errorf("no observations found for %s between %s and %s", seriesID, opts.Start, opts.End)
+	case opts.Start != "":
+		return fmt.Errorf("no observations found for %s on or after %s", seriesID, opts.Start)
+	case opts.End != "":
+		return fmt.Errorf("no observations found for %s on or before %s", seriesID, opts.End)
+	default:
+		return fmt.Errorf("no observations found for %s", seriesID)
+	}
 }
 
 // GetLatestObservation returns the most recent observation for a series.

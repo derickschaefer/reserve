@@ -308,7 +308,7 @@ func TestAnalyzeSummaryWindowTableUsesCompactMissColumn(t *testing.T) {
 	if strings.Contains(out, "MISSING_COUNT") || strings.Contains(out, "MISSING_PCT") {
 		t.Fatalf("unexpected wide missing headers in window table:\n%s", out)
 	}
-	if !strings.Contains(out, "0|0.0%") {
+	if !strings.Contains(out, "0 (0.0%)") {
 		t.Fatalf("expected compact MISS value in window table:\n%s", out)
 	}
 }

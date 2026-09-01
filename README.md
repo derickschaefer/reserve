@@ -49,6 +49,7 @@ Federal Reserve Bank of St. Louis FRED® API.
   - [analyze](#analyze) — statistical analysis
   - [cache](#cache) — manage local database
   - [alias](#alias) — local series aliases with optional notes
+  - [workflow](#workflow) — reusable analysis definitions and pipeline rendering
   - [config](#config) — configuration management
   - [version](#version) — binary version and build info
   - [update](#update) — release update checks
@@ -93,6 +94,8 @@ The FRED® API is one of the richest free economic data sources in the world —
 
 - **Command-object model.** Every subcommand is a first-class object with a defined input schema, validation, and a uniform `Result` envelope. Commands compose cleanly, behave predictably, and are trivial to extend. No monolithic scripts, no implicit globals.
 
+- **Shareable workflow definitions.** RESERVE workflows package analysis metadata, documentation, runtime contracts, and ordered pipeline stages as readable YAML. Version 1.2 renders resolved stages for operator or agent review and never executes them implicitly.
+
 - **Embedded database — no server required.** Observation data is persisted in a single embedded database file that is created on the fly. The actual embedded database is [bbolt](https://github.com/etcd-io/bbolt), a proven embedded key-value store used in production systems. It can scale to hold tens of millions of datapoints with ease. No Postgres, no SQL Server, no running process. If your use cases require data to be centralized in a server or cloud data platform such as Snowflake, comma-separated value outputs are supported throughout reserve.
 
 - **Pipeline-ready for large data environments.** `reserve` speaks JSONL on stdin/stdout — the lingua franca of Unix data pipelines. Chain transforms and analyses with `|`, redirect to files, or feed downstream tools. Every operator is NaN-aware and handles FRED's missing-value conventions correctly at scale. CSV formatting is also supported for importing data into other data stores or spreadsheets.
@@ -116,7 +119,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.1.9
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.2.0
 ```
 
 Windows PowerShell:
@@ -135,7 +138,7 @@ cd reserve
 make build
 ```
 
-Requires Go 1.26.3+ for source builds.
+Requires Go 1.27.0+ for source builds.
 
 For distributed release binaries, use the stripped release target:
 
@@ -272,7 +275,7 @@ In summary:
 | Class | Pattern | Examples |
 |---|---|---|
 | FRED API wrappers | noun verb | `obs`, `series`, `category`, `release`, `source`, `tag`, `meta` |
-| Local state operations | noun verb | `cache`, `config` |
+| Local state operations | noun verb | `cache`, `config`, `workflow` |
 | Support / meta commands | noun verb | `onboard` |
 | Pipeline operators | verb only | `transform`, `window`, `analyze`, `chart` |
 | Batch acquisition | verb noun | `fetch` |
@@ -687,6 +690,49 @@ Rules:
 
 ---
 
+### workflow
+
+Create, inspect, validate, and render reusable analysis definitions. Workflows are
+stored as YAML under repository and collection namespaces, with `personal` as the
+default repository for locally authored content.
+
+Creating a collection also scaffolds a collection-level `README.md`. A
+namespaced workflow's `documentation` value is relative to that collection
+directory, and existing documentation is never overwritten.
+
+```bash
+reserve workflow create official/inflation
+reserve workflow create official/inflation/gdp-summary
+reserve workflow list
+reserve workflow show official/inflation/gdp-summary
+reserve workflow edit GDP-Summary
+reserve workflow validate official/inflation/gdp-summary
+reserve workflow remove official/inflation/gdp-summary
+```
+
+Dynamic workflows declare ordered contract slots referenced by `@1`, `@2`, and
+so on. Inspect the contract, then render the resolved pipeline:
+
+```bash
+reserve workflow contract GDP-Summary
+reserve workflow render GDP-Summary 2020-01-01 2024-12-31
+```
+
+`workflow render` joins the resolved stages with ` | ` and prints one copy-ready
+pipeline command without executing it. No workflow command executes pipeline
+content in v1.2.0.
+
+Workflow validation rejects unknown YAML fields, unsafe repository-style paths,
+and `reserve_version` requirements that the running CLI does not satisfy.
+
+Workflow storage and authoring references:
+
+- [Workflow architecture](WORKFLOWS.md)
+- [Workflow YAML format](docs/workflow-format.md)
+- [Static and dynamic templates](docs/workflow-templates.md)
+
+---
+
 ### config
 
 Manage `config.json` in the user config directory, with optional local `./config.json` overrides.
@@ -719,8 +765,8 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.1.9
-go      go1.26.3
+reserve v1.2.0
+go      go1.27.0
 os      darwin/arm64
 ```
 
@@ -790,7 +836,7 @@ reserve onboard --topic pipeline,data-model,gotchas
 **Project export:**
 ```bash
 reserve onboard export ./onboard
-# writes program.json plus command docs like obs.json, series.json, and config.json
+# writes program.json plus command docs like obs.json, series.json, workflow.json, and config.json
 ```
 
 Onboarding JSON includes explicit agent metadata fields so LLM clients can treat the payload as agent context rather than end-user help:

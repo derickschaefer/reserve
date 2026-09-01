@@ -34,6 +34,7 @@ import (
 	"github.com/derickschaefer/reserve/internal/model"
 	"github.com/derickschaefer/reserve/internal/render"
 	"github.com/derickschaefer/reserve/internal/store"
+	"github.com/derickschaefer/reserve/internal/workflow"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ func TestCommandSurface(t *testing.T) {
 	rootHelp := runReserveHelp(t, "--help")
 	for _, cmdName := range []string{
 		"alias", "analyze", "cache", "category", "chart", "completion", "config",
-		"fetch", "meta", "obs", "onboard", "release", "search",
+		"fetch", "meta", "obs", "onboard", "release", "search", "workflow",
 		"series", "source", "tag", "transform", "version", "window",
 	} {
 		r.check(t, strings.Contains(rootHelp, "\n  "+cmdName),
@@ -58,6 +59,10 @@ func TestCommandSurface(t *testing.T) {
 	r.check(t, !strings.Contains(rootHelp, "\n  store"),
 		"root help does not advertise deprecated command [store]",
 		"root help still advertises deprecated command [store]",
+	)
+	r.check(t, !strings.Contains(rootHelp, "\n  snippet"),
+		"root help does not advertise removed command [snippet]",
+		"root help still advertises removed command [snippet]",
 	)
 
 	obsGetHelp := runReserveHelp(t, "obs", "get", "--help")
@@ -96,6 +101,19 @@ func TestCommandSurface(t *testing.T) {
 			fmt.Sprintf("series help is missing [%s]", sub),
 		)
 	}
+
+	workflowHelp := runReserveHelp(t, "workflow", "--help")
+	for _, token := range []string{"contract", "create", "list", "show", "edit", "remove", "render", "validate"} {
+		r.check(t, strings.Contains(workflowHelp, token),
+			fmt.Sprintf("workflow help includes [%s]", token),
+			fmt.Sprintf("workflow help is missing [%s]", token),
+		)
+	}
+
+	r.check(t, !strings.Contains(workflowHelp, "\n  run"),
+		"workflow help does not advertise removed command [run]",
+		"workflow help still advertises removed command [run]",
+	)
 
 	obsAIOnboard := runReserveHelp(t, "obs", "--ai-onboard")
 	for _, token := range []string{`"scope": "command"`, `"command_name": "obs"`} {
@@ -683,76 +701,175 @@ func TestAliasContracts(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Group 11 — Snippet Contracts (offline command behavior)
+// Group 11 — Workflow Contracts (local collection layout)
 // ─────────────────────────────────────────────────────────────────────────────
 
-func TestSnippetContracts(t *testing.T) {
-	printBanner(t, "SNIPPET CONTRACTS")
+func TestWorkflowContracts(t *testing.T) {
+	printBanner(t, "WORKFLOW CONTRACTS")
 	r := &result{}
 
 	baseEnv := isolatedConfigEnv(t)
+	root := filepath.Join(t.TempDir(), "workflows")
 
-	snippetHelp := runReserveHelpWithEnv(t, baseEnv, "snippet", "--help")
-	for _, token := range []string{"set", "list", "get", "run", "delete", "rm"} {
-		r.check(t, strings.Contains(snippetHelp, token),
-			fmt.Sprintf("snippet help includes [%s]", token),
-			fmt.Sprintf("snippet help is missing [%s]", token),
+	collectionOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "create", "official/inflation")
+	r.check(t, err == nil && strings.Contains(collectionOut, "Created collection template"),
+		"workflow create scaffolds collection manifest",
+		fmt.Sprintf("unexpected workflow create output: err=%v out=%q", err, collectionOut),
+	)
+	collectionReadme := workflow.CollectionReadmePath(root, "official", "inflation")
+	readmeData, readmeErr := os.ReadFile(collectionReadme)
+	r.check(t, readmeErr == nil && strings.Contains(string(readmeData), "# Inflation"),
+		"workflow create scaffolds collection documentation",
+		fmt.Sprintf("unexpected collection README: err=%v content=%q", readmeErr, readmeData),
+	)
+
+	preservedReadme := workflow.CollectionReadmePath(root, "community", "courses")
+	if err := os.MkdirAll(filepath.Dir(preservedReadme), 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(preservedReadme, []byte("# Curated Courses\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	_, err = runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "create", "community/courses")
+	preservedData, preservedErr := os.ReadFile(preservedReadme)
+	r.check(t, err == nil && preservedErr == nil && string(preservedData) == "# Curated Courses\n",
+		"workflow create preserves existing collection documentation",
+		fmt.Sprintf("unexpected preserved README: createErr=%v readErr=%v content=%q", err, preservedErr, preservedData),
+	)
+
+	_, err = runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "create", "personal/growth/gdp-overview")
+	autoReadme := workflow.CollectionReadmePath(root, "personal", "growth")
+	_, autoReadmeErr := os.Stat(autoReadme)
+	r.check(t, err == nil && autoReadmeErr == nil,
+		"workflow create scaffolds documentation for an automatic collection",
+		fmt.Sprintf("unexpected automatic collection README: createErr=%v statErr=%v", err, autoReadmeErr),
+	)
+
+	if err := workflow.WriteFile(workflow.WorkflowPath(root, "official", "inflation", "cpi-dashboard"), workflow.Document{
+		Workflow: workflow.Workflow{
+			Title:            "CPI Dashboard",
+			Summary:          "Repeatable CPI analysis",
+			Difficulty:       "Beginner",
+			EstimatedRuntime: "5 seconds",
+			Categories:       []string{"inflation"},
+			Concepts:         []string{"CPI", "FRED", "Time Series"},
+			Outputs:          []string{"chart", "json"},
+			RequiresNetwork:  false,
+			ReserveVersion:   ">=1.2",
+			Author:           "Derick Schaefer",
+			Documentation:    "README.md",
+			Pipeline:         []string{"printf 'workflow-ok\\n'", "reserve analyze summary"},
+		},
+	}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := workflow.WriteFile(workflow.WorkflowPath(root, "official", "inflation", "gdp-summary"), workflow.Document{
+		Workflow: workflow.Workflow{
+			Title:            "GDP Summary",
+			Summary:          "Summarize GDP for a chosen range",
+			Difficulty:       "Beginner",
+			EstimatedRuntime: "5 seconds",
+			Categories:       []string{"gdp"},
+			Concepts:         []string{"GDP", "Time Series"},
+			Outputs:          []string{"json"},
+			RequiresNetwork:  false,
+			ReserveVersion:   ">=1.2",
+			Author:           "Derick Schaefer",
+			Documentation:    "README.md",
+			Contract: []workflow.ContractSlot{
+				{Label: "start date", Format: "YYYY-MM-DD", Sample: "2020-01-01", Description: "First date in the requested range"},
+				{Label: "end date", Format: "YYYY-MM-DD", Sample: "2024-12-31", Description: "Final date in the requested range"},
+			},
+			Pipeline: []string{
+				"printf 'start=%s end=%s\\n' @1 @2",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := workflow.WriteFile(workflow.WorkflowPath(root, "official", "inflation", "future-workflow"), workflow.Document{
+		Workflow: workflow.Workflow{
+			Title:          "Future Workflow",
+			ReserveVersion: ">=1.3",
+			Pipeline:       []string{"printf 'future\\n'"},
+		},
+	}); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	listOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "list")
+	r.check(t, err == nil && strings.Contains(listOut, "official") && strings.Contains(listOut, "inflation") && strings.Contains(listOut, "cpi-dashboard") && strings.Contains(listOut, "gdp-summary"),
+		"workflow list discovers collection-aware layout",
+		fmt.Sprintf("unexpected workflow list output: err=%v out=%q", err, listOut),
+	)
+
+	showOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "show", "official/inflation/cpi-dashboard")
+	r.check(t, err == nil && strings.Contains(showOut, "workflow:") && strings.Contains(showOut, "pipeline:"),
+		"workflow show resolves collection reference",
+		fmt.Sprintf("unexpected workflow show output: err=%v out=%q", err, showOut),
+	)
+
+	validateOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "validate", "official/inflation/cpi-dashboard")
+	r.check(t, err == nil && strings.Contains(validateOut, "Validated 1 workflow file"),
+		"workflow validate accepts zero-slot workflow",
+		fmt.Sprintf("unexpected workflow validate output: err=%v out=%q", err, validateOut),
+	)
+
+	dynamicValidateOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "validate", "official/inflation/gdp-summary")
+	r.check(t, err == nil && strings.Contains(dynamicValidateOut, "Validated 1 workflow file"),
+		"workflow validate accepts positional workflow",
+		fmt.Sprintf("unexpected workflow dynamic validate output: err=%v out=%q", err, dynamicValidateOut),
+	)
+
+	collectionValidateOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "validate", "official/inflation")
+	r.check(t, err == nil && strings.Contains(collectionValidateOut, "Validated 1 workflow file"),
+		"workflow validate accepts collection manifest",
+		fmt.Sprintf("unexpected workflow validate output for collection manifest: err=%v out=%q", err, collectionValidateOut),
+	)
+
+	contractOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "contract", "GDP-Summary")
+	r.check(t, err == nil && strings.Contains(contractOut, "@1 = start date") && strings.Contains(contractOut, "sample: 2020-01-01") && strings.Contains(contractOut, "@2 = end date") && strings.Contains(contractOut, "description: Final date in the requested range"),
+		"workflow contract prints positional runtime slots",
+		fmt.Sprintf("unexpected workflow contract output: err=%v out=%q", err, contractOut),
+	)
+
+	removedRunOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "run", "GDP-Summary")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(removedRunOut), "unknown command"),
+		"workflow run is removed and returns an error",
+		fmt.Sprintf("expected workflow run to be unknown, got err=%v out=%q", err, removedRunOut),
+	)
+
+	staticRenderOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "render", "official/inflation/cpi-dashboard")
+	r.check(t, err == nil && staticRenderOut == "printf 'workflow-ok\\n' | reserve analyze summary\n",
+		"workflow render emits a copy-ready zero-slot pipeline without executing it",
+		fmt.Sprintf("unexpected static workflow render output: err=%v out=%q", err, staticRenderOut),
+	)
+
+	dynamicRenderOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "render", "GDP-Summary", "2020-01-01", "2024-12-31")
+	r.check(t, err == nil && dynamicRenderOut == "printf 'start=%s end=%s\\n' '2020-01-01' '2024-12-31'\n",
+		"workflow render binds positional values into copy-ready output without executing it",
+		fmt.Sprintf("unexpected workflow render output: err=%v out=%q", err, dynamicRenderOut),
+	)
+
+	for _, command := range [][]string{
+		{"validate", "official/inflation/future-workflow"},
+		{"render", "official/inflation/future-workflow"},
+		{"contract", "official/inflation/future-workflow"},
+	} {
+		out, err := runReserveCmdWithEnv(t, baseEnv, append([]string{"workflow", "--root", root}, command...)...)
+		r.check(t, err != nil && strings.Contains(out, "requires reserve >=1.3") && strings.Contains(out, "v1.2.0"),
+			fmt.Sprintf("workflow %s enforces reserve_version compatibility", command[0]),
+			fmt.Sprintf("expected version incompatibility, got err=%v out=%q", err, out),
 		)
 	}
 
-	snippetSetHelp := runReserveHelpWithEnv(t, baseEnv, "snippet", "set", "--help")
-	r.check(t, strings.Contains(snippetSetHelp, "--cmd string"),
-		"snippet set help includes [--cmd string]",
-		"snippet set help is missing [--cmd string]",
-	)
-	r.check(t, strings.Contains(snippetSetHelp, "--desc string"),
-		"snippet set help includes [--desc string]",
-		"snippet set help is missing [--desc string]",
+	unsafeOut, err := runReserveCmdWithEnv(t, baseEnv, "workflow", "--root", root, "create", "official/../outside")
+	r.check(t, err != nil && strings.Contains(strings.ToLower(unsafeOut), "invalid collection name"),
+		"workflow create rejects namespace traversal",
+		fmt.Sprintf("expected traversal rejection, got err=%v out=%q", err, unsafeOut),
 	)
 
-	out, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "bad alias", "--cmd", "echo hi")
-	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "invalid"),
-		"snippet set rejects invalid snippet name",
-		fmt.Sprintf("expected invalid-name rejection, got err=%v out=%q", err, out),
-	)
-
-	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "empty_cmd", "--cmd", "   ")
-	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "cannot be empty"),
-		"snippet set rejects empty --cmd",
-		fmt.Sprintf("expected empty-cmd rejection, got err=%v out=%q", err, out),
-	)
-
-	for i := 1; i <= 12; i++ {
-		name := fmt.Sprintf("snip%02d", i)
-		_, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "set", name, "--desc", "desc "+name, "--cmd", "echo "+name)
-		if err != nil {
-			t.Fatalf("setting snippet %s failed unexpectedly: %v", name, err)
-		}
-	}
-	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "set", "snip13", "--cmd", "echo snip13")
-	r.check(t, err == nil,
-		"snippet set has no fixed hard limit",
-		fmt.Sprintf("expected no hard-limit rejection, got err=%v out=%q", err, out),
-	)
-
-	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "get", "does-not-exist")
-	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "not found"),
-		"snippet get reports missing snippet clearly",
-		fmt.Sprintf("expected not-found rejection, got err=%v out=%q", err, out),
-	)
-	out, err = runReserveCmdWithEnv(t, baseEnv, "snippet", "delete", "does-not-exist")
-	r.check(t, err != nil && strings.Contains(strings.ToLower(out), "not found"),
-		"snippet delete reports missing snippet clearly",
-		fmt.Sprintf("expected not-found rejection, got err=%v out=%q", err, out),
-	)
-
-	listOut, err := runReserveCmdWithEnv(t, baseEnv, "snippet", "list")
-	r.check(t, err == nil && strings.Contains(listOut, "NAME") && strings.Contains(listOut, "DESCRIPTION"),
-		"snippet list prints NAME + DESCRIPTION columns",
-		fmt.Sprintf("unexpected snippet list output: err=%v out=%q", err, listOut),
-	)
-
-	r.summary(t, "SNIPPET CONTRACTS")
+	r.summary(t, "WORKFLOW CONTRACTS")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -812,7 +929,11 @@ func runReserveCmdWithEnv(t *testing.T, env map[string]string, args ...string) (
 func buildCmdEnv(t *testing.T, extra map[string]string) []string {
 	t.Helper()
 	base := os.Environ()
-	skip := map[string]bool{}
+	skip := map[string]bool{
+		"GOCACHE":    true,
+		"GOPATH":     true,
+		"GOMODCACHE": true,
+	}
 	for k := range extra {
 		skip[k] = true
 	}
@@ -823,11 +944,36 @@ func buildCmdEnv(t *testing.T, extra map[string]string) []string {
 		}
 		env = append(env, kv)
 	}
-	env = append(env, "GOCACHE="+filepath.Join(t.TempDir(), "gocache"))
+
+	gocache := mustTempDir(t, "/private/tmp", "reserve-tests-gocache-*")
+	gopath := mustTempDir(t, "/private/tmp", "reserve-tests-gopath-*")
+	gomodcache := strings.TrimSpace(os.Getenv("GOMODCACHE"))
+	if gomodcache == "" {
+		out, err := exec.Command("go", "env", "GOMODCACHE").Output()
+		if err != nil {
+			t.Fatalf("resolve Go module cache: %v", err)
+		}
+		gomodcache = strings.TrimSpace(string(out))
+	}
+	env = append(env, "GOCACHE="+gocache)
+	env = append(env, "GOPATH="+gopath)
+	env = append(env, "GOMODCACHE="+gomodcache)
 	for k, v := range extra {
 		env = append(env, k+"="+v)
 	}
 	return env
+}
+
+func mustTempDir(t *testing.T, dir, pattern string) string {
+	t.Helper()
+	path, err := os.MkdirTemp(dir, pattern)
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.RemoveAll(path)
+	})
+	return path
 }
 
 func isolatedConfigEnv(t *testing.T) map[string]string {

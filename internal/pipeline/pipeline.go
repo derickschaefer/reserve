@@ -94,7 +94,7 @@ func readObservationsInternal(r io.Reader) (string, []model.Observation, string,
 		return "", nil, "", fmt.Errorf("reading input: %w", err)
 	}
 	if len(obs) == 0 {
-		return "", nil, "", fmt.Errorf("no observations read from input (is stdin empty?)")
+		return "", nil, "", noObservationsInputError()
 	}
 	return seriesID, obs, citation, nil
 }
@@ -140,7 +140,7 @@ func ReadObservationGroups(r io.Reader) ([]ObservationGroup, error) {
 		return nil, fmt.Errorf("reading input: %w", err)
 	}
 	if len(order) == 0 {
-		return nil, fmt.Errorf("no observations read from input (is stdin empty?)")
+		return nil, noObservationsInputError()
 	}
 
 	out := make([]ObservationGroup, 0, len(order))
@@ -189,9 +189,13 @@ func readObservationsWithProvenance(r io.Reader) (string, []model.Observation, P
 		return "", nil, Provenance{}, fmt.Errorf("reading input: %w", err)
 	}
 	if len(obs) == 0 {
-		return "", nil, Provenance{}, fmt.Errorf("no observations read from input (is stdin empty?)")
+		return "", nil, Provenance{}, noObservationsInputError()
 	}
 	return seriesID, obs, prov, nil
+}
+
+func noObservationsInputError() error {
+	return fmt.Errorf("no JSONL observations received on stdin; the upstream command may have failed or returned no rows")
 }
 
 func normalizeSourceNames(in []string) []string {

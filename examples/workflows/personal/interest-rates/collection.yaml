@@ -1,0 +1,7 @@
+collection:
+  title: Interest Rates
+  summary: Workflows for exploring Treasury yields, monetary policy, and yield-curve dynamics.
+  version: "1.0"
+  author: Derick Schaefer
+  license: MIT
+  documentation: README.md

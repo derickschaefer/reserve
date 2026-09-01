@@ -410,6 +410,17 @@ func printSimpleTable(w io.Writer, headers []string, fill func(add func(...strin
 	tw.Render()
 }
 
+func truncateText(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	if max <= 1 {
+		return s[:max]
+	}
+	return s[:max-1] + "…"
+}
+
 // outputWriter returns the destination writer for command output.
 // If --out is set, it opens/creates that file and returns a closer.
 func outputWriter(defaultWriter io.Writer) (io.Writer, func() error, error) {

@@ -2,9 +2,59 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.1.9` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.0` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.2.0 — 2026-08-27 — Foundational Workflow Ecosystem
+
+**Added**
+
+- New `workflow` command family for reusable, content-first analysis definitions:
+  - `reserve workflow create <FILE|REF>`
+  - `reserve workflow list [ROOT]`
+  - `reserve workflow show <FILE|REF>`
+  - `reserve workflow edit <FILE|REF>`
+  - `reserve workflow remove <FILE|REF>`
+  - `reserve workflow validate <FILE|REF...>`
+  - `reserve workflow render <FILE|REF> [ARGS...]`
+  - `reserve workflow contract <FILE|REF>`
+- Repository, collection, and workflow filesystem layout under `~/.reserve/workflows`
+- Static workflows with zero runtime slots and dynamic workflows with ordered `@1`, `@2`, through `@X` contract slots
+- Runtime contract metadata for labels, formats, samples, and descriptions
+- Bare-name workflow resolution when one local workflow matches uniquely
+- Workflow authoring documentation and copyable static/dynamic YAML templates
+- Collection-level `README.md` scaffolding for repository-owned workflow documentation
+
+**Changed**
+
+- The exploratory `snippet` command, storage package, onboarding, tests, and configuration surface have been removed in favor of workflows
+- Long workflow titles and summaries are truncated in `workflow list` to preserve readable terminal tables
+- Workflow rendering validates the document, binds positional values, and joins stages with ` | ` into one copy-ready command
+- Workflow YAML decoding now rejects unknown fields and multiple YAML documents instead of silently accepting authoring mistakes
+- `reserve_version` accepts one explicit version comparison and is enforced by validation, rendering, and contract inspection
+- Namespaced workflow documentation paths resolve from the collection directory, and existing documentation is never overwritten during scaffolding
+
+**Security**
+
+- RESERVE does not execute workflow pipeline content in v1.2.0
+- `workflow render` emits resolved text for operator or agent review without invoking Bash or another shell
+- `workflow contract` inspects runtime inputs without executing workflow content
+- Repository-style workflow references are confined to the configured workflow root, including protection against traversal and symlink escapes
+- A future execution engine is explicitly deferred until secure, deterministic, and cross-platform semantics are defined
+
+**Fixed**
+
+- Empty `obs get` ranges now identify the series and requested dates instead of silently emitting an empty stream
+- Pipeline consumers now explain that empty stdin usually means the upstream command failed or returned no rows
+- Compact missing-data values no longer break column boundaries in batched summary tables
+
+**Known limitations**
+
+- Repository search, install, update, and publish operations are not part of the v1.2.0 local foundation
+- Rendered pipeline stages are descriptive output, not a promise of portable or safe shell execution
 
 ---
 

@@ -1,14 +1,16 @@
 {
-  "latest_version": "v1.1.9",
-  "published_at": "2026-06-10T00:00:00Z",
+  "latest_version": "v1.2.0",
+  "published_at": "2026-08-27T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.1.9",
-  "summary": "Adds AI onboarding routing for all commands, including the `--ai-onboard` shortcut, while preserving the shared command and onboarding code paths.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.2.0",
+  "summary": "Introduces the foundational workflow ecosystem for creating, validating, inspecting, and safely rendering reusable economic analyses.",
   "highlights": [
-    "Global `--ai-onboard` routing now maps any command into the existing onboarding docs",
-    "`obs`, `analyze`, and other command families share the same onboarding code paths",
-    "Permission guardrails for `config grant` remain explicit in onboarding output",
-    "Release metadata, onboarding docs, and update manifest now point at v1.1.9"
+    "New `workflow` commands manage repository- and collection-aware YAML definitions",
+    "Static workflows and dynamic positional contracts support zero or multiple runtime inputs",
+    "`workflow render` resolves stages into one copy-ready pipeline command without executing it",
+    "`workflow contract` prints input labels, formats, samples, and descriptions",
+    "Workflow validation rejects unknown YAML fields, unsafe namespace paths, and incompatible RESERVE versions",
+    "The experimental `snippet` command and configuration surface have been removed in favor of workflows"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

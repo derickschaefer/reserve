@@ -1,0 +1,84 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/derickschaefer/reserve/tests/benchmarks
+cpu: Apple M3
+BenchmarkUnmarshalRawObs_GDP-8            	    4309	    278787 ns/op	 229.83 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4357	    278649 ns/op	 229.95 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4346	    276953 ns/op	 231.35 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4378	    276348 ns/op	 231.86 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4386	    276639 ns/op	 231.62 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4360	    276922 ns/op	 231.38 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4321	    275721 ns/op	 232.39 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4384	    274879 ns/op	 233.10 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4366	    274271 ns/op	 233.62 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_GDP-8            	    4410	    274247 ns/op	 233.64 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1526	    786977 ns/op	 233.76 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1530	    786367 ns/op	 233.94 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1521	    786962 ns/op	 233.76 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1501	    787307 ns/op	 233.66 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1525	    786481 ns/op	 233.91 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1521	    786777 ns/op	 233.82 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1520	    788226 ns/op	 233.39 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1524	    788645 ns/op	 233.27 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1521	    788024 ns/op	 233.45 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_CPIAUCSL-8       	    1513	    790965 ns/op	 232.58 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1588	    751626 ns/op	 233.12 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1594	    748677 ns/op	 234.04 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1602	    749689 ns/op	 233.72 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1596	    749440 ns/op	 233.80 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1586	    751758 ns/op	 233.08 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1588	    764722 ns/op	 229.13 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1544	    768712 ns/op	 227.94 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1557	    761699 ns/op	 230.04 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1587	    777748 ns/op	 225.29 MB/s	     280 B/op	       5 allocs/op
+BenchmarkUnmarshalRawObs_UNRATE-8         	    1556	    761723 ns/op	 230.03 MB/s	     280 B/op	       5 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	14903715	        79.94 ns/op	 462.84 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	14992612	        80.23 ns/op	 461.17 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	14924328	        80.15 ns/op	 461.64 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	15059428	        79.97 ns/op	 462.65 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	14976902	        79.80 ns/op	 463.63 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	15080578	        79.82 ns/op	 463.53 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	15122554	        79.90 ns/op	 463.08 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	15098936	        79.84 ns/op	 463.42 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	13851061	        81.34 ns/op	 454.87 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_GDP-8          	14959647	        79.39 ns/op	 466.06 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14641652	        81.64 ns/op	 514.43 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14609485	        81.53 ns/op	 515.13 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14516684	        82.05 ns/op	 511.89 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14260616	        82.05 ns/op	 511.91 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14635849	        81.63 ns/op	 514.49 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14594448	        81.81 ns/op	 513.36 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14692767	        81.89 ns/op	 512.88 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14590929	        81.55 ns/op	 515.04 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14760441	        82.70 ns/op	 507.85 MB/s	      48 B/op	       1 allocs/op
+BenchmarkMarshalSeriesData_CPIAUCSL-8     	14597577	        82.47 ns/op	 509.26 MB/s	      48 B/op	       1 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2666046	       450.8 ns/op	  93.16 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2685698	       445.5 ns/op	  94.27 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2691159	       446.6 ns/op	  94.05 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2706596	       445.0 ns/op	  94.37 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2659302	       453.1 ns/op	  92.70 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2670957	       451.4 ns/op	  93.04 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2647678	       449.6 ns/op	  93.41 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2682891	       449.3 ns/op	  93.48 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2561515	       468.7 ns/op	  89.61 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_CPIAUCSL-8   	 2637326	       455.2 ns/op	  92.26 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2699420	       451.0 ns/op	  88.69 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2670152	       445.0 ns/op	  89.89 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2650159	       445.2 ns/op	  89.85 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2702373	       448.7 ns/op	  89.15 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2710520	       441.0 ns/op	  90.70 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2679891	       441.4 ns/op	  90.63 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2720942	       439.9 ns/op	  90.92 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2730562	       438.2 ns/op	  91.29 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2741774	       450.3 ns/op	  88.83 MB/s	     312 B/op	       8 allocs/op
+BenchmarkUnmarshalSeriesData_UNRATE-8     	 2698039	       447.6 ns/op	  89.36 MB/s	     312 B/op	       8 allocs/op
+--- FAIL: BenchmarkJSONLRoundTrip_GDP
+    bench_test.go:342: no observations read from input (is stdin empty?)
+--- FAIL: BenchmarkJSONLRoundTrip_CPIAUCSL
+    bench_test.go:358: no observations read from input (is stdin empty?)
+--- FAIL: BenchmarkJSONLRoundTrip_UNRATE
+    bench_test.go:374: no observations read from input (is stdin empty?)
+FAIL
+exit status 1
+FAIL	github.com/derickschaefer/reserve/tests/benchmarks	97.764s
+FAIL
