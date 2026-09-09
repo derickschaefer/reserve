@@ -1,0 +1,22 @@
+workflow:
+  title: Multi-Series Analysis
+  summary: Fetch several related series together and compare their descriptive statistics by series.
+  difficulty: Intermediate
+  estimated_runtime: 10 seconds
+  categories:
+    - comparison
+  concepts:
+    - Interest Rates
+    - Inflation
+    - Labor Market
+    - Multi-Series Analysis
+  outputs:
+    - jsonl
+    - summary
+  requires_network: true
+  reserve_version: ">=1.2"
+  author: RESERVE project
+  documentation: README.md
+  pipeline:
+    - reserve obs get FEDFUNDS CPIAUCSL UNRATE --start 2015-01-01 --end 2024-12-31 --format jsonl
+    - reserve analyze summary --by-series

@@ -616,6 +616,13 @@ RESERVE defines secure, deterministic, and cross-platform execution semantics.
 
 Future releases introduce repository features.
 
+The repository boundaries are documented in
+[`docs/workflow-repositories.md`](docs/workflow-repositories.md). In short,
+`examples/workflows/` is educational source-tree content, `personal` is the
+local authoring namespace, `reserve-workflows` is the future curated official
+catalog, and private repositories remain future work. The CLI will access the
+official catalog through the RESERVE workflow API rather than a GitHub URL.
+
 No release should require redesigning previous architecture.
 
 Each release should extend the ecosystem without breaking workflow definitions.

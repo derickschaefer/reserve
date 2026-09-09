@@ -1,0 +1,30 @@
+workflow:
+  title: Parameterized Workflow
+  summary: Render the same GDP summary pipeline for any caller-provided date range.
+  difficulty: Beginner
+  estimated_runtime: 5 seconds
+  categories:
+    - parameterized
+  concepts:
+    - GDP
+    - Runtime Contract
+    - Time Series
+  outputs:
+    - jsonl
+    - summary
+  requires_network: true
+  reserve_version: ">=1.2"
+  author: RESERVE project
+  documentation: README.md
+  contract:
+    - label: start date
+      format: YYYY-MM-DD
+      sample: 2015-01-01
+      description: First date in the requested range
+    - label: end date
+      format: YYYY-MM-DD
+      sample: 2024-12-31
+      description: Final date in the requested range
+  pipeline:
+    - reserve obs get GDP --start @1 --end @2 --format jsonl
+    - reserve analyze summary

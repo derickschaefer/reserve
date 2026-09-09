@@ -2,9 +2,33 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.0` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.1` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.2.1 — 2026-09-08 — Workflow Repository Foundations
+
+**Added**
+
+- Four curated educational workflow examples under `examples/workflows/`.
+- Documentation clarifying the boundaries between examples, local workflows,
+  the official `reserve-workflows` repository, and future private repositories.
+- An internal official repository descriptor that points future distribution
+  work at the RESERVE workflow API abstraction rather than a storage provider.
+
+**Changed**
+
+- The release version is now `v1.2.1`.
+- Release builds and examples document Go 1.27.1.
+- The future repository API boundary is documented without adding remote
+  browsing, installation, publishing, or execution commands.
+
+**Known limitations**
+
+- v1.2.1 adds no user-facing repository management or remote workflow commands.
+- The examples are educational source-tree content, not the official catalog.
 
 ---
 

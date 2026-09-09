@@ -119,7 +119,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.2.0
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.2.1
 ```
 
 Windows PowerShell:
@@ -720,7 +720,7 @@ reserve workflow render GDP-Summary 2020-01-01 2024-12-31
 
 `workflow render` joins the resolved stages with ` | ` and prints one copy-ready
 pipeline command without executing it. No workflow command executes pipeline
-content in v1.2.0.
+content in v1.2.1.
 
 Workflow validation rejects unknown YAML fields, unsafe repository-style paths,
 and `reserve_version` requirements that the running CLI does not satisfy.
@@ -730,6 +730,8 @@ Workflow storage and authoring references:
 - [Workflow architecture](WORKFLOWS.md)
 - [Workflow YAML format](docs/workflow-format.md)
 - [Static and dynamic templates](docs/workflow-templates.md)
+- [Workflow repository architecture](docs/workflow-repositories.md)
+- [v1.2.1 stopping point](docs/v1.2.1-status.md)
 
 ---
 
@@ -765,8 +767,8 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.2.0
-go      go1.27.0
+reserve v1.2.1
+go      go1.27.1
 os      darwin/arm64
 ```
 

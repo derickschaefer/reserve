@@ -1,0 +1,22 @@
+workflow:
+  title: Transform Pipeline
+  summary: Convert monthly unemployment observations into year-over-year percentage changes and summarize the result.
+  difficulty: Beginner
+  estimated_runtime: 5 seconds
+  categories:
+    - transformation
+  concepts:
+    - Unemployment
+    - Percentage Change
+    - Time Series
+  outputs:
+    - jsonl
+    - summary
+  requires_network: true
+  reserve_version: ">=1.2"
+  author: RESERVE project
+  documentation: README.md
+  pipeline:
+    - reserve obs get UNRATE --start 2015-01-01 --end 2024-12-31 --format jsonl
+    - reserve transform pct-change --period 12
+    - reserve analyze summary

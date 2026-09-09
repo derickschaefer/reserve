@@ -1,0 +1,21 @@
+workflow:
+  title: Simple Observation
+  summary: Fetch a single economic series for a fixed, readable date range and summarize it.
+  difficulty: Beginner
+  estimated_runtime: 5 seconds
+  categories:
+    - observation
+  concepts:
+    - FRED
+    - Time Series
+    - Descriptive Statistics
+  outputs:
+    - jsonl
+    - summary
+  requires_network: true
+  reserve_version: ">=1.2"
+  author: RESERVE project
+  documentation: README.md
+  pipeline:
+    - reserve obs get GDP --start 2015-01-01 --end 2024-12-31 --format jsonl
+    - reserve analyze summary

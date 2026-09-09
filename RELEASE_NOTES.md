@@ -1,48 +1,54 @@
-# RESERVE v1.2.0
+# RESERVE v1.2.1
 
-Introduces the foundational workflow ecosystem for creating, validating,
-inspecting, and safely rendering reusable economic analyses.
+Establishes the workflow repository foundations for the RESERVE ecosystem.
+This is a plumbing and documentation release: it clarifies where workflows
+belong, adds source-shipped examples, and introduces the internal boundary for
+the future official `reserve-workflows` catalog.
 
-- Published: 2026-08-27
+- Published: 2026-09-08
 - Severity: `info`
-- Release: [GitHub v1.2.0](https://github.com/derickschaefer/reserve/releases/tag/v1.2.0)
+- Release: [GitHub v1.2.1](https://github.com/derickschaefer/reserve/releases/tag/v1.2.1)
 - Installer: [download.reservecli.dev/install.sh](https://download.reservecli.dev/install.sh)
 
 ## Added
 
-- New `workflow` commands manage repository- and collection-aware YAML definitions.
-- Static workflows support repeatable analyses with no runtime inputs.
-- Dynamic workflows declare ordered positional inputs using `@1`, `@2`, through `@X`.
-- `workflow contract` prints input labels, formats, samples, and descriptions.
-- `workflow render` resolves runtime values and prints one copy-ready pipeline command.
-- Collection creation scaffolds a repository-owned `README.md` without overwriting existing documentation.
+- Four educational examples under `examples/workflows/`.
+- An examples README that explicitly distinguishes source-tree examples from
+  the official workflow catalog.
+- Repository-boundary architecture documentation for examples, local
+  workflows, `reserve-workflows`, and future private repositories.
+- A minimal internal descriptor for the built-in official repository:
+  `official` / `reserve-workflows`.
 
 ## Changed
 
-- The experimental `snippet` command and configuration surface have been removed in favor of workflows.
-- Long workflow titles and summaries are truncated to preserve readable terminal tables.
-- Workflow documentation and AI onboarding now describe the repository, collection, workflow, and runtime-contract model.
-- Workflow validation rejects unknown YAML fields and incompatible `reserve_version` requirements.
-- Empty observation ranges now report the affected series and requested dates before a pipeline receives no rows.
+- The release version is now `v1.2.1`.
+- The supported release toolchain is documented as Go 1.27.1.
+- The RESERVE workflow API boundary is documented for future distribution work
+  without adding remote workflow commands in this release.
 
 ## Security
 
-- Workflow pipeline content is never executed by RESERVE v1.2.0.
+- Workflow pipeline content is never executed by RESERVE v1.2.1.
 - `workflow render` does not invoke Bash or another shell.
 - Repository-style references cannot traverse or escape the configured workflow root, including through symlinks.
 - Pipeline execution remains deferred until secure, deterministic, and cross-platform semantics are defined.
 
 ## Known Limitations
 
-- Repository search, installation, updates, and publishing are planned for later releases.
+- No workflow browse, install, update, or publish commands are included.
+- No private-repository authentication, repository management, ratings, search,
+  remote execution, or storage-provider implementation is included.
+- The examples are not installed into `~/.reserve/workflows/` and are not the
+  official catalog.
 - Rendered pipeline stages are descriptive output for operator or agent review, not a promise of portable or safe shell execution.
 
 ## Verification
 
-- `make test` passes.
-- `go test ./cmd ./internal/... ./tests` passes.
-- Release documentation and manifests are updated for `v1.2.0`.
-- `release-manifest.json` points to `v1.2.0`.
+- `go test ./...` passes.
+- All four example workflows validate successfully.
+- `go vet ./...` passes.
+- The release distribution build produces platform archives and SHA256SUMS.
 
 ## Update
 
