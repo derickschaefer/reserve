@@ -1,15 +1,15 @@
 {
-  "latest_version": "v1.2.1",
-  "published_at": "2026-09-08T00:00:00Z",
+  "latest_version": "v1.2.2",
+  "published_at": "2026-09-15T00:00:00Z",
   "download_url": "https://download.reservecli.dev/install.sh",
-  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.2.1",
-  "summary": "Establishes the workflow repository foundations with curated examples, clear repository boundaries, and a built-in official reserve-workflows descriptor.",
+  "release_url": "https://github.com/derickschaefer/reserve/releases/tag/v1.2.2",
+  "summary": "Adds a read-only CLI preview of the official reserve-workflows catalog through the permanent RESERVE workflow API.",
   "highlights": [
-    "Adds four curated educational workflow examples and documentation",
-    "Defines the distinction between examples, local workflows, reserve-workflows, and future private repositories",
-    "Adds the internal official repository descriptor for reserve-workflows and its RESERVE API boundary",
-    "Documents the intentionally small future workflow distribution API without adding remote commands",
-    "Updates the supported release toolchain note to Go 1.27.1"
+    "Adds reserve workflow browse commands for the complete catalog or one collection",
+    "Adds reserve workflow get for versioned official workflow YAML retrieval",
+    "Uses the permanent https://api.reservecli.dev/v1 API boundary with table, JSON, and raw YAML output",
+    "Keeps the preview read-only and separate from local workflow installation or execution",
+    "Defers verified-email enrollment, FRED-key validation, RESERVE tokens, and authenticated access to v1.2.3"
   ],
   "severity": "info",
   "update_instructions": "Download the latest release from the GitHub releases page or rerun the install script from download.reservecli.dev."

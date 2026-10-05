@@ -10,14 +10,16 @@ import (
 
 	"github.com/derickschaefer/reserve/internal/config"
 	"github.com/derickschaefer/reserve/internal/fred"
+	"github.com/derickschaefer/reserve/internal/registry"
 	"github.com/derickschaefer/reserve/internal/store"
 )
 
 // Deps holds all runtime dependencies injected into command Run functions.
 type Deps struct {
-	Config *config.Config
-	Client *fred.Client
-	Store  *store.Store // nil if DB could not be opened
+	Config   *config.Config
+	Client   *fred.Client
+	Registry *registry.Client
+	Store    *store.Store // nil if DB could not be opened
 }
 
 // New builds a Deps from resolved config.
@@ -32,8 +34,9 @@ func New(cfg *config.Config) *Deps {
 		cfg.Debug,
 	)
 	d := &Deps{
-		Config: cfg,
-		Client: client,
+		Config:   cfg,
+		Client:   client,
+		Registry: registry.NewClient(registry.DefaultBaseURL, cfg.Timeout),
 	}
 	if cfg.DBPath != "" {
 		if s, err := store.Open(cfg.DBPath); err == nil {

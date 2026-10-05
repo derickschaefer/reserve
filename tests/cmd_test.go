@@ -857,7 +857,7 @@ func TestWorkflowContracts(t *testing.T) {
 		{"contract", "official/inflation/future-workflow"},
 	} {
 		out, err := runReserveCmdWithEnv(t, baseEnv, append([]string{"workflow", "--root", root}, command...)...)
-		r.check(t, err != nil && strings.Contains(out, "requires reserve >=1.3") && strings.Contains(out, "v1.2.1"),
+		r.check(t, err != nil && strings.Contains(out, "requires reserve >=1.3") && strings.Contains(out, "v1.2.2"),
 			fmt.Sprintf("workflow %s enforces reserve_version compatibility", command[0]),
 			fmt.Sprintf("expected version incompatibility, got err=%v out=%q", err, out),
 		)

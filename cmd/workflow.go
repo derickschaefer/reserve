@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/derickschaefer/reserve/internal/render"
 	"github.com/derickschaefer/reserve/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -171,6 +173,101 @@ var workflowListCmd = &cobra.Command{
 	},
 }
 
+var workflowBrowseCmd = &cobra.Command{
+	Use:   "browse [COLLECTION]",
+	Short: "Browse official workflows from the RESERVE registry",
+	Long: `Browse published official workflows without changing the local workflow store.
+
+This is the v1.2.2 read-only registry preview. It does not require the FRED API
+key and does not install or execute remote workflow content.`,
+	Example: `  reserve workflow browse
+  reserve workflow browse inflation
+  reserve workflow browse --format json`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		defer deps.Close()
+
+		format := resolveFormat(deps.Config.Format)
+		if format != render.FormatTable && format != render.FormatJSON {
+			return fmt.Errorf("workflow browse supports only table and json output")
+		}
+
+		if len(args) == 1 {
+			collection, err := deps.Registry.Collection(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			if format == render.FormatJSON {
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(collection)
+			}
+			printSimpleTable(cmd.OutOrStdout(), []string{"ID", "TITLE", "VERSION"}, func(add func(...string)) {
+				for _, entry := range collection.Workflows {
+					add(entry.ID, entry.Title, entry.LatestVersion)
+				}
+			})
+			return nil
+		}
+
+		catalog, err := deps.Registry.Browse(cmd.Context())
+		if err != nil {
+			return err
+		}
+		if format == render.FormatJSON {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(catalog)
+		}
+		printSimpleTable(cmd.OutOrStdout(), []string{"COLLECTION", "ID", "TITLE", "VERSION", "RESERVE"}, func(add func(...string)) {
+			for _, entry := range catalog.Workflows {
+				add(entry.Collection, entry.ID, entry.Title, entry.LatestVersion, entry.ReserveVersion)
+			}
+		})
+		return nil
+	},
+}
+
+var workflowGetRemoteCmd = &cobra.Command{
+	Use:   "get <COLLECTION> <WORKFLOW> [VERSION]",
+	Short: "Retrieve an official workflow artifact",
+	Example: `  reserve workflow get inflation cpi-history
+  reserve workflow get inflation cpi-history 1.0.0
+  reserve workflow get inflation cpi-history --format json`,
+	Args: cobra.RangeArgs(2, 3),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		deps, err := buildDeps()
+		if err != nil {
+			return err
+		}
+		defer deps.Close()
+
+		version := ""
+		if len(args) == 3 {
+			version = args[2]
+		}
+		artifact, err := deps.Registry.Workflow(cmd.Context(), args[0], args[1], version)
+		if err != nil {
+			return err
+		}
+
+		format := resolveFormat(deps.Config.Format)
+		if format == render.FormatJSON {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
+				"collection": artifact.Collection,
+				"workflow":   artifact.WorkflowID,
+				"version":    artifact.Version,
+				"content":    string(artifact.Content),
+			})
+		}
+		if format != render.FormatTable {
+			return fmt.Errorf("workflow get supports table (YAML) and json output")
+		}
+		_, err = fmt.Fprint(cmd.OutOrStdout(), string(artifact.Content))
+		return err
+	},
+}
+
 var workflowShowCmd = &cobra.Command{
 	Use:   "show <FILE|REF>",
 	Short: "Show a normalized workflow document",
@@ -309,6 +406,8 @@ func init() {
 	workflowCmd.PersistentFlags().StringVar(&workflowRoot, "root", "", "workflow store root (default ~/.reserve/workflows)")
 	workflowCmd.AddCommand(workflowCreateCmd)
 	workflowCmd.AddCommand(workflowListCmd)
+	workflowCmd.AddCommand(workflowBrowseCmd)
+	workflowCmd.AddCommand(workflowGetRemoteCmd)
 	workflowCmd.AddCommand(workflowShowCmd)
 	workflowCmd.AddCommand(workflowEditCmd)
 	workflowCmd.AddCommand(workflowRemoveCmd)

@@ -119,7 +119,7 @@ curl -fsSL https://download.reservecli.dev/install.sh | sh
 Pinned version:
 
 ```bash
-curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.2.1
+curl -fsSL https://download.reservecli.dev/install.sh | sh -s v1.2.2
 ```
 
 Windows PowerShell:
@@ -705,6 +705,9 @@ reserve workflow create official/inflation
 reserve workflow create official/inflation/gdp-summary
 reserve workflow list
 reserve workflow show official/inflation/gdp-summary
+reserve workflow browse
+reserve workflow browse inflation
+reserve workflow get inflation cpi-history 1.0.0
 reserve workflow edit GDP-Summary
 reserve workflow validate official/inflation/gdp-summary
 reserve workflow remove official/inflation/gdp-summary
@@ -720,7 +723,9 @@ reserve workflow render GDP-Summary 2020-01-01 2024-12-31
 
 `workflow render` joins the resolved stages with ` | ` and prints one copy-ready
 pipeline command without executing it. No workflow command executes pipeline
-content in v1.2.1.
+content. `workflow browse` and `workflow get` are read-only previews backed by
+the official RESERVE workflow API; they do not install or execute remote
+content.
 
 Workflow validation rejects unknown YAML fields, unsafe repository-style paths,
 and `reserve_version` requirements that the running CLI does not satisfy.
@@ -731,7 +736,9 @@ Workflow storage and authoring references:
 - [Workflow YAML format](docs/workflow-format.md)
 - [Static and dynamic templates](docs/workflow-templates.md)
 - [Workflow repository architecture](docs/workflow-repositories.md)
+- [v1.2.2 API preview](docs/v1.2.2-preview.md)
 - [v1.2.1 stopping point](docs/v1.2.1-status.md)
+- [v1.2.2 API preview](docs/v1.2.2-preview.md)
 
 ---
 
@@ -767,7 +774,7 @@ reserve version --format jsonl   # single line for audit streams
 Plain text output:
 
 ```bash
-reserve v1.2.1
+reserve v1.2.2
 go      go1.27.1
 os      darwin/arm64
 ```

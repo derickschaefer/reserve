@@ -1,54 +1,59 @@
-# RESERVE v1.2.1
+# RESERVE v1.2.2
 
-Establishes the workflow repository foundations for the RESERVE ecosystem.
-This is a plumbing and documentation release: it clarifies where workflows
-belong, adds source-shipped examples, and introduces the internal boundary for
-the future official `reserve-workflows` catalog.
+Adds a read-only CLI preview of the official `reserve-workflows` catalog through
+the permanent RESERVE workflow API at `https://api.reservecli.dev/v1`.
 
-- Published: 2026-09-08
+- Published: 2026-09-15
 - Severity: `info`
-- Release: [GitHub v1.2.1](https://github.com/derickschaefer/reserve/releases/tag/v1.2.1)
+- Release: [GitHub v1.2.2](https://github.com/derickschaefer/reserve/releases/tag/v1.2.2)
 - Installer: [download.reservecli.dev/install.sh](https://download.reservecli.dev/install.sh)
 
 ## Added
 
-- Four educational examples under `examples/workflows/`.
-- An examples README that explicitly distinguishes source-tree examples from
-  the official workflow catalog.
-- Repository-boundary architecture documentation for examples, local
-  workflows, `reserve-workflows`, and future private repositories.
-- A minimal internal descriptor for the built-in official repository:
-  `official` / `reserve-workflows`.
+- `reserve workflow browse` for the complete official catalog or one collection.
+- `reserve workflow get <collection> <workflow> [version]` for versioned
+  official workflow YAML retrieval.
+- Typed internal registry client coverage for catalog, collection, and artifact
+  reads.
+- v1.2.2 preview documentation for the public read-only API boundary.
 
 ## Changed
 
-- The release version is now `v1.2.1`.
-- The supported release toolchain is documented as Go 1.27.1.
-- The RESERVE workflow API boundary is documented for future distribution work
-  without adding remote workflow commands in this release.
+- The release version is now `v1.2.2`.
+- Official workflow reads use `https://api.reservecli.dev/v1`; the CLI does not
+  expose GitHub, R2, or another storage provider as its repository contract.
+- Catalog reads support the existing table and JSON output modes, while
+  workflow retrieval defaults to raw YAML and supports JSON envelopes.
 
 ## Security
 
-- Workflow pipeline content is never executed by RESERVE v1.2.1.
+- Workflow pipeline content is never executed by RESERVE v1.2.2.
 - `workflow render` does not invoke Bash or another shell.
 - Repository-style references cannot traverse or escape the configured workflow root, including through symlinks.
 - Pipeline execution remains deferred until secure, deterministic, and cross-platform semantics are defined.
+- The v1.2.2 preview does not use the FRED API key as RESERVE authentication.
+- Verified-email enrollment, one-time FRED-key validation, RESERVE token
+  issuance, and authenticated API enforcement remain v1.2.3 work.
 
 ## Known Limitations
 
-- No workflow browse, install, update, or publish commands are included.
+- The preview is read-only: it does not install, update, publish, or execute
+  remote workflows.
 - No private-repository authentication, repository management, ratings, search,
-  remote execution, or storage-provider implementation is included.
-- The examples are not installed into `~/.reserve/workflows/` and are not the
-  official catalog.
+  remote execution, or user enrollment is included.
+- Local workflow authoring and execution semantics remain separate from the
+  official API catalog.
 - Rendered pipeline stages are descriptive output for operator or agent review, not a promise of portable or safe shell execution.
 
 ## Verification
 
-- `go test ./...` passes.
-- All four example workflows validate successfully.
+- `make test` passes.
+- `go test ./cmd ./internal/... ./tests` passes.
+- Registry client tests cover catalog, collection, versioned artifact, and
+  bearer-header behavior.
 - `go vet ./...` passes.
 - The release distribution build produces platform archives and SHA256SUMS.
+- Release docs and manifests are updated for `v1.2.2`.
 
 ## Update
 

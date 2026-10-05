@@ -2,9 +2,30 @@
 
 All notable changes to `reserve` are documented here.
 
-The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.1` is the
+The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.2` is the
 current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.2.2 — 2026-09-15 — Read-only Workflow API Preview
+
+**Added**
+
+- `reserve workflow browse` for the official workflow catalog and individual collections.
+- `reserve workflow get <collection> <workflow> [version]` for versioned official workflow YAML retrieval.
+- Typed registry client coverage for the catalog, collection, and artifact API responses.
+- Documentation for the permanent `https://api.reservecli.dev/v1` boundary and the v1.2.3 authentication plan.
+
+**Changed**
+
+- Official workflow reads now use the RESERVE API abstraction rather than exposing GitHub, R2, or another storage provider in the CLI contract.
+- Catalog output supports the existing table and JSON modes; workflow retrieval defaults to raw YAML and supports JSON envelopes.
+
+**Known limitations**
+
+- v1.2.2 is read-only. It does not install, update, publish, authenticate, or execute remote workflows.
+- Verified-email enrollment, FRED-key validation, and RESERVE-issued tokens are deferred to v1.2.3.
 
 ---
 
