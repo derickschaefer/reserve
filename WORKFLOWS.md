@@ -4,7 +4,7 @@ Status: Accepted Architecture
 Applies Beginning With: RESERVE 1.2
 Author: Derick Schaefer
 Audience: RESERVE Developers, Contributors, Codex
-Last Updated: TBD
+Last Updated: 2026-10-08
 
 ---
 
@@ -619,9 +619,11 @@ Future releases introduce repository features.
 The repository boundaries are documented in
 [`docs/workflow-repositories.md`](docs/workflow-repositories.md). In short,
 `examples/workflows/` is educational source-tree content, `personal` is the
-local authoring namespace, `reserve-workflows` is the future curated official
-catalog, and private repositories remain future work. The CLI will access the
-official catalog through the RESERVE workflow API rather than a GitHub URL.
+local authoring namespace, `reserve-workflows` is the curated official catalog,
+and private repositories remain future work. The CLI accesses the official
+catalog through the RESERVE workflow API rather than a GitHub URL. The v1.2.3
+authentication and authorization decisions are tracked in
+[`docs/v1.2.3-api-decisions.md`](docs/v1.2.3-api-decisions.md).
 
 No release should require redesigning previous architecture.
 

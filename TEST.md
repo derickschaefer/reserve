@@ -43,6 +43,15 @@ The test suite is organized into four layers:
 
 Command tests, unit tests, and benchmarks run fully offline. Integration tests that require a live FRED API key skip automatically when no credentials are present.
 
+### v1.2.3 coverage
+
+The v1.2.3 analysis surface includes command tests for repeatable
+`analyze summary --exclude FIELD` behavior. Exclusions are presentation-only:
+they remove selected summary fields from table, JSON, and JSONL output while
+leaving observations and calculated statistics unchanged. Coverage includes
+single-series, `--by-series`, rolling-summary, alias, and unknown-field
+validation paths.
+
 ---
 
 ## Running the Tests

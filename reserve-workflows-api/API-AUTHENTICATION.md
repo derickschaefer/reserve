@@ -4,6 +4,9 @@
 **Status:** Design specification  
 **Scope:** RESERVE Workflows API authentication and enrollment
 
+The active v1.2.3 decisions and unresolved implementation choices are tracked
+in [`docs/v1.2.3-api-decisions.md`](../docs/v1.2.3-api-decisions.md).
+
 ## 1. Purpose
 
 RESERVE needs a lightweight authentication model for future API-backed workflow services. The design remains consistent with the RESERVE CLI: CLI-first, low-friction, minimal web dependency, minimal account-management overhead, no unnecessary SaaS-style portal, and credentials isolated by service.
@@ -166,7 +169,8 @@ When implementation begins, it should introduce authentication behind explicit, 
 
 ## 9. Open decisions for implementation
 
-Before coding, decide and document:
+The decision register is the working checklist for this section. Before coding,
+decide and document:
 
 - the Cloudflare storage product and data-region/retention policy;
 - the exact FRED validation endpoint and timeout behavior;
@@ -176,4 +180,3 @@ Before coding, decide and document:
 - email-template, resend, and support/recovery behavior;
 - audit events and retention boundaries;
 - the protected API routes and authorization model for public versus private workflows.
-

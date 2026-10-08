@@ -3,8 +3,34 @@
 All notable changes to `reserve` are documented here.
 
 The project uses **[Semantic Versioning](https://semver.org/)**. `v1.2.2` is the
-current release, and `v1.0.5` was the first publicly tagged release. Prior versions are documented under
+current release and v1.2.3 is in development; `v1.0.5` was the first publicly tagged release. Prior versions are documented under
 [Development History](#development-history) for auditability.
+
+---
+
+### v1.2.3 — In development — Analysis refinement and API authentication design
+
+**Added**
+
+- Repeatable `reserve analyze summary --exclude FIELD` flags for omitting
+  presentation columns without removing observations or changing calculations.
+- Exclusion support across table, JSON, JSONL, `--by-series`, and rolling
+  summary output.
+- Active v1.2.3 API decision register covering authentication, FRED-key
+  validation, token lifecycle, authorization, and Cloudflare rollout.
+
+**Documentation**
+
+- Consolidated historical and superseded planning documents under
+  `docs/archive/` with an indexed `ARCHIVE.md`.
+
+**In progress**
+
+- CLI-native enrollment with verified email and one-time FRED-key validation.
+- Independent RESERVE token issuance, secure local storage, rotation, and
+  revocation.
+- Final public/authenticated route matrix and migration away from the temporary
+  bootstrap key.
 
 ---
 
@@ -567,7 +593,7 @@ Project bootstrap: compilable binary with no commands.
 - `cmd/root.go` — Cobra root command, all global persistent flags registered
 - `go.mod` module declaration
 - `Makefile`, `.gitignore`, `LICENSE` (MIT), `README.md` stub
-- `DEVPLAN.md` — full phased development specification
+- `docs/archive/DEVPLAN.md` — original phased development specification
 
 ---
 

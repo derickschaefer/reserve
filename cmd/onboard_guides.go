@@ -301,13 +301,13 @@ func buildAnalyzeGuide() map[string]any {
 		"Terminal pipeline stage: JSONL in, summary/comparison/regime output out.",
 		"Reads JSONL observations from stdin. Does not emit JSONL for downstream reserve commands.",
 		map[string]any{
-			"summary": "reserve analyze summary [--by-series] [--window N]",
+			"summary": "reserve analyze summary [--by-series] [--window N] [--exclude FIELD]...",
 			"trend":   "reserve analyze trend [--method linear|theil-sen] [--confidence]",
 			"compare": "reserve analyze compare --against <SERIES_ID> [--series <SERIES_ID>]",
 			"regime":  "reserve analyze regime --method cusum [--threshold N]",
 		},
 		map[string]any{
-			"summary": "global `--format` plus optional `--by-series` and `--window N`",
+			"summary": "global `--format` plus optional `--by-series`, `--window N`, and repeatable `--exclude FIELD`",
 			"trend":   "--method linear|theil-sen, --confidence for slope uncertainty",
 			"compare": "--against <SERIES_ID> and optional --series <SERIES_ID>",
 			"regime":  "--method cusum and optional --threshold N (experimental)",
@@ -340,6 +340,7 @@ func buildAnalyzeGuide() map[string]any {
 		[]string{
 			"reserve obs get CPIAUCSL --from cache --format jsonl | reserve analyze summary",
 			"reserve obs get FEDFUNDS DRCCLACBS T10Y2Y UNRATE --start 2008-01-01 --end 2008-12-31 --format jsonl | reserve analyze summary --by-series",
+			"reserve obs get FEDFUNDS T10Y2Y UNRATE --format jsonl | reserve analyze summary --by-series --exclude change-pct --exclude skew",
 			"reserve obs get UNRATE --start 2020-01-01 --format jsonl | reserve analyze trend --method theil-sen",
 			"reserve obs get UNRATE FEDFUNDS --start 2010-01-01 --format jsonl | reserve analyze compare --against FEDFUNDS",
 			"reserve obs get UNRATE --start 2010-01-01 --format jsonl | reserve analyze regime --method cusum --threshold 5",

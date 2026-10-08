@@ -31,6 +31,7 @@ Examples:
 
 var analyzeSummaryBySeries bool
 var analyzeSummaryWindow int
+var analyzeSummaryExclude []string
 
 var analyzeSummaryCmd = &cobra.Command{
 	Use:   "summary",
@@ -39,6 +40,10 @@ var analyzeSummaryCmd = &cobra.Command{
   reserve obs get UNRATE --from cache --format jsonl | reserve transform pct-change | reserve analyze summary
   reserve obs get FEDFUNDS T10Y2Y UNRATE --format jsonl | reserve analyze summary --by-series`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		excluded, err := normalizeSummaryExclusions(analyzeSummaryExclude)
+		if err != nil {
+			return err
+		}
 		format := resolveFormat("")
 		w, closeFn, err := outputWriter(cmd.OutOrStdout())
 		if err != nil {
@@ -60,7 +65,7 @@ var analyzeSummaryCmd = &cobra.Command{
 				applyProvenanceToSummary(&s, group.Provenance)
 				summaries = append(summaries, s)
 			}
-			return renderSummaryBatch(w, format, summaries)
+			return renderSummaryBatch(w, format, summaries, excluded)
 		}
 
 		seriesID, obs, prov, err := pipeline.ReadObservationsWithProvenance(os.Stdin)
@@ -78,9 +83,9 @@ var analyzeSummaryCmd = &cobra.Command{
 			for i := range windows {
 				applyProvenanceToSummary(&windows[i], prov)
 			}
-			return renderSummaryBatch(w, format, windows)
+			return renderSummaryBatch(w, format, windows, excluded)
 		}
-		return renderSummarySingle(w, format, s)
+		return renderSummarySingle(w, format, s, excluded)
 	},
 }
 
@@ -316,6 +321,8 @@ func init() {
 		"group multi-series JSONL input by series_id and emit one summary per series")
 	analyzeSummaryCmd.Flags().IntVar(&analyzeSummaryWindow, "window", 0,
 		"rolling window size (observations) for summary output")
+	analyzeSummaryCmd.Flags().StringArrayVar(&analyzeSummaryExclude, "exclude", nil,
+		"exclude a summary output field (repeatable; e.g. --exclude change-pct)")
 	analyzeTrendCmd.Flags().StringVar(&analyzeTrendMethod, "method", "linear",
 		"regression method: linear|theil-sen")
 	analyzeTrendCmd.Flags().BoolVar(&analyzeTrendConfidence, "confidence", false,
@@ -328,41 +335,25 @@ func init() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-func renderSummarySingle(w io.Writer, format string, s analyze.Summary) error {
+func renderSummarySingle(w io.Writer, format string, s analyze.Summary, excluded map[string]bool) error {
 	if format == "json" {
+		payload, err := summaryJSON(s, excluded)
+		if err != nil {
+			return err
+		}
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return enc.Encode(s)
+		return enc.Encode(payload)
 	}
 	if format == "jsonl" {
-		return json.NewEncoder(w).Encode(s)
+		payload, err := summaryJSON(s, excluded)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(w).Encode(payload)
 	}
 
-	rows := [][]string{
-		{"Context", "-"},
-		{"Version", s.AnalysisVersion},
-		{"Series", s.SeriesID},
-		{"Start Date", s.StartDate},
-		{"End Date", s.EndDate},
-		{"Observations", fmt.Sprintf("%d", s.Count)},
-		{"Data Quality", "-"},
-		{"Missing Count", fmt.Sprintf("%d", s.MissingCount)},
-		{"Missing %", fmt.Sprintf("%.1f%%", s.MissingPct)},
-		{"Distribution", "-"},
-		{"Mean", fmtFloatTable(s.Mean, 4)},
-		{"Std Dev", fmtFloatTable(s.Std, 4)},
-		{"Min", fmtFloatTable(s.Min, 4)},
-		{"P25", fmtFloatTable(s.P25, 4)},
-		{"Median", fmtFloatTable(s.Median, 4)},
-		{"P75", fmtFloatTable(s.P75, 4)},
-		{"Max", fmtFloatTable(s.Max, 4)},
-		{"Skew", fmtFloatTable(s.Skew, 4)},
-		{"Movement", "-"},
-		{"First", fmtFloatTable(s.First, 4)},
-		{"Last", fmtFloatTable(s.Last, 4)},
-		{"Change", fmtFloatTable(s.Change, 4)},
-		{"Change %", fmtPctTable(s.ChangePct)},
-	}
+	rows := summaryTableRows(s, excluded)
 	printSimpleTable(w, []string{"METRIC", "VALUE"}, func(add func(...string)) {
 		for _, row := range rows {
 			add(row[0], row[1])
@@ -375,16 +366,28 @@ func renderSummarySingle(w io.Writer, format string, s analyze.Summary) error {
 	return nil
 }
 
-func renderSummaryBatch(w io.Writer, format string, summaries []analyze.Summary) error {
+func renderSummaryBatch(w io.Writer, format string, summaries []analyze.Summary, excluded map[string]bool) error {
 	switch format {
 	case "json":
+		payload := make([]map[string]any, 0, len(summaries))
+		for _, s := range summaries {
+			item, err := summaryJSON(s, excluded)
+			if err != nil {
+				return err
+			}
+			payload = append(payload, item)
+		}
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return enc.Encode(summaries)
+		return enc.Encode(payload)
 	case "jsonl":
 		enc := json.NewEncoder(w)
 		for _, s := range summaries {
-			if err := enc.Encode(s); err != nil {
+			item, err := summaryJSON(s, excluded)
+			if err != nil {
+				return err
+			}
+			if err := enc.Encode(item); err != nil {
 				return err
 			}
 		}
@@ -405,37 +408,17 @@ func renderSummaryBatch(w io.Writer, format string, summaries []analyze.Summary)
 			}
 		}
 		if isWindowBatch {
-			printSimpleTable(w, []string{"SERIES", "START_DATE", "END_DATE", "COUNT", "MISS", "MEAN", "STD", "MIN", "MEDIAN", "MAX", "CHANGE_PCT"}, func(add func(...string)) {
+			columns := summaryBatchColumns(true, excluded)
+			printSimpleTable(w, summaryBatchHeaders(columns), func(add func(...string)) {
 				for _, s := range sorted {
-					add(
-						s.SeriesID,
-						s.StartDate,
-						s.EndDate,
-						fmt.Sprintf("%d", s.Count),
-						fmtMissCompact(s.MissingCount, s.MissingPct),
-						fmtFloatTable(s.Mean, 4),
-						fmtFloatTable(s.Std, 4),
-						fmtFloatTable(s.Min, 4),
-						fmtFloatTable(s.Median, 4),
-						fmtFloatTable(s.Max, 4),
-						fmtPctTable(s.ChangePct),
-					)
+					add(summaryBatchValues(s, columns)...)
 				}
 			})
 		} else {
-			printSimpleTable(w, []string{"SERIES", "COUNT", "MISS", "MEAN", "STD", "MIN", "MEDIAN", "MAX", "CHANGE_PCT"}, func(add func(...string)) {
+			columns := summaryBatchColumns(false, excluded)
+			printSimpleTable(w, summaryBatchHeaders(columns), func(add func(...string)) {
 				for _, s := range sorted {
-					add(
-						s.SeriesID,
-						fmt.Sprintf("%d", s.Count),
-						fmtMissCompact(s.MissingCount, s.MissingPct),
-						fmtFloatTable(s.Mean, 4),
-						fmtFloatTable(s.Std, 4),
-						fmtFloatTable(s.Min, 4),
-						fmtFloatTable(s.Median, 4),
-						fmtFloatTable(s.Max, 4),
-						fmtPctTable(s.ChangePct),
-					)
+					add(summaryBatchValues(s, columns)...)
 				}
 			})
 		}
@@ -445,6 +428,172 @@ func renderSummaryBatch(w io.Writer, format string, summaries []analyze.Summary)
 		}
 		return nil
 	}
+}
+
+type summaryTableColumn struct {
+	key    string
+	header string
+	value  func(analyze.Summary) string
+}
+
+var summaryFieldAliases = map[string]string{
+	"analysis_version": "analysis_version",
+	"version":          "analysis_version",
+	"series":           "series_id",
+	"series_id":        "series_id",
+	"start_date":       "start_date",
+	"end_date":         "end_date",
+	"count":            "count",
+	"n_obs":            "count",
+	"nobs":             "count",
+	"observations":     "count",
+	"missing_count":    "missing_count",
+	"missing_pct":      "missing_pct",
+	"missing":          "missing",
+	"mean":             "mean",
+	"std":              "std",
+	"min":              "min",
+	"p25":              "p25",
+	"median":           "median",
+	"p75":              "p75",
+	"max":              "max",
+	"skew":             "skew",
+	"first":            "first",
+	"last":             "last",
+	"change":           "change",
+	"change_pct":       "change_pct",
+}
+
+func normalizeSummaryExclusions(raw []string) (map[string]bool, error) {
+	excluded := make(map[string]bool, len(raw))
+	for _, field := range raw {
+		key := strings.ToLower(strings.TrimSpace(field))
+		key = strings.ReplaceAll(key, "-", "_")
+		canonical, ok := summaryFieldAliases[key]
+		if !ok {
+			return nil, fmt.Errorf("unknown summary field %q; valid fields: %s", field, strings.Join(summaryFieldNames(), ", "))
+		}
+		excluded[canonical] = true
+	}
+	return excluded, nil
+}
+
+func summaryFieldNames() []string {
+	return []string{
+		"analysis-version", "series", "start-date", "end-date", "count", "missing-count", "missing-pct",
+		"mean", "std", "min", "p25", "median", "p75", "max", "skew", "first", "last", "change", "change-pct",
+	}
+}
+
+func summaryJSON(s analyze.Summary, excluded map[string]bool) (map[string]any, error) {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return nil, err
+	}
+	for key := range excluded {
+		delete(payload, key)
+	}
+	if excluded["missing"] {
+		delete(payload, "missing_count")
+		delete(payload, "missing_pct")
+	}
+	// count and n_obs are aliases in the JSON contract; excluding the logical
+	// count field removes both so the output does not retain a duplicate.
+	if excluded["count"] {
+		delete(payload, "count")
+		delete(payload, "n_obs")
+	}
+	return payload, nil
+}
+
+func summaryTableRows(s analyze.Summary, excluded map[string]bool) [][]string {
+	rows := []struct {
+		key   string
+		label string
+		value string
+	}{
+		{"", "Context", "-"},
+		{"analysis_version", "Version", s.AnalysisVersion},
+		{"series_id", "Series", s.SeriesID},
+		{"start_date", "Start Date", s.StartDate},
+		{"end_date", "End Date", s.EndDate},
+		{"count", "Observations", fmt.Sprintf("%d", s.Count)},
+		{"", "Data Quality", "-"},
+		{"missing_count", "Missing Count", fmt.Sprintf("%d", s.MissingCount)},
+		{"missing_pct", "Missing %", fmt.Sprintf("%.1f%%", s.MissingPct)},
+		{"", "Distribution", "-"},
+		{"mean", "Mean", fmtFloatTable(s.Mean, 4)},
+		{"std", "Std Dev", fmtFloatTable(s.Std, 4)},
+		{"min", "Min", fmtFloatTable(s.Min, 4)},
+		{"p25", "P25", fmtFloatTable(s.P25, 4)},
+		{"median", "Median", fmtFloatTable(s.Median, 4)},
+		{"p75", "P75", fmtFloatTable(s.P75, 4)},
+		{"max", "Max", fmtFloatTable(s.Max, 4)},
+		{"skew", "Skew", fmtFloatTable(s.Skew, 4)},
+		{"", "Movement", "-"},
+		{"first", "First", fmtFloatTable(s.First, 4)},
+		{"last", "Last", fmtFloatTable(s.Last, 4)},
+		{"change", "Change", fmtFloatTable(s.Change, 4)},
+		{"change_pct", "Change %", fmtPctTable(s.ChangePct)},
+	}
+	out := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		if excluded[row.key] {
+			continue
+		}
+		out = append(out, []string{row.label, row.value})
+	}
+	return out
+}
+
+func summaryBatchColumns(window bool, excluded map[string]bool) []summaryTableColumn {
+	columns := []summaryTableColumn{
+		{"series_id", "SERIES", func(s analyze.Summary) string { return s.SeriesID }},
+	}
+	if window {
+		columns = append(columns,
+			summaryTableColumn{"start_date", "START_DATE", func(s analyze.Summary) string { return s.StartDate }},
+			summaryTableColumn{"end_date", "END_DATE", func(s analyze.Summary) string { return s.EndDate }},
+		)
+	}
+	columns = append(columns,
+		summaryTableColumn{"count", "COUNT", func(s analyze.Summary) string { return fmt.Sprintf("%d", s.Count) }},
+		summaryTableColumn{"missing", "MISS", func(s analyze.Summary) string { return fmtMissCompact(s.MissingCount, s.MissingPct) }},
+		summaryTableColumn{"mean", "MEAN", func(s analyze.Summary) string { return fmtFloatTable(s.Mean, 4) }},
+		summaryTableColumn{"std", "STD", func(s analyze.Summary) string { return fmtFloatTable(s.Std, 4) }},
+		summaryTableColumn{"min", "MIN", func(s analyze.Summary) string { return fmtFloatTable(s.Min, 4) }},
+		summaryTableColumn{"median", "MEDIAN", func(s analyze.Summary) string { return fmtFloatTable(s.Median, 4) }},
+		summaryTableColumn{"max", "MAX", func(s analyze.Summary) string { return fmtFloatTable(s.Max, 4) }},
+		summaryTableColumn{"change_pct", "CHANGE_PCT", func(s analyze.Summary) string { return fmtPctTable(s.ChangePct) }},
+	)
+	filtered := columns[:0]
+	for _, column := range columns {
+		if excluded[column.key] || (column.key == "missing" && (excluded["missing_count"] || excluded["missing_pct"])) {
+			continue
+		}
+		filtered = append(filtered, column)
+	}
+	return filtered
+}
+
+func summaryBatchHeaders(columns []summaryTableColumn) []string {
+	headers := make([]string, 0, len(columns))
+	for _, column := range columns {
+		headers = append(headers, column.header)
+	}
+	return headers
+}
+
+func summaryBatchValues(s analyze.Summary, columns []summaryTableColumn) []string {
+	values := make([]string, 0, len(columns))
+	for _, column := range columns {
+		values = append(values, column.value(s))
+	}
+	return values
 }
 
 func fmtStat(v float64) string {

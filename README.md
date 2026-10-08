@@ -579,6 +579,7 @@ Statistical analysis on a JSONL stream. Results print to the terminal (table or 
 
 ```bash
 reserve analyze summary               # descriptive statistics
+reserve analyze summary --exclude change-pct
 reserve analyze trend [--method linear|theil-sen]
 ```
 
@@ -594,6 +595,15 @@ reserve analyze trend [--method linear|theil-sen]
 | first, last | boundary non-NaN values |
 | change, change_pct | absolute and percentage change over the full series |
 | analysis_version, start_date, end_date, n_obs | stable machine-readable metadata/context |
+
+Use repeatable `--exclude FIELD` flags to omit summary output columns without
+removing observations or changing the calculations. Hyphenated and JSON-style
+field names are accepted, for example:
+
+```bash
+reserve obs get FEDFUNDS T10Y2Y UNRATE --format jsonl \
+  | reserve analyze summary --by-series --exclude change-pct --exclude skew
+```
 
 **`analyze trend`** produces:
 
@@ -736,9 +746,9 @@ Workflow storage and authoring references:
 - [Workflow YAML format](docs/workflow-format.md)
 - [Static and dynamic templates](docs/workflow-templates.md)
 - [Workflow repository architecture](docs/workflow-repositories.md)
-- [v1.2.2 API preview](docs/v1.2.2-preview.md)
-- [v1.2.1 stopping point](docs/v1.2.1-status.md)
-- [v1.2.2 API preview](docs/v1.2.2-preview.md)
+- [v1.2.3 API decision register](docs/v1.2.3-api-decisions.md)
+- [API authentication design](reserve-workflows-api/API-AUTHENTICATION.md)
+- [Historical documentation archive](docs/archive/ARCHIVE.md)
 
 ---
 

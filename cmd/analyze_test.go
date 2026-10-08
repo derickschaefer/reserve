@@ -105,6 +105,83 @@ func TestAnalyzeSummarySingleSeriesTable(t *testing.T) {
 	}
 }
 
+func TestAnalyzeSummaryExcludeJSON(t *testing.T) {
+	input := strings.Join([]string{
+		`{"series_id":"GDP","date":"2020-01-01","value":1.0}`,
+		`{"series_id":"GDP","date":"2020-04-01","value":2.0}`,
+	}, "\n") + "\n"
+
+	out, err := runAnalyzeSummaryForTest(t, input, false, "json", "change-pct", "skew")
+	if err != nil {
+		t.Fatalf("runAnalyzeSummaryForTest: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("unmarshal summary: %v\n%s", err, out)
+	}
+	if _, ok := payload["change_pct"]; ok {
+		t.Fatalf("change_pct should be excluded: %s", out)
+	}
+	if _, ok := payload["skew"]; ok {
+		t.Fatalf("skew should be excluded: %s", out)
+	}
+	if payload["mean"] == nil {
+		t.Fatalf("mean should remain present: %s", out)
+	}
+}
+
+func TestAnalyzeSummaryBySeriesExcludeJSON(t *testing.T) {
+	input := strings.Join([]string{
+		`{"series_id":"FEDFUNDS","date":"2025-01-01","value":4.25}`,
+		`{"series_id":"UNRATE","date":"2025-01-01","value":4.0}`,
+		`{"series_id":"FEDFUNDS","date":"2025-02-01","value":4.5}`,
+		`{"series_id":"UNRATE","date":"2025-02-01","value":4.1}`,
+	}, "\n") + "\n"
+
+	out, err := runAnalyzeSummaryForTest(t, input, true, "json", "change-pct")
+	if err != nil {
+		t.Fatalf("runAnalyzeSummaryForTest: %v", err)
+	}
+	var summaries []map[string]any
+	if err := json.Unmarshal([]byte(out), &summaries); err != nil {
+		t.Fatalf("unmarshal summaries: %v\n%s", err, out)
+	}
+	if len(summaries) != 2 {
+		t.Fatalf("expected 2 summaries, got %d", len(summaries))
+	}
+	for _, summary := range summaries {
+		if _, ok := summary["change_pct"]; ok {
+			t.Fatalf("change_pct should be excluded from every series: %v", summary)
+		}
+	}
+}
+
+func TestAnalyzeSummaryExcludeTable(t *testing.T) {
+	input := strings.Join([]string{
+		`{"series_id":"GDP","date":"2020-01-01","value":1.0}`,
+		`{"series_id":"GDP","date":"2020-04-01","value":2.0}`,
+	}, "\n") + "\n"
+
+	out, err := runAnalyzeSummaryForTest(t, input, false, "table", "change-pct")
+	if err != nil {
+		t.Fatalf("runAnalyzeSummaryForTest: %v", err)
+	}
+	if strings.Contains(out, "Change %") {
+		t.Fatalf("Change %% should be excluded:\n%s", out)
+	}
+	if !strings.Contains(out, "Mean") {
+		t.Fatalf("Mean should remain present:\n%s", out)
+	}
+}
+
+func TestAnalyzeSummaryExcludeUnknownField(t *testing.T) {
+	input := `{"series_id":"GDP","date":"2020-01-01","value":1.0}` + "\n"
+	_, err := runAnalyzeSummaryForTest(t, input, false, "json", "not-a-field")
+	if err == nil || !strings.Contains(err.Error(), `unknown summary field "not-a-field"`) {
+		t.Fatalf("expected unknown-field error, got %v", err)
+	}
+}
+
 func TestAnalyzeTrendSingleSeriesTable(t *testing.T) {
 	input := strings.Join([]string{
 		`{"series_id":"GDP","date":"2020-01-01","value":1.0,"value_raw":"1.0","citation_text":"Source: Bureau of Economic Analysis via FRED"}`,
@@ -541,7 +618,7 @@ func TestAnalyzeSummaryTablePrintsCitationFooter(t *testing.T) {
 	}
 }
 
-func runAnalyzeSummaryForTest(t *testing.T, input string, bySeries bool, format string) (string, error) {
+func runAnalyzeSummaryForTest(t *testing.T, input string, bySeries bool, format string, exclusions ...string) (string, error) {
 	t.Helper()
 
 	tmp, err := os.CreateTemp(t.TempDir(), "analyze-stdin-*.jsonl")
@@ -558,13 +635,16 @@ func runAnalyzeSummaryForTest(t *testing.T, input string, bySeries bool, format 
 	origStdin := os.Stdin
 	origFormat := globalFlags.Format
 	origBySeries := analyzeSummaryBySeries
+	origExclude := analyzeSummaryExclude
 	os.Stdin = tmp
 	globalFlags.Format = format
 	analyzeSummaryBySeries = bySeries
+	analyzeSummaryExclude = exclusions
 	t.Cleanup(func() {
 		os.Stdin = origStdin
 		globalFlags.Format = origFormat
 		analyzeSummaryBySeries = origBySeries
+		analyzeSummaryExclude = origExclude
 		_ = tmp.Close()
 	})
 
